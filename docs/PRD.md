@@ -239,6 +239,7 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 ```
 PetVisual (Control, IGNORE)
 ├── PetVideo (VideoStreamPlayer, IGNORE)   # stream 直接挂 sun_pet.ogv，编辑器可预览
+├── PetFrame (TextureRect, IGNORE, 默认隐藏)  # 色度键：喂 get_video_texture()
 ├── PlaceholderVisual (Control, IGNORE, 默认隐藏)  # 仅运行时校验失败才打开
 │   └── Head / EyeLeft / EyeRight / Body / Basin
 └── EquippedMark (ColorRect, IGNORE)       # 换装色块，视频模式下贴到立绘底部
@@ -295,19 +296,23 @@ PetVisual (Control, IGNORE)
 | `RUNAWAY` 触发 | `_set_video_playing(false)`：隐藏节点 + `paused = true`，停止解码省 CPU |
 | 冷却结束 | `_set_video_playing(true)`：恢复显示 + `paused = false` 原地续播 |
 
-### 透明背景：抠像
+### 透明背景：色度键抠像
 
 Theora **没有 Alpha 通道**，视频必然是一块不透明矩形。项目带了
-`assets/videos/video_key.gdshader`，参数由主场景根节点检查器的「视频立绘」分组驱动：
+`assets/videos/video_key.gdshader`，**只挂在 `PetFrame`（TextureRect）** 上。
+打开 `chroma_key_enabled` 后：`PetFrame.visible = true`，
+`PetFrame.texture = PetVideo.get_video_texture()`，播放器 `modulate.a = 0`。
+着色器参数：
 
-| `video_key_mode` | 适用素材 |
-|------------------|---------|
-| `OFF`（默认） | 不抠像，背景不透明 |
-| `CHROMA` | 绿幕 / 纯色背景，抠掉接近 `video_key_color` 的像素 |
-| `DARK` | 黑底视频 |
-| `BRIGHT` | 白底视频 |
+| 参数 | 默认 | 说明 |
+|------|------|------|
+| `chroma_key_enabled` | `false` | 开关色度键处理 |
+| `chroma_key_color` / `key_color` | `#FFFFFF` | 要抠掉的颜色（白 / 绿 `#00FF00` / 黑 `#000000`） |
+| `chroma_key_similarity` | `0.35` | 颜色容差（建议 0.3–0.4） |
+| `chroma_key_smoothness` | `0.10` | 边缘羽化，避免锯齿 |
 
-另有 `video_key_threshold`（抠除范围）与 `video_key_softness`（边缘羽化）。
+运行时：`set_chroma_key_enabled(bool)`、`apply_chroma_key(color, similarity, smoothness)`。
+启动与开关时都会 `print_verbose` 是否正在抠背景。
 素材本身带 Alpha 时，更好的做法是导出 PNG 序列帧走 `AnimatedSprite2D`，能完美保留透明。
 
 ---
@@ -347,6 +352,7 @@ My-Bro-J/
 SunPet (Control, 铺满窗口, MOUSE_FILTER_STOP —— 负责接收拖拽, theme = sun_pet_theme)
 ├── PetVisual (Control, IGNORE)
 │   ├── PetVideo (VideoStreamPlayer)     # stream = sun_pet.ogv，autoplay + loop + expand
+│   ├── PetFrame (TextureRect)           # 色度键抠像，默认隐藏
 │   ├── PlaceholderVisual (Control)      # 默认隐藏，仅校验失败才显示
 │   │   └── Head / EyeLeft / EyeRight / Body / Basin (ColorRect)
 │   └── EquippedMark (ColorRect)         # 换装品质色标记

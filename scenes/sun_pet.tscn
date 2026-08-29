@@ -7,10 +7,9 @@
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_videokey"]
 shader = ExtResource("3_videokey")
-shader_parameter/key_mode = 0
-shader_parameter/key_color = Color(0, 1, 0, 1)
-shader_parameter/key_threshold = 0.28
-shader_parameter/key_softness = 0.12
+shader_parameter/key_color = Color(1, 1, 1, 1)
+shader_parameter/similarity = 0.35
+shader_parameter/smoothness = 0.1
 
 [node name="SunPet" type="Control"]
 layout_mode = 3

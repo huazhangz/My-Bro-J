@@ -107,9 +107,11 @@ ffmpeg -i "你的视频.mp4" -vf "fps=24,scale=460:-2" -c:v libtheora -q:v 8 -an
 > ⚠️ 别把 `.mp4` 直接改名成 `.ogv` —— 这种文件 Godot 加载时**不会报 null**，
 > 只会静默解不出画面。脚本已经会检查文件头并明确点出来。
 
-Theora 没有 Alpha 通道，想保住透明背景要用抠像：在主场景根节点 `SunPet` 的检查器里
-把「视频立绘 → `video_key_mode`」调成 `CHROMA`（绿幕/纯色底）、`DARK`（黑底）
-或 `BRIGHT`（白底）。详见 [`assets/videos/README.md`](assets/videos/README.md)。
+Theora 没有 Alpha 通道，想保住透明背景要用色度键：在主场景根节点 `SunPet` 的检查器里
+打开「视频立绘 / 色度键 → `chroma_key_enabled`」，把 `chroma_key_color` 设成背景色
+（白 `#FFFFFF` / 绿幕 `#00FF00` / 黑 `#000000`），`similarity` 建议 0.3–0.4、
+`smoothness` 约 0.1。着色器挂在 `PetFrame` 上，帧来自 `get_video_texture()`。
+详见 [`assets/videos/README.md`](assets/videos/README.md)。
 
 ---
 

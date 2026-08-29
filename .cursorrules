@@ -85,8 +85,11 @@
  `visible = false`。运行时仍由 `_setup_pet_video()` 校验，失败才把占位图打开。
  不要删掉这份 `ext_resource`，否则编辑器又会默认露出几何占位。
 - `VideoStreamPlayer` 必须 `mouse_filter = Control.MOUSE_FILTER_IGNORE`，否则会吃掉窗口拖拽。
-- Theora **没有 Alpha 通道**，透明背景只能靠 `assets/videos/video_key.gdshader` 抠像，
- 参数走主场景根节点的 `@export`（`video_key_mode` 等），不要在脚本里写死。
+- Theora **没有 Alpha 通道**，透明背景只能靠 `assets/videos/video_key.gdshader` 色度键抠像。
+ 着色器挂在 `PetFrame`（TextureRect）上，不要挂在 `VideoStreamPlayer` 上（其 TEXTURE
+ 不是视频帧）。打开 `chroma_key_enabled` 后把 `get_video_texture()` 喂给 `PetFrame`。
+ 参数走主场景根节点的 `@export`（`chroma_key_color` / `chroma_key_similarity` /
+ `chroma_key_smoothness`），不要在脚本里写死。
 
 ## 7. 自动化要求
 

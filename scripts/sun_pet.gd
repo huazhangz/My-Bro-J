@@ -17,14 +17,9 @@ enum State {
 	RUNAWAY,     # 孙哥跑路中，窗口隐藏 + 冷却倒计时
 }
 
-## 视频抠像模式。Ogg Theora **不带 Alpha 通道**，视频会画成一块不透明矩形，
-## 想保住桌宠的透明背景就得靠抠像。具体实现见 assets/videos/video_key.gdshader。
-enum VideoKeyMode {
-	OFF,     # 不抠像，视频原样显示（背景不透明）
-	CHROMA,  # 色度键：抠掉接近 video_key_color 的像素（绿幕 / 纯色背景）
-	DARK,    # 抠掉暗于阈值的像素（黑底视频）
-	BRIGHT,  # 抠掉亮于阈值的像素（白底视频）
-}
+## 视频抠像：Ogg Theora **不带 Alpha 通道**，视频会画成一块不透明矩形。
+## 打开 chroma_key_enabled 后，PetFrame 用色度键把接近 chroma_key_color 的像素抠成透明。
+## 白底填 Color(1,1,1)、绿幕填 Color(0,1,0)、黑底填 Color(0,0,0)。
 
 const DRAG_BUTTON: int = MOUSE_BUTTON_LEFT
 ## 拖拽时窗口至少要留在屏幕内的边距。
@@ -52,15 +47,33 @@ const VIDEO_LOG_PREFIX: String = "[SunPet/Video] "
 ## 仓库自带的占位片很小。超过这个体积就当作用户自己的素材，不再弹「请覆盖」提示。
 const STUB_VIDEO_MAX_BYTES: int = 80000
 
-@export_group("视频立绘")
-## 抠像模式，用来还原透明背景（Theora 没有 Alpha 通道）。
-@export var video_key_mode: VideoKeyMode = VideoKeyMode.OFF
-## CHROMA 模式要抠掉的背景色。
-@export var video_key_color: Color = Color(0.0, 1.0, 0.0)
-## 抠像阈值：CHROMA 是与背景色的色差，DARK / BRIGHT 是亮度分界。
-@export_range(0.0, 1.0, 0.01) var video_key_threshold: float = 0.28
-## 抠像边缘羽化宽度，太小会有锯齿，太大会把主体啃掉。
-@export_range(0.001, 1.0, 0.01) var video_key_softness: float = 0.12
+@export_group("视频立绘 / 色度键")
+## 打开后把视频帧送到 PetFrame，用着色器抠掉 chroma_key_color。
+@export var chroma_key_enabled: bool = false:
+	set(value):
+		chroma_key_enabled = value
+		if is_node_ready():
+			_apply_video_key()
+			_sync_video_display()
+			_log_chroma_key_state()
+## 要抠掉的背景色。白底 #FFFFFF、绿幕 #00FF00、黑底 #000000。
+@export var chroma_key_color: Color = Color(1.0, 1.0, 1.0):
+	set(value):
+		chroma_key_color = value
+		if is_node_ready():
+			_apply_video_key()
+## 颜色容差，越大抠得越多。建议 0.3–0.4。
+@export_range(0.0, 1.0, 0.01) var chroma_key_similarity: float = 0.35:
+	set(value):
+		chroma_key_similarity = value
+		if is_node_ready():
+			_apply_video_key()
+## 边缘羽化，越大越软，避免锯齿。建议约 0.1。
+@export_range(0.0, 1.0, 0.01) var chroma_key_smoothness: float = 0.10:
+	set(value):
+		chroma_key_smoothness = value
+		if is_node_ready():
+			_apply_video_key()
 
 @onready var _pet_visual: Control = %PetVisual
 @onready var _pet_video: VideoStreamPlayer = %PetVideo
@@ -286,8 +299,8 @@ func _process(delta: float) -> void:
 	# 视频宽高只有解出第一帧后才拿得到；顺便用它确认这个素材是不是真的能播。
 	if _video_enabled and not _video_fitted:
 		_tick_video_probe()
-	elif _video_enabled and video_key_mode != VideoKeyMode.OFF:
-		_pet_frame.texture = _pet_video.get_video_texture()
+	elif _video_enabled and chroma_key_enabled:
+		_feed_pet_frame_texture()
 
 	# 每帧只刷新会跳秒的部分，其余文本由 GameData 信号驱动。
 	_update_status_text()
@@ -481,6 +494,7 @@ func _setup_pet_video() -> void:
 	if not _video_confirmed:
 		print_rich("[color=#ffcc66]%s  时长读出来是 0，正在等第一帧确认能不能解码……[/color]" % VIDEO_LOG_PREFIX)
 	_warn_if_stub_video(path)
+	_log_chroma_key_state()
 
 
 func _on_video_finished() -> void:
@@ -640,21 +654,33 @@ func _refresh_visual_swap() -> void:
 	_sync_video_display()
 
 
-## 默认直接显示 VideoStreamPlayer（不要把 canvas_item 着色器挂在播放器上，
-## 游戏运行时 TEXTURE 经常不是视频帧，会变成一块默认图）。
-## 只有打开抠像时，才改用 TextureRect 去画 get_video_texture()。
+## 默认直接显示 VideoStreamPlayer（不要把 canvas_item 着色器挂在播放器上）。
+## 打开色度键后：把 get_video_texture() 喂给 PetFrame，打开可见性并套上抠像材质。
 func _sync_video_display() -> void:
 	if not _video_enabled:
 		_pet_video.visible = false
 		_pet_frame.visible = false
 		return
-	var use_key: bool = video_key_mode != VideoKeyMode.OFF
-	_pet_video.visible = not use_key
-	_pet_frame.visible = use_key
-	if use_key:
-		_pet_frame.texture = _pet_video.get_video_texture()
+	if chroma_key_enabled:
+		# 播放器继续解码，但完全透明，避免不透明矩形盖住抠完的帧。
+		_pet_video.visible = true
+		_pet_video.modulate = Color(1.0, 1.0, 1.0, 0.0)
+		_pet_frame.visible = true
 		_pet_frame.position = _pet_video.position
 		_pet_frame.size = _pet_video.size
+		_feed_pet_frame_texture()
+		_apply_video_key()
+	else:
+		_pet_video.visible = true
+		_pet_video.modulate = Color(1.0, 1.0, 1.0, 1.0)
+		_pet_frame.visible = false
+		_pet_frame.texture = null
+
+
+func _feed_pet_frame_texture() -> void:
+	var video_tex: Texture2D = _pet_video.get_video_texture()
+	if video_tex != null:
+		_pet_frame.texture = video_tex
 
 
 func _warn_if_stub_video(path: String) -> void:
@@ -745,15 +771,48 @@ func _set_video_playing(playing: bool) -> void:
 
 func _apply_video_key() -> void:
 	# 变量别叫 material：那是 CanvasItem 的属性名，会被判成遮蔽。
-	# 着色器挂在 TextureRect 上，不要挂在 VideoStreamPlayer 上。
+	# 着色器只挂在 PetFrame（TextureRect）上。
 	var key_material: ShaderMaterial = _pet_frame.material as ShaderMaterial
 	if key_material == null:
+		print_verbose("%s chroma key material missing on PetFrame" % VIDEO_LOG_PREFIX)
 		return
-	key_material.set_shader_parameter("key_mode", int(video_key_mode))
 	key_material.set_shader_parameter("key_color",
-		Vector3(video_key_color.r, video_key_color.g, video_key_color.b))
-	key_material.set_shader_parameter("key_threshold", video_key_threshold)
-	key_material.set_shader_parameter("key_softness", maxf(video_key_softness, 0.001))
+		Vector3(chroma_key_color.r, chroma_key_color.g, chroma_key_color.b))
+	key_material.set_shader_parameter("similarity", chroma_key_similarity)
+	key_material.set_shader_parameter("smoothness", maxf(chroma_key_smoothness, 0.001))
+
+
+func _log_chroma_key_state() -> void:
+	if chroma_key_enabled:
+		print_verbose("%s chroma key ON  color=#%s  similarity=%.2f  smoothness=%.2f  frame_visible=%s" % [
+			VIDEO_LOG_PREFIX,
+			chroma_key_color.to_html(false),
+			chroma_key_similarity,
+			chroma_key_smoothness,
+			_pet_frame.visible if is_instance_valid(_pet_frame) else false,
+		])
+		print_rich("[color=#54d18c]%s色度键已开启：抠 #%s（similarity=%.2f smoothness=%.2f），PetFrame 显示抠完的帧[/color]" % [
+			VIDEO_LOG_PREFIX,
+			chroma_key_color.to_html(false),
+			chroma_key_similarity,
+			chroma_key_smoothness,
+		])
+	else:
+		print_verbose("%s chroma key OFF — showing VideoStreamPlayer directly" % VIDEO_LOG_PREFIX)
+		print_rich("[color=#9aa3b2]%s色度键关闭：直接显示 VideoStreamPlayer，背景不透明[/color]" % VIDEO_LOG_PREFIX)
+
+
+## 运行时开关色度键。enabled 为 true 时把视频帧喂给 PetFrame 并套上着色器。
+func set_chroma_key_enabled(enabled: bool) -> void:
+	chroma_key_enabled = enabled
+
+
+## 一次设好要抠的颜色和边缘参数，并打开色度键。
+func apply_chroma_key(color: Color, similarity: float = 0.35, smoothness: float = 0.10) -> void:
+	chroma_key_color = color
+	chroma_key_similarity = similarity
+	chroma_key_smoothness = smoothness
+	chroma_key_enabled = true
 
 
 # =========================================================================

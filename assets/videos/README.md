@@ -90,19 +90,24 @@ ffmpeg -i "C:\Users\ASUS\Desktop\1995b34184dfa977183dd6c7f60eff92.mp4" `
 ## 四、透明背景怎么办（重要）
 
 **Ogg Theora 没有 Alpha 通道**，视频一定会画成一块不透明矩形。
-桌宠要保持透明背景，只能靠抠像。项目里已经带了
-`assets/videos/video_key.gdshader`，挂在 `PetVideo` 节点上，
-参数由主场景根节点 `SunPet` 检查器里的 **「视频立绘」** 分组驱动：
+桌宠要保持透明背景，只能靠色度键抠像。项目里已经带了
+`assets/videos/video_key.gdshader`，挂在 **`PetFrame`（TextureRect）** 上，
+不要挂在 `PetVideo` 上——`VideoStreamPlayer` 的 `TEXTURE` 不是视频帧。
+打开抠像后脚本会把 `PetVideo.get_video_texture()` 喂给 `PetFrame`，
+并把播放器 `modulate` 设成全透明以免挡住抠完的画面。
 
-| `video_key_mode` | 适用素材 | 说明 |
-|------------------|---------|------|
-| `OFF`（默认） | 任意 | 不抠像，视频原样显示，背景是不透明矩形 |
-| `CHROMA` | 绿幕 / 纯色背景 | 抠掉接近 `video_key_color` 的像素 |
-| `DARK` | 黑底视频 | 抠掉亮度低于 `video_key_threshold` 的像素 |
-| `BRIGHT` | 白底视频 | 抠掉亮度高于 `video_key_threshold` 的像素 |
+参数由主场景根节点 `SunPet` 检查器里的 **「视频立绘 / 色度键」** 分组驱动：
 
-`video_key_threshold` 调抠除范围，`video_key_softness` 调边缘羽化
-（太小有锯齿，太大会把主体啃掉）。改完直接 F5 看效果即可。
+| 参数 | 默认 | 说明 |
+|------|------|------|
+| `chroma_key_enabled` | `false` | 开关。打开后 `PetFrame.visible = true` 并套上着色器 |
+| `chroma_key_color` | `#FFFFFF` | 要抠掉的颜色：白底 `#FFFFFF`、绿幕 `#00FF00`、黑底 `#000000` |
+| `chroma_key_similarity` | `0.35` | 容差（建议 0.3–0.4），越大抠得越多 |
+| `chroma_key_smoothness` | `0.10` | 边缘羽化，越大越软，避免锯齿 |
+
+运行时也可以：`set_chroma_key_enabled(true)` 或
+`apply_chroma_key(Color(0, 1, 0), 0.35, 0.10)`。
+控制台会打 `[SunPet/Video] chroma key ON/OFF`（`print_verbose`）。改完直接 F5 看效果即可。
 
 > 如果你的素材本身带 Alpha（比如带透明通道的 MOV / WebM），转成 Theora 会丢掉
 > 透明信息。这种情况更好的做法是导出成**带 Alpha 的 PNG 序列帧**，用
