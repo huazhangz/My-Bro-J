@@ -154,11 +154,12 @@ func _apply_window_setup() -> void:
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, true)
 
 	# 首次启动时把窗口挪到屏幕右下角，避免正好压在编辑器上。
+	# 注意别把局部变量取名 size / position，会遮蔽 Control 自己的同名属性。
 	var usable: Rect2i = DisplayServer.screen_get_usable_rect()
-	var size: Vector2i = DisplayServer.window_get_size()
+	var window_size: Vector2i = DisplayServer.window_get_size()
 	var target: Vector2i = Vector2i(
-		usable.position.x + usable.size.x - size.x - 80,
-		usable.position.y + usable.size.y - size.y - 80
+		usable.position.x + usable.size.x - window_size.x - 80,
+		usable.position.y + usable.size.y - window_size.y - 80
 	)
 	DisplayServer.window_set_position(target)
 
@@ -210,10 +211,10 @@ func _update_drag() -> void:
 
 func _clamp_to_screen(pos: Vector2i) -> Vector2i:
 	var usable: Rect2i = DisplayServer.screen_get_usable_rect()
-	var size: Vector2i = DisplayServer.window_get_size()
-	var min_x: int = usable.position.x - size.x + SCREEN_MARGIN
+	var window_size: Vector2i = DisplayServer.window_get_size()
+	var min_x: int = usable.position.x - window_size.x + SCREEN_MARGIN
 	var max_x: int = usable.position.x + usable.size.x - SCREEN_MARGIN
-	var min_y: int = usable.position.y - size.y + SCREEN_MARGIN
+	var min_y: int = usable.position.y - window_size.y + SCREEN_MARGIN
 	var max_y: int = usable.position.y + usable.size.y - SCREEN_MARGIN
 	return Vector2i(clampi(pos.x, min_x, max_x), clampi(pos.y, min_y, max_y))
 
@@ -398,16 +399,17 @@ func _tick_runaway(delta: float) -> void:
 ## 跑路期间「隐藏窗口」：藏掉桌宠与全部可交互 UI，并开启鼠标穿透，
 ## 使窗口在视觉与交互上都等于消失（不用 minimize，避免抢占任务栏焦点）。
 ## 只保留一条半透明的冷却提示条，让玩家知道孙哥什么时候回来。
-func _set_pet_hidden(hidden: bool) -> void:
-	_pet_visual.visible = not hidden
-	_set_video_playing(not hidden)
-	_hud_panel.visible = not hidden
-	_button_bar.visible = not hidden
-	_toast_label.visible = not hidden
+## 参数别叫 hidden：那是 CanvasItem 自带的信号名，会被 GDScript 判成遮蔽。
+func _set_pet_hidden(hide_pet: bool) -> void:
+	_pet_visual.visible = not hide_pet
+	_set_video_playing(not hide_pet)
+	_hud_panel.visible = not hide_pet
+	_button_bar.visible = not hide_pet
+	_toast_label.visible = not hide_pet
 	_quality_flash.visible = false
-	_runaway_banner.visible = hidden
+	_runaway_banner.visible = hide_pet
 	# WINDOW_FLAG_MOUSE_PASSTHROUGH 为 true 时整窗鼠标事件全部穿透，无需设置多边形。
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_MOUSE_PASSTHROUGH, hidden)
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_MOUSE_PASSTHROUGH, hide_pet)
 
 
 # =========================================================================
@@ -545,13 +547,13 @@ func _diagnose_container(path: String) -> String:
 	if file == null:
 		return "打不开这个文件（FileAccess 错误码 %d）" % FileAccess.get_open_error()
 	var head: PackedByteArray = file.get_buffer(12)
-	var size: int = file.get_length()
+	var byte_count: int = file.get_length()
 	file.close()
 
-	if size <= 0:
+	if byte_count <= 0:
 		return "文件是空的（0 字节）"
 	if head.size() < 12:
-		return "文件只有 %d 字节，明显不完整" % size
+		return "文件只有 %d 字节，明显不完整" % byte_count
 	if head.slice(0, 4).get_string_from_ascii() == "OggS":
 		return ""
 
@@ -679,14 +681,15 @@ func _set_video_playing(playing: bool) -> void:
 
 
 func _apply_video_key() -> void:
-	var material: ShaderMaterial = _pet_video.material as ShaderMaterial
-	if material == null:
+	# 变量别叫 material：那是 CanvasItem 的属性名，会被判成遮蔽。
+	var key_material: ShaderMaterial = _pet_video.material as ShaderMaterial
+	if key_material == null:
 		return
-	material.set_shader_parameter("key_mode", int(video_key_mode))
-	material.set_shader_parameter("key_color",
+	key_material.set_shader_parameter("key_mode", int(video_key_mode))
+	key_material.set_shader_parameter("key_color",
 		Vector3(video_key_color.r, video_key_color.g, video_key_color.b))
-	material.set_shader_parameter("key_threshold", video_key_threshold)
-	material.set_shader_parameter("key_softness", maxf(video_key_softness, 0.001))
+	key_material.set_shader_parameter("key_threshold", video_key_threshold)
+	key_material.set_shader_parameter("key_softness", maxf(video_key_softness, 0.001))
 
 
 # =========================================================================
