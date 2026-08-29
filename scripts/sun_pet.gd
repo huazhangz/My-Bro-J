@@ -44,6 +44,11 @@ const VIDEO_PATH: String = "res://assets/videos/sun_pet.ogv"
 ## 立绘可用区域（顶部 HUD 与底部按钮栏之间）。视频按自身宽高比在这块区域里
 ## 居中内接，不会被拉伸变形，也不会盖住 UI。
 const VIDEO_AREA: Rect2 = Rect2(10.0, 98.0, 230.0, 160.0)
+## 视频有效性宽限帧数。坏流（比如容器合法但没有 Theora 视频轨）play() 之后
+## is_playing() 照样是 true，只能靠「这么多帧还没解出画面」来判定它其实播不了。
+const VIDEO_PROBE_FRAMES: int = 45
+## 视频相关日志前缀。这些日志不受 --petlog 控制，F5 就能在输出面板看到。
+const VIDEO_LOG_PREFIX: String = "[SunPet/Video] "
 
 @export_group("视频立绘")
 ## 抠像模式，用来还原透明背景（Theora 没有 Alpha 通道）。
@@ -102,6 +107,10 @@ var _toast_tween: Tween = null
 
 ## 是否用视频立绘（找不到 .ogv 时为 false，走几何占位）。
 var _video_enabled: bool = false
+## 是否确认视频真的能解出画面。确认前几何占位不撤，避免坏素材时中间一片空白。
+var _video_confirmed: bool = false
+## 等待第一帧的剩余宽限帧数，归零仍无画面就判定素材有问题。
+var _video_probe_left: int = 0
 ## 视频尺寸要解出第一帧才知道，按宽高比摆好位置后置 true，不再每帧重算。
 var _video_fitted: bool = false
 ## 几何占位模式下换装色块的原始位置，视频模式会把它挪到视频底部。
@@ -270,9 +279,9 @@ func _process(delta: float) -> void:
 		State.PAUSED_FULL:
 			pass
 
-	# 视频宽高只有解出第一帧后才拿得到，成功摆好一次就不再重算。
+	# 视频宽高只有解出第一帧后才拿得到；顺便用它确认这个素材是不是真的能播。
 	if _video_enabled and not _video_fitted:
-		_video_fitted = _fit_video_rect()
+		_tick_video_probe()
 
 	# 每帧只刷新会跳秒的部分，其余文本由 GameData 信号驱动。
 	_update_status_text()
@@ -405,42 +414,78 @@ func _set_pet_hidden(hidden: bool) -> void:
 # Day 4：动态立绘（VideoStreamPlayer）
 # =========================================================================
 
-## 找得到 .ogv 就用视频立绘，找不到就回落到几何占位，保证缺资源时项目照样能跑。
+## 启动时解析并播放动态立绘。任何一步失败都回落到几何占位，并在控制台打印
+## 「为什么没播成」+「怎么修」，不需要加 --petlog 也能看到。
 func _setup_pet_video() -> void:
 	_mark_default_rect = Rect2(_equipped_mark.position, _equipped_mark.size)
 	_apply_video_key()
 
-	# 场景里手动指定过 stream 就直接用，否则按约定路径去找。
-	if _pet_video.stream == null:
-		var path: String = _find_video_path()
-		if path.is_empty():
-			_use_video_visual(false)
-			push_warning("未找到动态立绘视频，已回落到几何占位。把 Ogg Theora（.ogv）放到 %s 即可启用，转换命令见 assets/videos/README.md。" % VIDEO_PATH)
-			return
-		_pet_video.stream = load(path)
-
-	if _pet_video.stream == null:
-		_use_video_visual(false)
+	var path: String = _resolve_video_path()
+	if path.is_empty():
+		_fail_video("在 %s 里没找到任何 .ogv 文件。%s" % [VIDEO_DIR, _describe_video_dir()],
+			_convert_hint(_find_unplayable_source()))
 		return
 
-	_use_video_visual(true)
-	# loop = true 已在场景里设好；这里再兜一层，防止某些流跑到结尾直接停住。
-	_pet_video.finished.connect(func() -> void:
-		if _video_enabled and not _pet_video.is_playing():
-			_pet_video.play()
-	)
+	# 文件头体检：把「mp4 直接改名成 .ogv」这类问题在加载前就说清楚，
+	# 否则引擎只会甩一句 "has no video stream" 然后画面一片空白。
+	var container_problem: String = _diagnose_container(path)
+	if not container_problem.is_empty():
+		_fail_video("%s —— %s" % [path, container_problem], _convert_hint(path))
+		return
+
+	var stream: VideoStream = _load_video_stream(path)
+	if stream == null:
+		_fail_video("%s 存在，但 ResourceLoader 没能把它加载成 VideoStream 资源。" % path,
+			_convert_hint(path))
+		return
+
+	_pet_video.stream = stream
+	# 这两项场景里已经设好，这里再显式兜一层，避免检查器被人手滑改掉。
+	_pet_video.autoplay = true
+	_pet_video.loop = true
+	if not _pet_video.finished.is_connected(_on_video_finished):
+		_pet_video.finished.connect(_on_video_finished)
+
+	_video_enabled = true
+	_video_fitted = false
 	_pet_video.play()
-	_log("video visual: %s" % _pet_video.stream.resource_path)
+
+	# 坏流（比如容器合法但没有 Theora 视频轨）play() 一样返回 is_playing() == true，
+	# 唯一靠谱的区分信号是时长和视频贴图：时长 > 0 立刻确认，否则给若干帧宽限期等第一帧。
+	var length: float = _pet_video.get_stream_length()
+	_video_confirmed = length > 0.0
+	_video_probe_left = VIDEO_PROBE_FRAMES
+	_refresh_visual_swap()
+
+	print_rich("[color=#54d18c]%s已加载动态立绘：%s[/color]" % [VIDEO_LOG_PREFIX, path])
+	print("%s  资源类型=%s  时长=%.2fs  autoplay=%s  loop=%s  静音=%s" % [
+		VIDEO_LOG_PREFIX,
+		stream.get_class(),
+		length,
+		_pet_video.autoplay,
+		_pet_video.loop,
+		_pet_video.volume_db <= -60.0,
+	])
+	if not _video_confirmed:
+		print_rich("[color=#ffcc66]%s  时长读出来是 0，正在等第一帧确认能不能解码……[/color]" % VIDEO_LOG_PREFIX)
+
+
+func _on_video_finished() -> void:
+	# loop = true 时正常不会触发；万一某些流跑到结尾停住就重开，保证循环不断。
+	if _video_enabled and not _pet_video.is_playing():
+		_pet_video.play()
 
 
 ## 优先用约定文件名，其次取目录下第一个 .ogv，方便直接把文件拖进来而不用改代码。
-func _find_video_path() -> String:
-	if ResourceLoader.exists(VIDEO_PATH):
+## 场景里手动连了 stream 就直接沿用它。
+func _resolve_video_path() -> String:
+	if _pet_video.stream != null and not _pet_video.stream.resource_path.is_empty():
+		return _pet_video.stream.resource_path
+	# 用 FileAccess 而不是 ResourceLoader.exists() 来判断存在性：
+	# 文件刚拷进来、编辑器还没重新扫描时，资源系统里可能还查不到它。
+	if FileAccess.file_exists(VIDEO_PATH):
 		return VIDEO_PATH
-	var dir: DirAccess = DirAccess.open(VIDEO_DIR)
-	if dir == null:
-		return ""
-	for file_name: String in dir.get_files():
+	for file_name: String in _video_dir_files():
 		# 导出后资源会带 .remap 后缀，去掉再判断扩展名。
 		var clean: String = file_name.trim_suffix(".remap")
 		if clean.get_extension().to_lower() == "ogv":
@@ -448,15 +493,152 @@ func _find_video_path() -> String:
 	return ""
 
 
-func _use_video_visual(enabled: bool) -> void:
-	_video_enabled = enabled
-	_pet_video.visible = enabled
-	_placeholder_visual.visible = not enabled
-	if not enabled:
-		# 回落到几何占位：换装色块回到孙哥身上的原始位置。
-		_pet_video.stop()
-		_equipped_mark.position = _mark_default_rect.position
-		_equipped_mark.size = _mark_default_rect.size
+func _video_dir_files() -> PackedStringArray:
+	var dir: DirAccess = DirAccess.open(VIDEO_DIR)
+	if dir == null:
+		return PackedStringArray()
+	return dir.get_files()
+
+
+## 列出视频目录里的内容，方便一眼看出「文件到底放没放对、是不是还没转码」。
+func _describe_video_dir() -> String:
+	var shown: PackedStringArray = PackedStringArray()
+	for file_name: String in _video_dir_files():
+		if file_name.get_extension().to_lower() in ["uid", "import", "remap", "md"]:
+			continue
+		if file_name.begins_with("."):
+			continue
+		shown.append(file_name)
+	if shown.is_empty():
+		return "该目录下没有任何素材文件。"
+	return "目录里现在有：%s" % ", ".join(shown)
+
+
+## 找出目录里放着的、Godot 播不了的视频源文件（多半是还没转码的 mp4）。
+func _find_unplayable_source() -> String:
+	for file_name: String in _video_dir_files():
+		if file_name.get_extension().to_lower() in ["mp4", "webm", "mov", "mkv", "avi", "m4v", "flv"]:
+			return "%s/%s" % [VIDEO_DIR, file_name]
+	return ""
+
+
+## 生成一条可以直接复制去跑的 ffmpeg 转码命令（打印真实的操作系统路径）。
+func _convert_hint(source_path: String) -> String:
+	var target: String = ProjectSettings.globalize_path(VIDEO_PATH)
+	var source: String = "你的视频.mp4"
+	var lead: String = "Godot 4 只能播 Ogg Theora（.ogv），用 FFmpeg 转一次："
+	if source_path == VIDEO_PATH:
+		# 源文件就是目标文件（比如 mp4 被改名成了 sun_pet.ogv），
+		# 直接转会自己覆盖自己，得先改回真实扩展名。
+		source = ProjectSettings.globalize_path("%s/sun_pet_src.mp4" % VIDEO_PATH.get_base_dir())
+		lead = "Godot 4 只能播 Ogg Theora（.ogv）。先把它改回真实扩展名（例如 sun_pet_src.mp4），再用 FFmpeg 转："
+	elif not source_path.is_empty():
+		source = ProjectSettings.globalize_path(source_path)
+	return "%s\n%s  ffmpeg -i \"%s\" -vf \"fps=24,scale=460:-2\" -c:v libtheora -q:v 8 -an \"%s\"" % [
+		lead, VIDEO_LOG_PREFIX, source, target,
+	]
+
+
+## 读文件头判断容器类型。返回空串表示看着是正常的 Ogg 文件。
+func _diagnose_container(path: String) -> String:
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return "打不开这个文件（FileAccess 错误码 %d）" % FileAccess.get_open_error()
+	var head: PackedByteArray = file.get_buffer(12)
+	var size: int = file.get_length()
+	file.close()
+
+	if size <= 0:
+		return "文件是空的（0 字节）"
+	if head.size() < 12:
+		return "文件只有 %d 字节，明显不完整" % size
+	if head.slice(0, 4).get_string_from_ascii() == "OggS":
+		return ""
+
+	# 常见的「扩展名改了但没真转码」的情况，逐个点名，省得让人猜。
+	if head.slice(4, 8).get_string_from_ascii() == "ftyp":
+		return "这其实是 MP4/MOV 容器，只是文件名改成了 .ogv"
+	if head.slice(0, 4) == PackedByteArray([0x1A, 0x45, 0xDF, 0xA3]):
+		return "这其实是 Matroska/WebM 容器，只是文件名改成了 .ogv"
+	if head.slice(0, 4).get_string_from_ascii() == "RIFF":
+		return "这其实是 AVI/WAV 容器，只是文件名改成了 .ogv"
+	if head.slice(0, 3).get_string_from_ascii() == "FLV":
+		return "这其实是 FLV 容器，只是文件名改成了 .ogv"
+	return "文件头不是 Ogg（前 4 字节 = %s），不是合法的 .ogv" % head.slice(0, 4).hex_encode()
+
+
+## 加载视频资源。正常走 ResourceLoader；文件在但资源系统还没登记它时，
+## 直接构造 VideoStreamTheora 并指定 file，绕开文件系统扫描。
+func _load_video_stream(path: String) -> VideoStream:
+	if ResourceLoader.exists(path, "VideoStream"):
+		# CACHE_MODE_REPLACE：换了素材但编辑器还缓存着旧资源时，强制重新读盘。
+		var loaded: Resource = ResourceLoader.load(path, "VideoStream", ResourceLoader.CACHE_MODE_REPLACE)
+		var stream: VideoStream = loaded as VideoStream
+		if stream != null:
+			return stream
+		if loaded != null:
+			push_warning("%s 加载出来是 %s，不是 VideoStream。" % [path, loaded.get_class()])
+
+	if not FileAccess.file_exists(path):
+		return null
+	print_rich("[color=#ffcc66]%sResourceLoader 里查不到这个资源，改用 VideoStreamTheora.file 直接读盘。[/color]" % VIDEO_LOG_PREFIX)
+	var manual: VideoStreamTheora = VideoStreamTheora.new()
+	manual.file = path
+	return manual
+
+
+## 判定视频不可用：回落几何占位并打印原因与修复建议。
+func _fail_video(reason: String, hint: String = "") -> void:
+	_video_enabled = false
+	_video_confirmed = false
+	_video_probe_left = 0
+	_pet_video.stop()
+	_pet_video.stream = null
+	_refresh_visual_swap()
+	# 换装色块回到孙哥身上的原始位置。
+	_equipped_mark.position = _mark_default_rect.position
+	_equipped_mark.size = _mark_default_rect.size
+
+	print_rich("[color=#ff8b6a]%s未启用动态立绘，已回落到几何占位。[/color]" % VIDEO_LOG_PREFIX)
+	print_rich("[color=#ff8b6a]%s  原因：%s[/color]" % [VIDEO_LOG_PREFIX, reason])
+	if not hint.is_empty():
+		print_rich("[color=#ffcc66]%s  怎么修：%s[/color]" % [VIDEO_LOG_PREFIX, hint])
+	push_warning("动态立绘未启用：%s" % reason)
+
+
+## 视频真正确认可播之前保留几何占位，避免坏素材时中间一片空白。
+func _refresh_visual_swap() -> void:
+	_pet_video.visible = _video_enabled
+	_placeholder_visual.visible = not (_video_enabled and _video_confirmed)
+
+
+## 每帧轮询：拿到第一帧就算确认可播（顺便按宽高比摆好）；
+## 宽限帧数用完还是没有画面，就判定素材有问题并回落。
+func _tick_video_probe() -> void:
+	if _fit_video_rect():
+		_video_fitted = true
+		if not _video_confirmed:
+			_video_confirmed = true
+			_refresh_visual_swap()
+		var source: Vector2 = _pet_video.get_video_texture().get_size()
+		print_rich("[color=#54d18c]%s  画面已就绪：源 %d×%d，按比例摆放为 %d×%d[/color]" % [
+			VIDEO_LOG_PREFIX, int(source.x), int(source.y),
+			int(_pet_video.size.x), int(_pet_video.size.y),
+		])
+		return
+
+	_video_probe_left -= 1
+	if _video_probe_left > 0:
+		return
+
+	if _video_confirmed:
+		# 时长正常、只是拿不到贴图（例如 --headless 无渲染），别再每帧空转，
+		# 直接沿用场景里的默认矩形。
+		_video_fitted = true
+		return
+
+	_fail_video("视频能加载，但连续 %d 帧解不出任何画面（文件损坏，或者 Ogg 容器里根本没有 Theora 视频轨）。" % VIDEO_PROBE_FRAMES,
+		_convert_hint(_pet_video.stream.resource_path if _pet_video.stream != null else ""))
 
 
 ## 按视频自身宽高比在 VIDEO_AREA 里居中内接，避免 expand 拉伸变形。
