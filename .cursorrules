@@ -48,9 +48,9 @@
 
 目录划分固定如下，新增文件必须放进对应目录，不要再往根目录堆散文件：
 
-- `scenes/`：全部 `.tscn` 场景。主场景 `scenes/sun_pet.tscn`
+- `scenes/`：全部 `.tscn` 场景。主场景 `scenes/steve.tscn`
   （根节点必须是 `Control`，全屏铺满，背景完全透明）。
-- `scripts/`：全部 `.gd` 脚本。`scripts/sun_pet.gd` 为主场景脚本，
+- `scripts/`：全部 `.gd` 脚本。`scripts/steve.gd` 为主场景脚本，
   `scripts/GameData.gd` 是全局 Autoload 单例（名称 `GameData`）。
 - `assets/`：美术、字体与视频资源（`assets/images/`、`assets/fonts/`、`assets/videos/`）。
 - `docs/`：`docs/PRD.md` 等文档。
@@ -80,14 +80,14 @@
  `VideoStream` 的唯一子类是 `VideoStreamTheora`。绝不要写 `.mp4` / `.webm` 的加载代码，
  也不要臆造 `VideoStreamWebm` 之类不存在的类。素材一律先用 FFmpeg 转 `.ogv`
  （命令见 `assets/videos/README.md`）。
-- `scenes/sun_pet.tscn` 里 `PetVideo.stream` **直接挂** `res://assets/videos/steve.ogv`
+- `scenes/steve.tscn` 里 `PetVideo.stream` **直接挂** `res://assets/videos/steve.ogv`
  （`VideoStreamTheora`），让编辑器视口能预览视频帧；`PlaceholderVisual` 默认
  `visible = false`。运行时仍由 `_setup_pet_video()` 校验，失败才把占位图打开。
  不要删掉这份 `ext_resource`，否则编辑器又会默认露出几何占位。
  用户绿幕源文件约定为 `C:/Users/ASUS/My-Bro-J/Steve1.mp4`：存在则 FFmpeg 转 `user://steve.ogv`。
   烘干机 / 立绘静帧约定为同目录 `dryer.jpg`、`Steve2.jpg`。
 - 默认画面只有角色立绘。右键角色弹出「烘干机 / 抽屉 / 退出游戏」，不要再挂 CanvasLayer HUD。
-- `scenes/steve.tscn` 必须与 `scenes/sun_pet.tscn` 保持同一套右键菜单与库存节点，避免 F6 跑到旧面板。
+- 主场景只有 `scenes/steve.tscn`，不要再新增第二套平行场景或脚本。
 - `VideoStreamPlayer` 必须 `mouse_filter = Control.MOUSE_FILTER_IGNORE`，否则会吃掉窗口拖拽。
 - Theora **没有 Alpha 通道**，透明背景只能靠 `assets/videos/video_key.gdshader` 色度键抠像。
  着色器挂在 `PetFrame`（TextureRect）上，不要挂在 `VideoStreamPlayer` 上（其 TEXTURE

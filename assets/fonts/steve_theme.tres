@@ -1,6 +1,6 @@
 [gd_resource type="Theme" format=3]
 
-[ext_resource type="FontFile" path="res://assets/fonts/GlowSansSC-Regular-Subset.otf" id="1_kugu7"]
+[ext_resource type="FontFile" path="res://assets/fonts/RenOuFangSong-16.ttf" id="1_kugu7"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_lyj2d"]
 content_margin_left = 8.0
@@ -576,7 +576,7 @@ corner_radius_bottom_left = 8
 
 [resource]
 default_font = ExtResource("1_kugu7")
-default_font_size = 13
+default_font_size = 16
 Button/colors/font_color = Color(0.93, 0.95, 1, 1)
 Button/colors/font_disabled_color = Color(0.72, 0.73, 0.78, 0.55)
 Button/colors/font_focus_color = Color(0.93, 0.95, 1, 1)

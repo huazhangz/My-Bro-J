@@ -13,7 +13,7 @@
 
 1. 用 Godot **4.7.x** 打开本仓库根目录（含 `project.godot`）。
 2. 把素材放到仓库根目录：`C:\Users\ASUS\My-Bro-J\Steve1.mp4`、`dryer.jpg`、`Steve2.jpg`（或覆盖 `assets/` 下对应文件）。
-3. 用 **F5** 跑主场景 `sun_pet.tscn`（不要用 F6 跑旧的当前场景）。Game 面板关掉 *Embed Game on Play*。
+3. 用 **F5** 跑主场景 `steve.tscn`（不要用 F6 跑旧的当前场景）。Game 面板关掉 *Embed Game on Play*。
 
 ### 操作方式
 
@@ -40,10 +40,10 @@ My-Bro-J/
 ├── .gitignore
 │
 ├── scenes/
-│   └── sun_pet.tscn             # 主场景，根节点 SunPet (Control)
+│   └── steve.tscn             # 主场景，根节点 Steve (Control)
 │
 ├── scripts/
-│   ├── sun_pet.gd               # 窗口拖拽 + 状态机 + 右键菜单 + 视频/色度键
+│   ├── steve.gd               # 窗口拖拽 + 状态机 + 右键菜单 + 视频/色度键
 │   ├── GameData.gd
 │   └── GameData.gd.uid
 │
@@ -53,7 +53,7 @@ My-Bro-J/
 │   │   └── steve2.jpg
 │   ├── fonts/
 │   │   ├── RenOuFangSong-16.ttf
-│   │   ├── sun_pet_theme.tres
+│   │   ├── steve_theme.tres
 │   │   └── RenOuFangSong-OFL.txt
 │   └── videos/
 │       ├── steve.ogv
@@ -67,10 +67,10 @@ My-Bro-J/
 
 | 引用位置 | 值 |
 |---------|-----|
-| `project.godot` → `run/main_scene` | `res://scenes/sun_pet.tscn` |
-| `project.godot` → `gui/theme/custom` | `res://assets/fonts/sun_pet_theme.tres` |
+| `project.godot` → `run/main_scene` | `res://scenes/steve.tscn` |
+| `project.godot` → `gui/theme/custom` | `res://assets/fonts/steve_theme.tres` |
 | `project.godot` → `gui/theme/custom_font` | `res://assets/fonts/RenOuFangSong-16.ttf` |
-| `scenes/sun_pet.tscn` → script / theme / video | `sun_pet.gd` / `sun_pet_theme.tres` / `steve.ogv` |
+| `scenes/steve.tscn` → script / theme / video | `steve.gd` / `steve_theme.tres` / `steve.ogv` |
 
 ---
 

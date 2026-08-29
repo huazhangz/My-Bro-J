@@ -8,7 +8,7 @@ config_version=5
 
 config/name="Steve Desktop Pet"
 config/description="Steve desktop pet - 2D Idle built with Godot 4."
-run/main_scene="res://scenes/sun_pet.tscn"
+run/main_scene="res://scenes/steve.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://assets/icon.svg"
 boot_splash/show_image=false
@@ -33,7 +33,7 @@ window/per_pixel_transparency/allowed=true
 [gui]
 
 ; 全局默认主题：人偶仿宋，保证 Label / Button / Tooltip 全都不再显示方块。
-theme/custom="res://assets/fonts/sun_pet_theme.tres"
+theme/custom="res://assets/fonts/steve_theme.tres"
 theme/custom_font="res://assets/fonts/RenOuFangSong-16.ttf"
 
 [rendering]

@@ -8,8 +8,8 @@
 |----|------|
 | 原字体 | [yzdnn/RenOuFangSong](https://github.com/yzdnn/RenOuFangSong) |
 | 许可 | SIL Open Font License 1.1，见 `RenOuFangSong-OFL.txt` |
-| 主题 | `sun_pet_theme.tres` 的 `default_font` 指向本文件 |
-| 挂载 | `project.godot` → `gui/theme/custom` + `gui/theme/custom_font`，以及 `sun_pet.tscn` 根节点 |
+| 主题 | `steve_theme.tres` 的 `default_font` 指向本文件 |
+| 挂载 | `project.godot` → `gui/theme/custom` + `gui/theme/custom_font`，以及 `steve.tscn` 根节点 |
 
 所有 Label / Button / 右键菜单 / 烘干机与抽屉网格都走这一套仿宋。
 

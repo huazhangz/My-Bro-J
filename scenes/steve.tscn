@@ -1,7 +1,7 @@
 [gd_scene load_steps=7 format=3]
 
-[ext_resource type="Script" path="res://scripts/sun_pet.gd" id="1_sunpet"]
-[ext_resource type="Theme" path="res://assets/fonts/sun_pet_theme.tres" id="2_theme"]
+[ext_resource type="Script" path="res://scripts/steve.gd" id="1_steve"]
+[ext_resource type="Theme" path="res://assets/fonts/steve_theme.tres" id="2_theme"]
 [ext_resource type="Shader" path="res://assets/videos/video_key.gdshader" id="3_videokey"]
 [ext_resource type="VideoStreamTheora" path="res://assets/videos/steve.ogv" id="4_ogv"]
 [ext_resource type="Texture2D" path="res://assets/images/dryer.jpg" id="5_dryer"]
@@ -20,7 +20,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 theme = ExtResource("2_theme")
-script = ExtResource("1_sunpet")
+script = ExtResource("1_steve")
 chroma_key_enabled = true
 chroma_key_color = Color(0, 1, 0, 1)
 chroma_key_similarity = 0.35

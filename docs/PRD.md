@@ -14,7 +14,7 @@
 
 - 渲染后端：`gl_compatibility`（兼容老显卡，2D 小游戏够用）
 - 窗口尺寸：**250 × 350**
-- 主场景：`res://scenes/sun_pet.tscn`
+- 主场景：`res://scenes/steve.tscn`
 
 ---
 
@@ -137,7 +137,7 @@ GameData.get_calculated_cooldown(base_seconds := 120.0, quality := 当前穿戴)
 | 奢华 | 45.5% | 65.40 s |
 | 火星科技 | 60.5% | 47.40 s |
 
-### 3.5 洗涤状态机（`sun_pet.gd`）
+### 3.5 洗涤状态机（`steve.gd`）
 
 ```
         ┌──────────────► WASHING ◄──────────────┐
@@ -208,8 +208,8 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 | 项 | 内容 |
 |----|------|
 | 字体 | `assets/fonts/RenOuFangSong-16.ttf`（人偶仿宋 16，像素仿宋，OFL 1.1） |
-| 主题 | `assets/fonts/sun_pet_theme.tres`，`default_font` 指向该字体，`default_font_size = 16` |
-| 挂载 | `project.godot` → `gui/theme/custom` + `gui/theme/custom_font` + `sun_pet.tscn` 根节点 `theme` |
+| 主题 | `assets/fonts/steve_theme.tres`，`default_font` 指向该字体，`default_font_size = 16` |
+| 挂载 | `project.godot` → `gui/theme/custom` + `gui/theme/custom_font` + `steve.tscn` 根节点 `theme` |
 
 因此**新增任何 Label / Button 都自动是中文字体**，不需要逐节点 `theme_override_fonts/font`。
 主题内还定义了一组类型变体（`TitleLabel` / `SmallLabel` / `CoinLabel` / `FloatLabel` /
@@ -351,9 +351,9 @@ My-Bro-J/
 ├── .cursorrules            # AI 编码规则（强制 Godot 4.x 语法、DisplayServer、闭包信号）
 ├── .gitignore              # 忽略 .godot/ 导入缓存与导出产物
 ├── scenes/
-│   └── sun_pet.tscn      # 主场景：根节点 Control，全屏铺满，背景全透明
+│   └── steve.tscn      # 主场景：根节点 Control，全屏铺满，背景全透明
 ├── scripts/
-│   ├── sun_pet.gd        # 窗口拖拽 + 洗涤/晾干/跑路状态机 + 右键菜单 / 库存网格
+│   ├── steve.gd        # 窗口拖拽 + 洗涤/晾干/跑路状态机 + 右键菜单 / 库存网格
 │   └── GameData.gd         # 全局数据单例（常量、仓库、磨损、CD 算法、存档接口）
 ├── assets/
 │   ├── icon.svg            # 应用图标
@@ -362,7 +362,7 @@ My-Bro-J/
 │   │   └── steve2.jpg      # 备用立绘素材
 │   ├── fonts/
 │   │   ├── RenOuFangSong-16.ttf           # 默认中文字体（人偶仿宋 16）
-│   │   ├── sun_pet_theme.tres             # 全局 UI 主题
+│   │   ├── steve_theme.tres             # 全局 UI 主题
 │   │   ├── RenOuFangSong-OFL.txt          # 人偶仿宋许可
 │   │   └── README.md                      # 字体来源说明
 │   └── videos/
@@ -376,7 +376,7 @@ My-Bro-J/
 场景节点树：
 
 ```
-SunPet (Control, 铺满窗口, theme = sun_pet_theme)
+Steve (Control, 铺满窗口, theme = steve_theme)
 ├── PetVisual (Control, IGNORE)
 │   ├── PetVideo (VideoStreamPlayer)
 │   ├── PetFrame (TextureRect)
@@ -441,7 +441,7 @@ SunPet (Control, 铺满窗口, theme = sun_pet_theme)
   - [x] 悬浮 HUD / 图鉴 / 加速按钮已拆除，默认只留角色立绘
   - [x] 右键菜单：`ExitPopup`（烘干机 / 抽屉 / 退出游戏）
   - [x] 烘干机 / 抽屉：`InventoryPopup`（dryer.jpg + 黑遮罩 + 5 列滚动网格）
-  - [x] 默认字体改为人偶仿宋 16（`RenOuFangSong-16.ttf` + `sun_pet_theme.tres`）
+  - [x] 默认字体改为人偶仿宋 16（`RenOuFangSong-16.ttf` + `steve_theme.tres`）
   - [x] 品质重构为一次性 / 涤纶 / 纯棉 / 真丝 / 奢华 / 火星科技，并附加 8 档磨损前缀
   - [x] 引擎实跑验证：中文字形零缺失、四种状态文案、信号驱动刷新、满仓暂停与恢复
 - [ ] **Day 4**：换装展示系统 + 跑路冷却与 CD 缩减算法对接
