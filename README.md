@@ -64,7 +64,7 @@ My-Bro-J/
 
 | 引用位置 | 值 |
 |---------|-----|
-| `project.godot` → `run/main_scene` | `res://scenes/steve.tscn` |
+| `project.godot` → `run/main_scene` | `res://scenes/sun_pet.tscn` |
 | `project.godot` → `gui/theme/custom` | `res://assets/fonts/steve_theme.tres` |
 | `project.godot` → `gui/theme/custom_font` | `res://assets/fonts/GlowSansSC-Regular-Subset.otf` |
 | `scenes/steve.tscn` → script / theme / video | `steve.gd` / `steve_theme.tres` / `steve.ogv` |
