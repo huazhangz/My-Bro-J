@@ -331,11 +331,10 @@ PetVisual (Control, IGNORE)
 ### 透明背景：色度键抠像
 
 Theora **没有 Alpha 通道**，视频必然是一块不透明矩形。项目带了
-`assets/videos/video_key.gdshader`，**只挂在 `PetFrame`（TextureRect）** 上。
+`assets/videos/video_key.gdshader`，挂在 `PetFrame` 与烘干机背景 `InventoryBg` 上。
 打开 `chroma_key_enabled` 后：`PetFrame.visible = true`，
-烘干机 / 抽屉背景 `InventoryBg` 使用同一套 `video_key.gdshader` 抠绿幕，只留洗衣机画面。
-`PetFrame.visible = true`，
 `PetFrame.texture = PetVideo.get_video_texture()`，播放器 `modulate.a = 0`。
+库存背景同样抠绿幕，只留洗衣机画面。
 着色器参数：
 
 | 参数 | 默认 | 说明 |
