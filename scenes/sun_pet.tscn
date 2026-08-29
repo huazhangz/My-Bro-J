@@ -1,6 +1,6 @@
 [gd_scene load_steps=6 format=3]
 
-[ext_resource type="Script" path="res://scripts/sun_pet.gd" id="1_steve"]
+[ext_resource type="Script" path="res://scripts/sun_pet.gd" id="1_sunpet"]
 [ext_resource type="Theme" path="res://assets/fonts/steve_theme.tres" id="2_theme"]
 [ext_resource type="Shader" path="res://assets/videos/video_key.gdshader" id="3_videokey"]
 [ext_resource type="VideoStreamTheora" path="res://assets/videos/steve.ogv" id="4_ogv"]
@@ -11,7 +11,7 @@ shader_parameter/key_color = Color(0, 1, 0, 1)
 shader_parameter/similarity = 0.35
 shader_parameter/smoothness = 0.1
 
-[node name="Steve" type="Control"]
+[node name="SunPet" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -19,7 +19,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 theme = ExtResource("2_theme")
-script = ExtResource("1_steve")
+script = ExtResource("1_sunpet")
 chroma_key_enabled = true
 chroma_key_color = Color(0, 1, 0, 1)
 chroma_key_similarity = 0.35
