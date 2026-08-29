@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/sun_pet.gd" id="1_sunpet"]
+[ext_resource type="Theme" path="res://assets/fonts/sun_pet_theme.tres" id="2_theme"]
 
 [node name="SunPet" type="Control"]
 layout_mode = 3
@@ -9,6 +10,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("2_theme")
 script = ExtResource("1_sunpet")
 
 [node name="PetVisual" type="Control" parent="."]
@@ -23,62 +25,59 @@ mouse_filter = 2
 
 [node name="Head" type="ColorRect" parent="PetVisual"]
 layout_mode = 0
-offset_left = 96.0
-offset_top = 78.0
-offset_right = 154.0
-offset_bottom = 136.0
+offset_left = 98.0
+offset_top = 100.0
+offset_right = 152.0
+offset_bottom = 150.0
 mouse_filter = 2
 color = Color(0.976471, 0.858824, 0.717647, 1)
 
 [node name="EyeLeft" type="ColorRect" parent="PetVisual"]
 layout_mode = 0
-offset_left = 110.0
-offset_top = 100.0
-offset_right = 118.0
-offset_bottom = 108.0
+offset_left = 111.0
+offset_top = 118.0
+offset_right = 119.0
+offset_bottom = 126.0
 mouse_filter = 2
 color = Color(0.152941, 0.152941, 0.176471, 1)
 
 [node name="EyeRight" type="ColorRect" parent="PetVisual"]
 layout_mode = 0
-offset_left = 132.0
-offset_top = 100.0
-offset_right = 140.0
-offset_bottom = 108.0
+offset_left = 131.0
+offset_top = 118.0
+offset_right = 139.0
+offset_bottom = 126.0
 mouse_filter = 2
 color = Color(0.152941, 0.152941, 0.176471, 1)
 
 [node name="Body" type="ColorRect" parent="PetVisual"]
 layout_mode = 0
-offset_left = 82.0
-offset_top = 136.0
-offset_right = 168.0
-offset_bottom = 252.0
+offset_left = 84.0
+offset_top = 150.0
+offset_right = 166.0
+offset_bottom = 222.0
 mouse_filter = 2
 color = Color(0.176471, 0.501961, 0.878431, 1)
 
+[node name="EquippedMark" type="ColorRect" parent="PetVisual"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_left = 102.0
+offset_top = 190.0
+offset_right = 148.0
+offset_bottom = 216.0
+mouse_filter = 2
+color = Color(0.82, 0.82, 0.82, 1)
+
 [node name="Basin" type="ColorRect" parent="PetVisual"]
 layout_mode = 0
-offset_left = 58.0
-offset_top = 252.0
-offset_right = 192.0
-offset_bottom = 306.0
+offset_left = 60.0
+offset_top = 222.0
+offset_right = 190.0
+offset_bottom = 258.0
 mouse_filter = 2
 color = Color(0.239216, 0.729412, 0.788235, 0.870588)
-
-[node name="NameLabel" type="Label" parent="PetVisual"]
-layout_mode = 0
-offset_left = 45.0
-offset_top = 310.0
-offset_right = 205.0
-offset_bottom = 336.0
-mouse_filter = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 5
-theme_override_font_sizes/font_size = 17
-text = "SUN BRO"
-horizontal_alignment = 1
 
 [node name="QualityFlash" type="ColorRect" parent="."]
 unique_name_in_owner = true
@@ -92,17 +91,252 @@ grow_vertical = 2
 mouse_filter = 2
 color = Color(1, 1, 1, 0)
 
-[node name="StatusLabel" type="Label" parent="."]
-unique_name_in_owner = true
-layout_mode = 0
-offset_left = 8.0
-offset_top = 6.0
-offset_right = 242.0
-offset_bottom = 72.0
+[node name="UILayer" type="CanvasLayer" parent="."]
+
+[node name="UIRoot" type="Control" parent="UILayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 5
-theme_override_font_sizes/font_size = 13
-text = "WASHING"
+theme = ExtResource("2_theme")
+
+[node name="HudPanel" type="PanelContainer" parent="UILayer/UIRoot"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 6.0
+offset_top = 6.0
+offset_right = -6.0
+offset_bottom = 88.0
+grow_horizontal = 2
+mouse_filter = 2
+
+[node name="Rows" type="VBoxContainer" parent="UILayer/UIRoot/HudPanel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 3
+
+[node name="HeaderRow" type="HBoxContainer" parent="UILayer/UIRoot/HudPanel/Rows"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="TitleLabel" type="Label" parent="UILayer/UIRoot/HudPanel/Rows/HeaderRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_type_variation = &"TitleLabel"
+text = "孙哥洗衣店"
+vertical_alignment = 1
+
+[node name="CoinLabel" type="Label" parent="UILayer/UIRoot/HudPanel/Rows/HeaderRow"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"CoinLabel"
+text = "金币: 0"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="QuitButton" type="Button" parent="UILayer/UIRoot/HudPanel/Rows/HeaderRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(24, 0)
+layout_mode = 2
+tooltip_text = "退出桌宠"
+theme_type_variation = &"CloseButton"
+text = "×"
+
+[node name="StatusLabel" type="Label" parent="UILayer/UIRoot/HudPanel/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+text = "正在洗涤 45s"
+
+[node name="WashBar" type="ProgressBar" parent="UILayer/UIRoot/HudPanel/Rows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+mouse_filter = 2
+value = 0.0
+show_percentage = false
+
+[node name="InfoRow" type="HBoxContainer" parent="UILayer/UIRoot/HudPanel/Rows"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="WarehouseLabel" type="Label" parent="UILayer/UIRoot/HudPanel/Rows/InfoRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_type_variation = &"SmallLabel"
+text = "未晾干: 0/10"
+
+[node name="EquippedLabel" type="Label" parent="UILayer/UIRoot/HudPanel/Rows/InfoRow"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"SmallLabel"
+text = "图鉴 0 · 未穿戴"
+horizontal_alignment = 2
+
+[node name="ToastLabel" type="Label" parent="UILayer/UIRoot"]
+unique_name_in_owner = true
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 6.0
+offset_top = -90.0
+offset_right = -6.0
+offset_bottom = -70.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+theme_type_variation = &"FloatLabel"
+text = ""
 horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ButtonBar" type="VBoxContainer" parent="UILayer/UIRoot"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 6.0
+offset_top = -66.0
+offset_right = -6.0
+offset_bottom = -6.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+theme_override_constants/separation = 5
+
+[node name="SpeedRow" type="HBoxContainer" parent="UILayer/UIRoot/ButtonBar"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="FreeSpeedButton" type="Button" parent="UILayer/UIRoot/ButtonBar/SpeedRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"RiskButton"
+text = "免费加速"
+
+[node name="PaidSpeedButton" type="Button" parent="UILayer/UIRoot/ButtonBar/SpeedRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"CoinButton"
+text = "付费加速"
+
+[node name="CodexOpenButton" type="Button" parent="UILayer/UIRoot/ButtonBar"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "查看已解锁的内裤品质，并切换孙哥的展示装扮"
+theme_type_variation = &"CodexButton"
+text = "图鉴 / 换装"
+
+[node name="RunawayBanner" type="PanelContainer" parent="UILayer/UIRoot"]
+unique_name_in_owner = true
+visible = false
+modulate = Color(1, 1, 1, 0.85)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -82.0
+offset_top = -17.0
+offset_right = 82.0
+offset_bottom = 17.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_type_variation = &"ChipPanel"
+
+[node name="RunawayLabel" type="Label" parent="UILayer/UIRoot/RunawayBanner"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+text = "孙哥跑路中 CD: 0s"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CodexPanel" type="PanelContainer" parent="UILayer/UIRoot"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 6.0
+offset_top = 6.0
+offset_right = -6.0
+offset_bottom = -6.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"SolidPanel"
+
+[node name="Rows" type="VBoxContainer" parent="UILayer/UIRoot/CodexPanel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="CodexTitle" type="Label" parent="UILayer/UIRoot/CodexPanel/Rows"]
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"TitleLabel"
+text = "内裤图鉴 · 换装"
+horizontal_alignment = 1
+
+[node name="CodexList" type="VBoxContainer" parent="UILayer/UIRoot/CodexPanel/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 5
+
+[node name="Spacer" type="Control" parent="UILayer/UIRoot/CodexPanel/Rows"]
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="CodexHintLabel" type="Label" parent="UILayer/UIRoot/CodexPanel/Rows"]
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"SmallLabel"
+text = "品质越高，孙哥跑路后的冷却越短"
+autowrap_mode = 3
+
+[node name="CodexCdLabel" type="Label" parent="UILayer/UIRoot/CodexPanel/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"SmallLabel"
+text = "当前跑路冷却: 120s（减免 0%）"
+
+[node name="CodexButtonRow" type="HBoxContainer" parent="UILayer/UIRoot/CodexPanel/Rows"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="UnequipButton" type="Button" parent="UILayer/UIRoot/CodexPanel/Rows/CodexButtonRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"EquipButton"
+text = "脱下"
+
+[node name="CodexCloseButton" type="Button" parent="UILayer/UIRoot/CodexPanel/Rows/CodexButtonRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "关闭"

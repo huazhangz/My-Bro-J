@@ -13,13 +13,17 @@
 1. 用 Godot **4.7.x** 打开本仓库根目录（含 `project.godot`）。
 2. 直接按 **F5** 运行，桌宠会出现在屏幕右下角。
 
-### 当前操作方式（临时，Day 3 换成正式 UI 按钮）
+### 操作方式
 
 | 操作 | 效果 |
 |------|------|
-| 鼠标左键按住拖动 | 移动桌宠窗口 |
-| `空格` | 触发一次免费加速（25% 概率触发跑路） |
-| `ESC` / 鼠标右键 | 退出程序（无边框窗口没有关闭按钮） |
+| 在桌宠/空白处按住左键拖动 | 移动桌宠窗口（按在按钮上不会误拖） |
+| 「免费加速」 | 少洗 15 秒，但有 **25% 概率**孙哥跑路 |
+| 「付费加速 10币」 | 扣 10 金币立刻洗完当前这条；金币不足时按钮置灰 |
+| 「图鉴 / 换装」 | 打开图鉴弹层，穿戴 / 脱下已解锁品质 |
+| 右上角 `×` | 退出程序（无边框窗口没有系统关闭按钮） |
+| `ESC` | 图鉴开着时先关图鉴，否则退出程序 |
+| `空格` | 调试快捷键，等价于点一次「免费加速」 |
 | 命令行加 `-- --petlog` | 输出状态机日志，便于无 UI 调试 |
 
 > 若窗口拖不动，说明编辑器把游戏窗口**内嵌**运行了。仓库内已提交
@@ -39,12 +43,17 @@ My-Bro-J/
 │
 ├── scenes/                      # 全部 .tscn 场景
 │   └── sun_pet.tscn             # 主场景（root/main_scene）：根节点 Control，铺满窗口、背景全透明
-│                                #   ├── PetVisual    孙哥占位立绘 + 洗衣盆
+│                                #   ├── PetVisual    孙哥占位立绘 + 洗衣盆 + 换装色块
 │                                #   ├── QualityFlash 出货品质闪光特效
-│                                #   └── StatusLabel  调试状态文本（Day 3 换正式 UI）
+│                                #   └── UILayer      CanvasLayer 悬浮中文 UI
+│                                #        ├── HudPanel      代币 / 状态倒计时 / 进度条 / 仓库挂起
+│                                #        ├── ToastLabel    底部飘字反馈
+│                                #        ├── ButtonBar     免费加速 / 付费加速 / 图鉴换装
+│                                #        ├── RunawayBanner 跑路期间的冷却提示条
+│                                #        └── CodexPanel    图鉴 / 换装弹层
 │
 ├── scripts/                     # 全部 .gd 脚本
-│   ├── sun_pet.gd               # 主场景脚本：DisplayServer 窗口拖拽 + 洗涤/晾干/满仓/跑路状态机
+│   ├── sun_pet.gd               # 主场景脚本：窗口拖拽 + 洗涤/晾干/满仓/跑路状态机 + 中文 UI 信号绑定
 │   ├── sun_pet.gd.uid           # Godot 4.4+ 资源 UID（需随仓库提交）
 │   ├── GameData.gd              # 全局 Autoload 单例：数值常量、仓库、图鉴、CD 算法、存档接口
 │   └── GameData.gd.uid
@@ -52,7 +61,11 @@ My-Bro-J/
 ├── assets/                      # 美术与字体资源
 │   ├── icon.svg                 # 应用图标
 │   ├── images/                  # 孙哥立绘、内裤贴图（Day 4 填充）
-│   └── fonts/                   # 中文字体（Day 3 接入，引擎默认字体不含 CJK 字形）
+│   └── fonts/                   # 中文字体与 UI 主题（引擎默认字体不含 CJK 字形）
+│       ├── NotoSansSC-Regular-Subset.ttf  # Noto Sans SC，GB2312 子集，2.3 MB
+│       ├── sun_pet_theme.tres             # 全局主题：中文字体 + 按钮/面板/进度条样式
+│       ├── OFL.txt                        # SIL Open Font License 1.1
+│       └── README.md                      # 字体来源与子集重生成脚本
 │
 └── docs/
     └── PRD.md                   # 产品需求文档：完整需求、数据结构、数值表、CD 算法、开发进度
@@ -65,7 +78,8 @@ My-Bro-J/
 | `project.godot` → `run/main_scene` | `res://scenes/sun_pet.tscn` |
 | `project.godot` → `config/icon` | `res://assets/icon.svg` |
 | `project.godot` → `[autoload] GameData` | `*res://scripts/GameData.gd` |
-| `scenes/sun_pet.tscn` → `ext_resource` | `res://scripts/sun_pet.gd` |
+| `scenes/sun_pet.tscn` → `ext_resource` | `res://scripts/sun_pet.gd`、`res://assets/fonts/sun_pet_theme.tres` |
+| `project.godot` → `gui/theme/custom` | `res://assets/fonts/sun_pet_theme.tres` |
 
 移动任何场景 / 脚本 / 资源后，务必同步修正上表，并执行
 `godot --headless --path . --import` 确认无报错。
@@ -81,6 +95,8 @@ My-Bro-J/
 | `WAREHOUSE_CAPACITY` | 10 | 未晾干仓库上限，满则暂停洗涤 |
 | `RUNAWAY_BASE_COOLDOWN` | 120 s | 跑路冷却基础时长 |
 | `FREE_SPEEDUP_RUNAWAY_CHANCE` | 25% | 免费加速触发跑路的概率 |
+| `FREE_SPEEDUP_SECONDS` | 15 s | 免费加速成功时扣减的洗涤时间 |
+| `PAID_SPEEDUP_COST` | 10 币 | 付费加速：花 10 金币直接洗完当前这条 |
 
 品质与 CD 缩减：
 
@@ -105,6 +121,6 @@ My-Bro-J/
 
 - [x] **Day 1** 透明无边框窗口 + 桌面悬浮 + 鼠标拖拽移动
 - [x] **Day 2** 核心数据单例 `GameData.gd` + 洗涤/晾干状态机
-- [ ] **Day 3** 桌面 UI 控件（加速按钮、仓库/图鉴界面、代币显示、中文字体）
+- [x] **Day 3** 中文字体 + 悬浮 UI（代币 / 状态倒计时 / 仓库挂起 / 加速按钮 / 图鉴换装弹层）
 - [ ] **Day 4** 换装展示系统 + 跑路冷却与 CD 缩减算法对接
 - [ ] **Day 5** 本地持久化 `save_data.json` + 整体打包测试

@@ -30,6 +30,12 @@ window/size/transparent=true
 window/size/always_on_top=true
 window/per_pixel_transparency/allowed=true
 
+[gui]
+
+; 全局默认主题：内含中文字体，保证 Label / Button / Tooltip 全都不再显示方块。
+theme/custom="res://assets/fonts/sun_pet_theme.tres"
+theme/custom_font="res://assets/fonts/NotoSansSC-Regular-Subset.ttf"
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
