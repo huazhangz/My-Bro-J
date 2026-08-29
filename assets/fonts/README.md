@@ -1,5 +1,11 @@
 # 中文字体说明
 
+## hanyiyongzixiaoxiongmao.ttf
+
+运行时优先加载仓库根目录或 `assets/fonts/hanyiyongzixiaoxiongmao.ttf`
+（汉仪永字小熊猫）。请把你本机的该文件复制进项目，**不要**从网上下载后提交到公开仓库
+（汉仪字体商用需授权）。找不到该文件时回落到人偶仿宋。
+
 ## RenOuFangSong-16.ttf
 
 默认 UI 字体（**人偶仿宋 16** / RenOu FangSong，像素仿宋）。

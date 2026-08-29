@@ -90,7 +90,10 @@ const USER_PROJECT_DIR_WSL: String = "/mnt/c/Users/ASUS/My-Bro-J"
 const USER_DESKTOP_DIR: String = "C:/Users/ASUS/Desktop"
 const USER_VIDEO_FILE: String = "steve3.mp4"
 const USER_DRYER_FILE: String = "dryer.jpg"
+const USER_DRAWER_FILE: String = "drawer.jpg"
 const USER_STEVE2_FILE: String = "Steve2.jpg"
+const USER_UI_FONT_FILE: String = "hanyiyongzixiaoxiongmao.ttf"
+const ALWAYS_ON_TOP_DEFAULT: bool = true
 
 # --- 核心数值 -------------------------------------------------------------
 
@@ -390,6 +393,7 @@ func user_file_candidates(file_name: String) -> PackedStringArray:
 		USER_PROJECT_DIR_WSL,
 		"res://",
 		"res://assets/images",
+		"res://assets/fonts",
 		"res://assets/videos",
 		USER_DESKTOP_DIR,
 		"/mnt/c/Users/ASUS/Desktop",

@@ -18,7 +18,11 @@ const VIDEO_DIR: String = "res://assets/videos"
 const VIDEO_PATH: String = "res://assets/videos/steve.ogv"
 const USER_CACHE_OGV: String = "user://steve.ogv"
 ## 无 HUD 后立绘铺满窗口，按宽高比居中内接。
+## 默认立绘包围盒；运行时以实际 PetVideo / PetFrame 矩形为准。
 const VIDEO_AREA: Rect2 = Rect2(5.0, 5.0, 240.0, 340.0)
+const HOVER_HUD_HEIGHT: float = 40.0
+const HOVER_BAR_HEIGHT: float = 12.0
+const HOVER_GAP: float = 6.0
 const VIDEO_PROBE_FRAMES: int = 45
 const VIDEO_LOG_PREFIX: String = "[Steve/Video] "
 const STUB_VIDEO_MAX_BYTES: int = 80000
@@ -61,6 +65,7 @@ var _pet_video: VideoStreamPlayer
 @onready var _exit_popup: PanelContainer = %ExitPopup
 @onready var _dryer_button: Button = %DryerButton
 @onready var _drawer_button: Button = %DrawerButton
+@onready var _pin_top_button: Button = %PinTopButton
 @onready var _quit_app_button: Button = %QuitAppButton
 @onready var _inventory_popup: Control = %InventoryPopup
 @onready var _inventory_title: Label = %InventoryTitle
@@ -94,6 +99,9 @@ var _base_window_pos: Vector2i = Vector2i.ZERO
 var _hover_time: float = 0.0
 var _hover_hud_shown: bool = false
 var _hover_tween: Tween
+var _always_on_top: bool = true
+var _dryer_texture: Texture2D
+var _drawer_texture: Texture2D
 
 
 func _ready() -> void:
@@ -103,7 +111,9 @@ func _ready() -> void:
 		VIDEO_LOG_PREFIX, scene_file_path,
 	])
 	_ensure_pet_video_node()
+	_always_on_top = GameData.ALWAYS_ON_TOP_DEFAULT
 	_apply_mouse_filters()
+	_apply_ui_font()
 	_apply_window_setup()
 	_ingest_user_images()
 	_apply_video_key()
@@ -160,7 +170,7 @@ func _apply_window_setup() -> void:
 		return
 
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true, 0)
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, true, 0)
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, _always_on_top, 0)
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_TRANSPARENT, true, 0)
 
 	var usable: Rect2i = DisplayServer.screen_get_usable_rect()
@@ -173,13 +183,36 @@ func _apply_window_setup() -> void:
 
 
 func _ingest_user_images() -> void:
-	var dryer: Texture2D = GameData.load_image_texture(GameData.USER_DRYER_FILE)
-	if dryer != null:
-		_inventory_bg.texture = dryer
+	_dryer_texture = GameData.load_image_texture(GameData.USER_DRYER_FILE)
+	if _dryer_texture == null and is_instance_valid(_inventory_bg):
+		_dryer_texture = _inventory_bg.texture
+	_drawer_texture = GameData.load_image_texture(GameData.USER_DRAWER_FILE)
+	if _dryer_texture != null:
 		print("%s dryer bg <- %s" % [VIDEO_LOG_PREFIX, GameData.first_existing_file(GameData.USER_DRYER_FILE)])
+	if _drawer_texture != null:
+		print("%s drawer bg <- %s" % [VIDEO_LOG_PREFIX, GameData.first_existing_file(GameData.USER_DRAWER_FILE)])
 	var steve2_path: String = GameData.first_existing_file(GameData.USER_STEVE2_FILE)
 	if not steve2_path.is_empty():
 		print("%s Steve2.jpg found: %s" % [VIDEO_LOG_PREFIX, steve2_path])
+
+
+func _apply_ui_font() -> void:
+	var path: String = GameData.first_existing_file(GameData.USER_UI_FONT_FILE)
+	if path.is_empty():
+		return
+	var font: FontFile = null
+	if path.begins_with("res://") and ResourceLoader.exists(path, "FontFile"):
+		font = ResourceLoader.load(path, "FontFile") as FontFile
+	if font == null:
+		font = FontFile.new()
+		var bytes: PackedByteArray = FileAccess.get_file_as_bytes(path)
+		if bytes.is_empty():
+			return
+		font.data = bytes
+	var next_theme: Theme = theme.duplicate() if theme != null else Theme.new()
+	next_theme.default_font = font
+	theme = next_theme
+	print("%s UI font <- %s" % [VIDEO_LOG_PREFIX, path])
 
 
 func _connect_exit_popup() -> void:
@@ -189,9 +222,13 @@ func _connect_exit_popup() -> void:
 	_drawer_button.pressed.connect(func() -> void:
 		_open_inventory("drawer")
 	)
+	_pin_top_button.pressed.connect(func() -> void:
+		_toggle_always_on_top()
+	)
 	_quit_app_button.pressed.connect(func() -> void:
 		get_tree().quit()
 	)
+	_refresh_pin_button()
 	_inventory_close_button.pressed.connect(func() -> void:
 		_close_inventory()
 	)
@@ -893,7 +930,35 @@ func _wash_progress_value() -> int:
 	return clampi(int(round(ratio * float(GameData.WASH_PROGRESS_MAX))), 0, GameData.WASH_PROGRESS_MAX)
 
 
+func _current_pet_rect() -> Rect2:
+	if is_instance_valid(_pet_frame) and _pet_frame.visible and _pet_frame.size.x > 1.0:
+		return Rect2(_pet_frame.position, _pet_frame.size)
+	if is_instance_valid(_pet_video) and _pet_video.size.x > 1.0:
+		return Rect2(_pet_video.position, _pet_video.size)
+	return VIDEO_AREA
+
+
+func _layout_hover_hud() -> void:
+	if not is_instance_valid(_hover_hud):
+		return
+	var pet: Rect2 = _current_pet_rect()
+	var bar_w: float = clampf(pet.size.x * 0.78, 72.0, pet.size.x)
+	var hud_h: float = HOVER_HUD_HEIGHT
+	var x: float = pet.position.x + (pet.size.x - bar_w) * 0.5
+	var y: float = pet.position.y - hud_h - HOVER_GAP
+	if y < 2.0:
+		y = pet.position.y + HOVER_GAP
+	_hover_hud.position = Vector2(x, y)
+	_hover_hud.size = Vector2(bar_w, hud_h)
+	_water_bar.position = Vector2.ZERO
+	_water_bar.size = Vector2(bar_w, HOVER_BAR_HEIGHT)
+	_wash_label.position = Vector2(0.0, HOVER_BAR_HEIGHT + 2.0)
+	_wash_label.size = Vector2(bar_w, 20.0)
+	_wash_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+
+
 func _refresh_wash_progress() -> void:
+	_layout_hover_hud()
 	var progress: int = _wash_progress_value()
 	_water_bar.max_value = float(GameData.WASH_PROGRESS_MAX)
 	_water_bar.value = float(progress)
@@ -913,31 +978,21 @@ func _tick_hover_hud(delta: float) -> void:
 
 func _set_hover_hud_visible(show_hud: bool, animate: bool) -> void:
 	_hover_hud_shown = show_hud
+	_layout_hover_hud()
 	if is_instance_valid(_hover_tween):
 		_hover_tween.kill()
-	var start_y: float = 14.0 if show_hud else 8.0
-	var end_y: float = 8.0 if show_hud else 14.0
 	var end_alpha: float = 1.0 if show_hud else 0.0
 	if not animate:
 		_hover_hud.modulate.a = end_alpha
-		_hover_hud.position.y = end_y
 		return
-	_hover_hud.position.y = start_y
 	_hover_tween = create_tween()
-	_hover_tween.set_parallel(true)
 	_hover_tween.set_trans(Tween.TRANS_CUBIC)
 	_hover_tween.set_ease(Tween.EASE_OUT if show_hud else Tween.EASE_IN)
 	_hover_tween.tween_property(_hover_hud, "modulate:a", end_alpha, GameData.HOVER_FADE_SECONDS)
-	_hover_tween.tween_property(_hover_hud, "position:y", end_y, GameData.HOVER_FADE_SECONDS)
 
 
 func _is_pointer_on_pet(local_pos: Vector2) -> bool:
-	if _placeholder_visual.visible:
-		return VIDEO_AREA.has_point(local_pos)
-	var video_rect: Rect2 = Rect2(_pet_video.position, _pet_video.size)
-	if video_rect.size.x <= 1.0 or video_rect.size.y <= 1.0:
-		return VIDEO_AREA.has_point(local_pos)
-	return video_rect.has_point(local_pos)
+	return _current_pet_rect().has_point(local_pos)
 
 
 func _open_exit_popup() -> void:
@@ -952,11 +1007,45 @@ func _close_exit_popup() -> void:
 		_exit_popup.visible = false
 
 
+func _toggle_always_on_top() -> void:
+	_always_on_top = not _always_on_top
+	if _can_move_window():
+		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, _always_on_top, 0)
+	_refresh_pin_button()
+
+
+func _refresh_pin_button() -> void:
+	if is_instance_valid(_pin_top_button):
+		_pin_top_button.text = "固定上层：开" if _always_on_top else "固定上层：关"
+
+
+func _set_pet_layer_visible(shown: bool) -> void:
+	if _state == State.RUNAWAY:
+		shown = false
+	if is_instance_valid(_pet_visual):
+		_pet_visual.visible = shown
+	_set_video_playing(shown)
+	if not shown:
+		_hover_time = 0.0
+		_set_hover_hud_visible(false, false)
+
+
+func _apply_inventory_background(kind: String) -> void:
+	var tex: Texture2D = _dryer_texture if kind == "dryer" else _drawer_texture
+	if tex == null:
+		tex = _dryer_texture
+	if is_instance_valid(_inventory_bg) and tex != null:
+		_inventory_bg.texture = tex
+	_apply_video_key()
+
+
 func _open_inventory(kind: String) -> void:
 	if _state == State.RUNAWAY:
 		return
 	_inventory_kind = kind
 	_close_exit_popup()
+	_set_pet_layer_visible(false)
+	_apply_inventory_background(kind)
 	_expand_inventory_window()
 	_inventory_title.text = "烘干机" if kind == "dryer" else "抽屉"
 	_inventory_grid.columns = GameData.GRID_COLUMNS
@@ -969,6 +1058,8 @@ func _close_inventory() -> void:
 		_inventory_popup.visible = false
 	_inventory_kind = ""
 	_restore_inventory_window()
+	if _state != State.RUNAWAY:
+		_set_pet_layer_visible(true)
 
 
 func _expand_inventory_window() -> void:
@@ -976,13 +1067,41 @@ func _expand_inventory_window() -> void:
 		return
 	_base_window_size = DisplayServer.window_get_size()
 	_base_window_pos = DisplayServer.window_get_position()
+	var pet: Rect2 = _current_pet_rect()
 	var scaled: Vector2i = Vector2i(
-		maxi(int(VIDEO_AREA.size.x * GameData.INVENTORY_SCALE), 400),
-		maxi(int(VIDEO_AREA.size.y * GameData.INVENTORY_SCALE), 500)
+		maxi(int(pet.size.x * GameData.INVENTORY_SCALE), 400),
+		maxi(int(pet.size.y * GameData.INVENTORY_SCALE), 500)
 	)
 	DisplayServer.window_set_size(scaled)
-	DisplayServer.window_set_position(_clamp_to_screen(_base_window_pos))
+	DisplayServer.window_set_position(_adaptive_inventory_position(scaled))
 	_inventory_window_open = true
+
+
+func _adaptive_inventory_position(new_size: Vector2i) -> Vector2i:
+	var usable: Rect2i = DisplayServer.screen_get_usable_rect()
+	var cur_pos: Vector2i = _base_window_pos
+	var cur_size: Vector2i = _base_window_size
+	var center: Vector2i = cur_pos + cur_size / 2
+	var rel_x: float = 0.5
+	var rel_y: float = 0.5
+	if usable.size.x > 0:
+		rel_x = float(center.x - usable.position.x) / float(usable.size.x)
+	if usable.size.y > 0:
+		rel_y = float(center.y - usable.position.y) / float(usable.size.y)
+	var pos: Vector2i = center - new_size / 2
+	if rel_x > 0.66:
+		pos.x = cur_pos.x + cur_size.x - new_size.x
+	elif rel_x < 0.34:
+		pos.x = cur_pos.x
+	if rel_y > 0.66:
+		pos.y = cur_pos.y + cur_size.y - new_size.y
+	elif rel_y < 0.34:
+		pos.y = cur_pos.y
+	var min_x: int = usable.position.x
+	var min_y: int = usable.position.y
+	var max_x: int = usable.position.x + usable.size.x - new_size.x
+	var max_y: int = usable.position.y + usable.size.y - new_size.y
+	return Vector2i(clampi(pos.x, min_x, maxi(min_x, max_x)), clampi(pos.y, min_y, maxi(min_y, max_y)))
 
 
 func _restore_inventory_window() -> void:
