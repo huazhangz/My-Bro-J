@@ -96,10 +96,19 @@ const USER_STEVE2_FILE: String = "Steve2.jpg"
 
 ## 洗完一条内裤需要的秒数（正常速度）。
 const WASH_DURATION: float = 45.0
-## 洗完后自动晾干需要的秒数。
-const DRY_DURATION: float = 60.0
+## 烘干基础秒数；品质每高一级再加 DRY_DURATION_PER_QUALITY（与磨损无关）。
+const DRY_DURATION_BASE: float = 90.0
+const DRY_DURATION_PER_QUALITY: float = 10.0
+## 兼容旧引用：等于基础烘干时长。
+const DRY_DURATION: float = DRY_DURATION_BASE
 ## 未晾干仓库容量上限，满后暂停洗涤。
 const WAREHOUSE_CAPACITY: int = 10
+
+## 鼠标在立绘上停留这么久才弹出洗涤进度条。
+const HOVER_SHOW_DELAY: float = 1.5
+## 进度条淡入 / 淡出时长。
+const HOVER_FADE_SECONDS: float = 0.35
+const WASH_PROGRESS_MAX: int = 100
 
 ## 跑路冷却基础秒数（未穿戴任何内裤时的冷却）。
 const RUNAWAY_BASE_COOLDOWN: float = 120.0
@@ -207,6 +216,12 @@ func make_display_name(wear: String, quality: int) -> String:
 	return "%s·%s" % [wear, quality_display_name(quality)]
 
 
+## 烘干秒数 = 90 + 品质等级 × 10。ONEOFF=0 … MARTIAN=5。
+func dry_duration_for(quality: int) -> float:
+	var level: int = clampi(quality, 0, int(Quality.MARTIAN))
+	return DRY_DURATION_BASE + float(level) * DRY_DURATION_PER_QUALITY
+
+
 ## 洗完一条内裤，放入未晾干仓库。仓库已满时返回空字典。
 func add_wet_item(quality: int = -1) -> Dictionary:
 	if is_warehouse_full():
@@ -215,6 +230,7 @@ func add_wet_item(quality: int = -1) -> Dictionary:
 	var wear_info: Dictionary = roll_wear()
 	var wear: String = String(wear_info["wear"])
 	var now: float = Time.get_unix_time_from_system()
+	var dry_seconds: float = dry_duration_for(q)
 	var item: Dictionary = {
 		"id": _next_item_id,
 		"quality": q,
@@ -223,7 +239,8 @@ func add_wet_item(quality: int = -1) -> Dictionary:
 		"wear_modifier": wear,
 		"display_name": make_display_name(wear, q),
 		"washed_at": now,
-		"dry_deadline": now + DRY_DURATION,
+		"dry_seconds": dry_seconds,
+		"dry_deadline": now + dry_seconds,
 	}
 	_next_item_id += 1
 	wet_warehouse.append(item)

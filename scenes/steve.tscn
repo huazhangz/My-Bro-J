@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/steve.gd" id="1_steve"]
 [ext_resource type="Theme" path="res://assets/fonts/steve_theme.tres" id="2_theme"]
@@ -11,6 +11,31 @@ shader = ExtResource("3_videokey")
 shader_parameter/key_color = Color(0, 1, 0, 1)
 shader_parameter/similarity = 0.35
 shader_parameter/smoothness = 0.1
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_invkey"]
+shader = ExtResource("3_videokey")
+shader_parameter/key_color = Color(0, 1, 0, 1)
+shader_parameter/similarity = 0.42
+shader_parameter/smoothness = 0.12
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_water_bg"]
+bg_color = Color(0.04, 0.1, 0.18, 0.7)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.55, 0.85, 1, 0.45)
+corner_radius_top_left = 7
+corner_radius_top_right = 7
+corner_radius_bottom_right = 7
+corner_radius_bottom_left = 7
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_water_fill"]
+bg_color = Color(0.22, 0.72, 0.96, 0.92)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
 
 [node name="Steve" type="Control"]
 layout_mode = 3
@@ -120,6 +145,41 @@ offset_bottom = 246.0
 mouse_filter = 2
 color = Color(0.239216, 0.729412, 0.788235, 0.870588)
 
+[node name="HoverHud" type="Control" parent="."]
+unique_name_in_owner = true
+modulate = Color(1, 1, 1, 0)
+z_index = 12
+layout_mode = 0
+offset_left = 28.0
+offset_top = 8.0
+offset_right = 228.0
+offset_bottom = 48.0
+mouse_filter = 2
+
+[node name="WaterBar" type="ProgressBar" parent="HoverHud"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 200.0
+offset_bottom = 14.0
+mouse_filter = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_water_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_water_fill")
+max_value = 100.0
+step = 1.0
+value = 1.0
+show_percentage = false
+
+[node name="WashLabel" type="Label" parent="HoverHud"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_top = 16.0
+offset_right = 200.0
+offset_bottom = 36.0
+mouse_filter = 2
+theme_type_variation = &"SmallLabel"
+text = "洗涤进度（1/100）"
+horizontal_alignment = 2
+
 [node name="ExitPopup" type="PanelContainer" parent="."]
 unique_name_in_owner = true
 visible = false
@@ -173,6 +233,7 @@ grow_vertical = 2
 
 [node name="InventoryBg" type="TextureRect" parent="InventoryPopup"]
 unique_name_in_owner = true
+material = SubResource("ShaderMaterial_invkey")
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0

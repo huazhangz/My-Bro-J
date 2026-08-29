@@ -61,6 +61,9 @@ const STUB_VIDEO_MAX_BYTES: int = 80000
 @onready var _inventory_grid: GridContainer = %InventoryGrid
 @onready var _inventory_empty: Label = %InventoryEmpty
 @onready var _inventory_bg: TextureRect = %InventoryBg
+@onready var _hover_hud: Control = %HoverHud
+@onready var _water_bar: ProgressBar = %WaterBar
+@onready var _wash_label: Label = %WashLabel
 
 var _state: int = State.WASHING
 var _wash_remaining: float = 0.0
@@ -81,6 +84,9 @@ var _inventory_kind: String = ""
 var _inventory_window_open: bool = false
 var _base_window_size: Vector2i = Vector2i.ZERO
 var _base_window_pos: Vector2i = Vector2i.ZERO
+var _hover_time: float = 0.0
+var _hover_hud_shown: bool = false
+var _hover_tween: Tween
 
 
 func _ready() -> void:
@@ -92,6 +98,7 @@ func _ready() -> void:
 	_apply_mouse_filters()
 	_apply_window_setup()
 	_ingest_user_images()
+	_apply_video_key()
 	_connect_exit_popup()
 	_setup_pet_video()
 	_connect_game_data()
@@ -120,6 +127,7 @@ func _apply_mouse_filters() -> void:
 	var ignore_nodes: Array[Control] = [
 		_pet_visual, _pet_video, _pet_frame, _placeholder_visual,
 		_inventory_bg, _inventory_title, _inventory_empty,
+		_hover_hud, _water_bar, _wash_label,
 	]
 	for node: Control in ignore_nodes:
 		if is_instance_valid(node):
@@ -314,6 +322,9 @@ func _process(delta: float) -> void:
 	elif _video_enabled and chroma_key_enabled:
 		_feed_pet_frame_texture()
 
+	_tick_hover_hud(delta)
+	_refresh_wash_progress()
+
 
 func _start_wash_cycle() -> void:
 	if GameData.is_warehouse_full():
@@ -341,9 +352,13 @@ func _finish_wash() -> void:
 
 
 func _start_dry_timer(item_id: int) -> void:
+	var item: Dictionary = GameData.find_wet_item(item_id)
+	var dry_seconds: float = GameData.DRY_DURATION_BASE
+	if not item.is_empty():
+		dry_seconds = float(item.get("dry_seconds", GameData.dry_duration_for(int(item.get("quality", 0)))))
 	var timer: Timer = Timer.new()
 	timer.one_shot = true
-	timer.wait_time = GameData.DRY_DURATION
+	timer.wait_time = dry_seconds
 	add_child(timer)
 	_dry_timers[item_id] = timer
 	timer.timeout.connect(func() -> void:
@@ -397,6 +412,9 @@ func _tick_runaway(delta: float) -> void:
 func _set_pet_hidden(hide_pet: bool) -> void:
 	_pet_visual.visible = not hide_pet
 	_set_video_playing(not hide_pet)
+	if hide_pet:
+		_hover_time = 0.0
+		_set_hover_hud_visible(false, false)
 	_close_exit_popup()
 	_close_inventory()
 	if _can_move_window():
@@ -744,15 +762,23 @@ func _set_video_playing(playing: bool) -> void:
 		_pet_frame.visible = false
 
 
-func _apply_video_key() -> void:
-	var key_material: ShaderMaterial = _pet_frame.material as ShaderMaterial
-	if key_material == null:
-		print_verbose("%s chroma key material missing on PetFrame" % VIDEO_LOG_PREFIX)
+func _apply_chroma_material(rect: TextureRect, similarity: float, smoothness: float) -> void:
+	if not is_instance_valid(rect):
 		return
+	var key_material: ShaderMaterial = rect.material as ShaderMaterial
+	if key_material == null:
+		key_material = ShaderMaterial.new()
+		key_material.shader = load("res://assets/videos/video_key.gdshader") as Shader
+		rect.material = key_material
 	key_material.set_shader_parameter("key_color",
 		Vector3(chroma_key_color.r, chroma_key_color.g, chroma_key_color.b))
-	key_material.set_shader_parameter("similarity", chroma_key_similarity)
-	key_material.set_shader_parameter("smoothness", maxf(chroma_key_smoothness, 0.001))
+	key_material.set_shader_parameter("similarity", similarity)
+	key_material.set_shader_parameter("smoothness", maxf(smoothness, 0.001))
+
+
+func _apply_video_key() -> void:
+	_apply_chroma_material(_pet_frame, chroma_key_similarity, chroma_key_smoothness)
+	_apply_chroma_material(_inventory_bg, maxf(chroma_key_similarity, 0.42), maxf(chroma_key_smoothness, 0.12))
 
 
 func _log_chroma_key_state() -> void:
@@ -777,6 +803,64 @@ func apply_chroma_key(color: Color, similarity: float = 0.35, smoothness: float 
 	chroma_key_similarity = similarity
 	chroma_key_smoothness = smoothness
 	chroma_key_enabled = true
+
+
+func _is_hovering_pet() -> bool:
+	if _state == State.RUNAWAY:
+		return false
+	if _inventory_popup.visible:
+		return false
+	var local_pos: Vector2 = get_local_mouse_position()
+	if not Rect2(Vector2.ZERO, size).has_point(local_pos):
+		return false
+	return _is_pointer_on_pet(local_pos)
+
+
+func _wash_progress_value() -> int:
+	if _state == State.PAUSED_FULL:
+		return GameData.WASH_PROGRESS_MAX
+	if GameData.WASH_DURATION <= 0.0:
+		return 0
+	var ratio: float = 1.0 - (_wash_remaining / GameData.WASH_DURATION)
+	return clampi(int(round(ratio * float(GameData.WASH_PROGRESS_MAX))), 0, GameData.WASH_PROGRESS_MAX)
+
+
+func _refresh_wash_progress() -> void:
+	var progress: int = _wash_progress_value()
+	_water_bar.max_value = float(GameData.WASH_PROGRESS_MAX)
+	_water_bar.value = float(progress)
+	_wash_label.text = "洗涤进度（%d/%d）" % [progress, GameData.WASH_PROGRESS_MAX]
+
+
+func _tick_hover_hud(delta: float) -> void:
+	if _is_hovering_pet():
+		_hover_time += delta
+		if _hover_time >= GameData.HOVER_SHOW_DELAY and not _hover_hud_shown:
+			_set_hover_hud_visible(true, true)
+	else:
+		_hover_time = 0.0
+		if _hover_hud_shown:
+			_set_hover_hud_visible(false, true)
+
+
+func _set_hover_hud_visible(show_hud: bool, animate: bool) -> void:
+	_hover_hud_shown = show_hud
+	if is_instance_valid(_hover_tween):
+		_hover_tween.kill()
+	var start_y: float = 14.0 if show_hud else 8.0
+	var end_y: float = 8.0 if show_hud else 14.0
+	var end_alpha: float = 1.0 if show_hud else 0.0
+	if not animate:
+		_hover_hud.modulate.a = end_alpha
+		_hover_hud.position.y = end_y
+		return
+	_hover_hud.position.y = start_y
+	_hover_tween = create_tween()
+	_hover_tween.set_parallel(true)
+	_hover_tween.set_trans(Tween.TRANS_CUBIC)
+	_hover_tween.set_ease(Tween.EASE_OUT if show_hud else Tween.EASE_IN)
+	_hover_tween.tween_property(_hover_hud, "modulate:a", end_alpha, GameData.HOVER_FADE_SECONDS)
+	_hover_tween.tween_property(_hover_hud, "position:y", end_y, GameData.HOVER_FADE_SECONDS)
 
 
 func _is_pointer_on_pet(local_pos: Vector2) -> bool:

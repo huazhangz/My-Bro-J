@@ -23,7 +23,7 @@
 | # | 功能 | 说明 | 状态 |
 |---|------|------|------|
 | 1 | 基础洗涤循环 | Steve 自动洗内裤，正常速度 **45 秒 / 条** | ✅ 已实现 |
-| 2 | 自动晾干机制 | 洗完的内裤放置 **60 秒**后自动晾干进收藏 | ✅ 已实现 |
+| 2 | 自动晾干机制 | 基础 **90 秒**，品质每高一级 **+10 秒**（与磨损无关） | ✅ 已实现 |
 | 3 | 仓库存储上限 | 未晾干内裤进仓库，容量 **10**，满后暂停洗涤，有空位自动恢复 | ✅ 已实现 |
 | 4 | 品质、磨损与收藏 | 一次性 / 涤纶 / 纯棉 / 真丝 / 奢华 / 火星科技 + 8 档磨损前缀 | ✅ 数据层 + 烘干机 / 抽屉网格 |
 | 5 | 付费加速 | 已下线（`PAID_SPEEDUP_ENABLED = false`） | ⬜ 已禁用 |
@@ -45,7 +45,9 @@
 | 常量 | 值 | 含义 |
 |------|-----|------|
 | `WASH_DURATION` | `45.0` 秒 | 洗完一条内裤的正常耗时 |
-| `DRY_DURATION` | `60.0` 秒 | 洗完后自动晾干耗时 |
+| `DRY_DURATION_BASE` | `90.0` 秒 | 烘干基础时长（一次性） |
+| `DRY_DURATION_PER_QUALITY` | `10.0` 秒 | 品质每高一级增加的烘干时间（与磨损无关） |
+| `HOVER_SHOW_DELAY` | `1.5` 秒 | 鼠标在立绘上停留后显示洗涤水条 |
 | `WAREHOUSE_CAPACITY` | `10` | 未晾干仓库容量上限，满即暂停洗涤 |
 | `RUNAWAY_BASE_COOLDOWN` | `120.0` 秒 | 跑路冷却基础时长（未穿戴时） |
 | `FREE_SPEEDUP_RUNAWAY_CHANCE` | `0.075` | 免费加速触发跑路的概率（7.5%） |
@@ -154,7 +156,7 @@ GameData.get_calculated_cooldown(base_seconds := 120.0, quality := 当前穿戴)
                                     免费加速 7.5% 概率触发
 ```
 
-- 每条内裤持有**独立的 60 秒 one-shot `Timer` 节点**（`_dry_timers: item_id → Timer`），
+- 每条内裤持有**独立的 one-shot `Timer`**（时长 `dry_duration_for(quality)`），
   超时后调用 `GameData.dry_item(id)`，节点自动 `queue_free()`。
 - `GameData.warehouse_changed` 信号触发 `_try_resume_wash()`，实现"有空位自动恢复洗涤"。
 - 跑路期间调用 `_set_pet_hidden(true)`：隐藏全部可见节点 + 开启
@@ -235,6 +237,7 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
   - `ScrollContainer` + `GridContainer.columns = 5`，条目从左到右、满行向下，超出可竖向滚动
   - 卡片为紫色描边占位框，显示磨损前缀 + 品质中文名（尚无内裤贴图）
   - `关闭` / `ESC` / 再右键：还原窗口尺寸并关闭弹层
+- 鼠标在立绘上停留 **1.5 秒**后，头顶淡入水色进度条与右对齐文案 `洗涤进度（n/100）`
 - 左键拖拽仍走根 `Control` + `DisplayServer`，与右键互不抢事件
 - 洗涤 / 仓库 / 跑路在后台继续跑，不再有常驻 HUD
 
@@ -330,6 +333,8 @@ PetVisual (Control, IGNORE)
 Theora **没有 Alpha 通道**，视频必然是一块不透明矩形。项目带了
 `assets/videos/video_key.gdshader`，**只挂在 `PetFrame`（TextureRect）** 上。
 打开 `chroma_key_enabled` 后：`PetFrame.visible = true`，
+烘干机 / 抽屉背景 `InventoryBg` 使用同一套 `video_key.gdshader` 抠绿幕，只留洗衣机画面。
+`PetFrame.visible = true`，
 `PetFrame.texture = PetVideo.get_video_texture()`，播放器 `modulate.a = 0`。
 着色器参数：
 
@@ -404,6 +409,7 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 | 操作 | 效果 |
 |------|------|
 | 在桌宠/空白处按住左键拖动 | 移动桌宠窗口 |
+| 鼠标在立绘上停留 1.5 秒 | 头顶显示洗涤水条与 `洗涤进度（n/100）` |
 | 在立绘上右键 | 打开菜单：烘干机 / 抽屉 / 退出游戏 |
 | 点「烘干机」 | 2.5× 弹层，5 列网格展示未晾干仓库 |
 | 点「抽屉」 | 2.5× 弹层，5 列网格展示已晾干收藏 |
@@ -430,7 +436,7 @@ Steve (Control, 铺满窗口, theme = steve_theme)
   - [x] `get_calculated_cooldown()` CD 缩减算法
   - [x] `GameData.gd` 注册为全局 Autoload 单例
   - [x] 45 秒自动洗涤循环
-  - [x] 洗完入仓库 + 每条独立 60 秒晾干 Timer
+  - [x] 洗完入仓库 + 按品质烘干 Timer（90s + 10s×等级）
   - [x] 仓库满 10 条自动暂停，有空位自动恢复
   - [x] `trigger_free_speedup()`：概率跑路（隐藏窗口 + 进 CD）/ 成功加速
   - [x] 引擎实跑验证：45s 出货、60s 晾干、容量上限 10、CD 缩减数值全部正确
