@@ -16,7 +16,6 @@ const SCREEN_MARGIN: int = 24
 
 const VIDEO_DIR: String = "res://assets/videos"
 const VIDEO_PATH: String = "res://assets/videos/steve.ogv"
-const USER_SOURCE_MP4: String = "C:/Users/ASUS/Desktop/Steve1.mp4"
 const USER_CACHE_OGV: String = "user://steve.ogv"
 ## 无 HUD 后立绘铺满窗口，按宽高比居中内接。
 const VIDEO_AREA: Rect2 = Rect2(5.0, 5.0, 240.0, 340.0)
@@ -61,6 +60,7 @@ const STUB_VIDEO_MAX_BYTES: int = 80000
 @onready var _inventory_close_button: Button = %InventoryCloseButton
 @onready var _inventory_grid: GridContainer = %InventoryGrid
 @onready var _inventory_empty: Label = %InventoryEmpty
+@onready var _inventory_bg: TextureRect = %InventoryBg
 
 var _state: int = State.WASHING
 var _wash_remaining: float = 0.0
@@ -85,7 +85,9 @@ var _base_window_pos: Vector2i = Vector2i.ZERO
 
 func _ready() -> void:
 	_debug_log = OS.get_cmdline_user_args().has("--petlog")
+	print("%s scene=%s" % [VIDEO_LOG_PREFIX, scene_file_path])
 	_apply_window_setup()
+	_ingest_user_images()
 	_connect_exit_popup()
 	_setup_pet_video()
 	_connect_game_data()
@@ -93,16 +95,30 @@ func _ready() -> void:
 
 
 func _is_embedded_in_editor() -> bool:
-	return OS.get_cmdline_args().has("--wid")
+	var win: Window = get_window()
+	if win.is_embedded():
+		return true
+	var args: PackedStringArray = OS.get_cmdline_args()
+	if args.has("--wid") or args.has("--embed"):
+		return true
+	for arg: String in args:
+		if arg.begins_with("--wid="):
+			return true
+	return false
+
+
+func _can_move_window() -> bool:
+	return not _embedded and not get_window().is_embedded()
 
 
 func _apply_window_setup() -> void:
 	var win: Window = get_window()
 	win.transparent_bg = true
-
 	_embedded = _is_embedded_in_editor()
-	if _embedded:
-		push_warning("窗口被编辑器内嵌运行，无法拖拽。请在 Game 面板关闭 Embed Game on Play。")
+	if not _can_move_window():
+		_embedded = true
+		push_warning("窗口被编辑器内嵌运行，无法置顶/拖拽。请在 Game 面板关闭 Embed Game on Play，或用 F5 跑主场景。")
+		print("%s embedded=true cmdline=%s" % [VIDEO_LOG_PREFIX, OS.get_cmdline_args()])
 		return
 
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_TRANSPARENT, true)
@@ -116,6 +132,16 @@ func _apply_window_setup() -> void:
 		usable.position.y + usable.size.y - window_size.y - 80
 	)
 	DisplayServer.window_set_position(target)
+
+
+func _ingest_user_images() -> void:
+	var dryer: Texture2D = GameData.load_image_texture(GameData.USER_DRYER_FILE)
+	if dryer != null:
+		_inventory_bg.texture = dryer
+		print("%s dryer bg <- %s" % [VIDEO_LOG_PREFIX, GameData.first_existing_file(GameData.USER_DRYER_FILE)])
+	var steve2_path: String = GameData.first_existing_file(GameData.USER_STEVE2_FILE)
+	if not steve2_path.is_empty():
+		print("%s Steve2.jpg found: %s" % [VIDEO_LOG_PREFIX, steve2_path])
 
 
 func _connect_exit_popup() -> void:
@@ -187,14 +213,25 @@ func _input(event: InputEvent) -> void:
 				get_tree().quit()
 
 
+func _placeholder_from_still(texture: Texture2D) -> void:
+	if _video_enabled:
+		return
+	_placeholder_visual.visible = false
+	_pet_frame.texture = texture
+	_pet_frame.visible = true
+	_pet_frame.material = null
+
+
 func _begin_drag() -> void:
-	if _embedded:
+	if not _can_move_window():
 		return
 	_drag_offset = DisplayServer.mouse_get_position() - DisplayServer.window_get_position()
 	_dragging = true
 
 
 func _update_drag() -> void:
+	if not _can_move_window():
+		return
 	var target: Vector2i = DisplayServer.mouse_get_position() - _drag_offset
 	DisplayServer.window_set_position(_clamp_to_screen(target))
 
@@ -341,7 +378,8 @@ func _set_pet_hidden(hide_pet: bool) -> void:
 	_set_video_playing(not hide_pet)
 	_close_exit_popup()
 	_close_inventory()
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_MOUSE_PASSTHROUGH, hide_pet)
+	if _can_move_window():
+		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_MOUSE_PASSTHROUGH, hide_pet)
 
 
 func _setup_pet_video() -> void:
@@ -421,9 +459,11 @@ func _resolve_video_path() -> String:
 func _ingest_desktop_source() -> String:
 	var source: String = _find_desktop_source()
 	if source.is_empty():
-		print_verbose("%s desktop source not found: %s" % [VIDEO_LOG_PREFIX, USER_SOURCE_MP4])
+		print_verbose("%s user video not found: %s/%s" % [
+			VIDEO_LOG_PREFIX, GameData.USER_PROJECT_DIR, GameData.USER_VIDEO_FILE,
+		])
 		return ""
-	print_rich("[color=#54d18c]%s找到桌面素材：%s[/color]" % [VIDEO_LOG_PREFIX, source])
+	print_rich("[color=#54d18c]%s找到本机素材：%s[/color]" % [VIDEO_LOG_PREFIX, source])
 	if source.get_extension().to_lower() == "ogv":
 		return source
 	var dest_os: String = ProjectSettings.globalize_path(USER_CACHE_OGV)
@@ -441,14 +481,15 @@ func _ingest_desktop_source() -> String:
 
 
 func _find_desktop_source() -> String:
-	var candidates: PackedStringArray = PackedStringArray([
-		USER_SOURCE_MP4,
-		"C:/Users/ASUS/Desktop/Steve1.ogv",
-		"/mnt/c/Users/ASUS/Desktop/Steve1.mp4",
-		"/mnt/c/Users/ASUS/Desktop/Steve1.ogv",
+	var names: PackedStringArray = PackedStringArray([
+		GameData.USER_VIDEO_FILE,
+		"steve1.mp4",
+		"Steve1.ogv",
+		"steve1.ogv",
 	])
-	for path: String in candidates:
-		if FileAccess.file_exists(path):
+	for file_name: String in names:
+		var path: String = GameData.first_existing_file(file_name)
+		if not path.is_empty():
 			return path
 	return ""
 
@@ -506,16 +547,15 @@ func _find_unplayable_source() -> String:
 	for file_name: String in _video_dir_files():
 		if file_name.get_extension().to_lower() in ["mp4", "webm", "mov", "mkv", "avi", "m4v", "flv"]:
 			return "%s/%s" % [VIDEO_DIR, file_name]
-	return USER_SOURCE_MP4
+	return "%s/%s" % [GameData.USER_PROJECT_DIR, GameData.USER_VIDEO_FILE]
 
 
 func _convert_hint(source_path: String) -> String:
 	var target: String = ProjectSettings.globalize_path(VIDEO_PATH)
-	var source: String = USER_SOURCE_MP4
+	var source: String = "%s/%s" % [GameData.USER_PROJECT_DIR, GameData.USER_VIDEO_FILE]
 	var lead: String = "Godot 4 只能播 Ogg Theora（.ogv），用 FFmpeg 把绿幕 mp4 转一次："
 	if source_path == VIDEO_PATH:
-		source = USER_SOURCE_MP4
-		lead = "Godot 4 只能播 Ogg Theora（.ogv）。请把桌面上的 Steve1.mp4 转成 steve.ogv："
+		lead = "Godot 4 只能播 Ogg Theora（.ogv）。请把仓库根目录的 Steve1.mp4 转成 steve.ogv："
 	elif not source_path.is_empty():
 		source = source_path
 		if source.begins_with("res://") or source.begins_with("user://"):
@@ -574,6 +614,9 @@ func _fail_video(reason: String, hint: String = "") -> void:
 	_pet_video.stop()
 	_pet_video.stream = null
 	_refresh_visual_swap()
+	var still: Texture2D = GameData.load_image_texture(GameData.USER_STEVE2_FILE)
+	if still != null:
+		_placeholder_from_still(still)
 	print_rich("[color=#ff8b6a]%s未启用动态立绘，已回落到几何占位。[/color]" % VIDEO_LOG_PREFIX)
 	print_rich("[color=#ff8b6a]%s  原因：%s[/color]" % [VIDEO_LOG_PREFIX, reason])
 	if not hint.is_empty():
@@ -759,7 +802,7 @@ func _close_inventory() -> void:
 
 
 func _expand_inventory_window() -> void:
-	if _inventory_window_open or _embedded:
+	if _inventory_window_open or not _can_move_window():
 		return
 	_base_window_size = DisplayServer.window_get_size()
 	_base_window_pos = DisplayServer.window_get_position()
@@ -775,8 +818,9 @@ func _expand_inventory_window() -> void:
 func _restore_inventory_window() -> void:
 	if not _inventory_window_open:
 		return
-	DisplayServer.window_set_size(_base_window_size)
-	DisplayServer.window_set_position(_base_window_pos)
+	if _can_move_window():
+		DisplayServer.window_set_size(_base_window_size)
+		DisplayServer.window_set_position(_base_window_pos)
 	_inventory_window_open = false
 
 

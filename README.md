@@ -12,8 +12,8 @@
 ## 快速开始
 
 1. 用 Godot **4.7.x** 打开本仓库根目录（含 `project.godot`）。
-2. 把绿幕素材放到 `C:\Users\ASUS\Desktop\Steve1.mp4`（或覆盖 `assets/videos/steve.ogv`）。
-3. 直接按 **F5** 运行，桌宠会出现在屏幕右下角。
+2. 把素材放到仓库根目录：`C:\Users\ASUS\My-Bro-J\Steve1.mp4`、`dryer.jpg`、`Steve2.jpg`（或覆盖 `assets/` 下对应文件）。
+3. 用 **F5** 跑主场景 `sun_pet.tscn`（不要用 F6 跑旧的当前场景）。Game 面板关掉 *Embed Game on Play*。
 
 ### 操作方式
 
@@ -76,7 +76,7 @@ My-Bro-J/
 
 ## 动态立绘视频
 
-源文件：`C:\Users\ASUS\Desktop\Steve1.mp4`（绿幕）。Godot 4 只播 `.ogv`，
+源文件：`C:\Users\ASUS\My-Bro-J\Steve1.mp4`（绿幕）。Godot 4 只播 `.ogv`，
 启动时若找到该 mp4 会用 FFmpeg 转到 `user://steve.ogv`。
 色度键默认开启：绿 `#00FF00`，similarity `0.35`，smoothness `0.10`。
 日志前缀 `[Steve/Video]`。详见 [`assets/videos/README.md`](assets/videos/README.md)。

@@ -173,7 +173,7 @@ window/size/viewport_width=250
 window/size/viewport_height=350
 window/size/borderless=true
 window/size/transparent=true
-window/size/always_on_top=true
+window/size/always_on_top=false
 window/per_pixel_transparency/allowed=true
 ```
 
@@ -275,7 +275,7 @@ PetVisual (Control, IGNORE)
 运行时 `_setup_pet_video()` 仍会校验，失败才把占位图打开。全过程无条件打印
 `[Steve/Video]` 日志（不用加 `--petlog`）：
 
-1. **找文件**：`C:/Users/ASUS/Desktop/Steve1.mp4`（存在则 FFmpeg 转 `user://steve.ogv`）
+1. **找文件**：`C:/Users/ASUS/My-Bro-J/Steve1.mp4`（存在则 FFmpeg 转 `user://steve.ogv`）
    → 否则 `FileAccess.file_exists(res://assets/videos/steve.ogv)` → 否则场景 stream
    → 否则取目录下第一个 `.ogv`。
 2. **体检文件头**：Ogg 必须以 `OggS` 开头。识别 MP4/MOV（`ftyp`）、Matroska/WebM

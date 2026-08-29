@@ -84,6 +84,14 @@ const INVENTORY_SCALE: float = 2.5
 const GRID_COLUMNS: int = 5
 const ITEM_CARD_SIZE: Vector2 = Vector2(100.0, 118.0)
 
+## 本机素材目录（用户把 jpg / mp4 放在仓库根目录，不再使用桌面路径）。
+const USER_PROJECT_DIR: String = "C:/Users/ASUS/My-Bro-J"
+const USER_PROJECT_DIR_WSL: String = "/mnt/c/Users/ASUS/My-Bro-J"
+const USER_DESKTOP_DIR: String = "C:/Users/ASUS/Desktop"
+const USER_VIDEO_FILE: String = "Steve1.mp4"
+const USER_DRYER_FILE: String = "dryer.jpg"
+const USER_STEVE2_FILE: String = "Steve2.jpg"
+
 # --- 核心数值 -------------------------------------------------------------
 
 ## 洗完一条内裤需要的秒数（正常速度）。
@@ -356,6 +364,48 @@ func load_from_dict(data: Dictionary) -> void:
 	collection_changed.emit(dry_collection.size())
 	coins_changed.emit(coins)
 	equipped_changed.emit(equipped_quality)
+
+
+## 按「仓库根目录 → res:// → assets → 桌面兜底」查找用户拖进来的文件。
+func user_file_candidates(file_name: String) -> PackedStringArray:
+	var dirs: PackedStringArray = PackedStringArray([
+		USER_PROJECT_DIR,
+		USER_PROJECT_DIR_WSL,
+		"res://",
+		"res://assets/images",
+		"res://assets/videos",
+		USER_DESKTOP_DIR,
+		"/mnt/c/Users/ASUS/Desktop",
+	])
+	var out: PackedStringArray = PackedStringArray()
+	for dir: String in dirs:
+		if dir == "res://":
+			out.append("res://%s" % file_name)
+		else:
+			out.append("%s/%s" % [dir.rstrip("/"), file_name])
+	return out
+
+
+func first_existing_file(file_name: String) -> String:
+	for path: String in user_file_candidates(file_name):
+		if FileAccess.file_exists(path):
+			return path
+	return ""
+
+
+func load_image_texture(file_name: String) -> Texture2D:
+	var path: String = first_existing_file(file_name)
+	if path.is_empty():
+		return null
+	if path.begins_with("res://") and ResourceLoader.exists(path, "Texture2D"):
+		var loaded: Resource = ResourceLoader.load(path, "Texture2D")
+		var as_tex: Texture2D = loaded as Texture2D
+		if as_tex != null:
+			return as_tex
+	var image: Image = Image.new()
+	if image.load(path) != OK:
+		return null
+	return ImageTexture.create_from_image(image)
 
 
 func _normalize_item(entry: Dictionary) -> Dictionary:
