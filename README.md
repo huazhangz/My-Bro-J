@@ -43,7 +43,7 @@ My-Bro-J/
 │
 ├── scenes/                      # 全部 .tscn 场景
 │   └── sun_pet.tscn             # 主场景（root/main_scene）：根节点 Control，铺满窗口、背景全透明
-│                                #   ├── PetVisual    动态立绘（VideoStreamPlayer）+ 几何占位兜底
+│                                #   ├── PetVisual    VideoStreamPlayer（场景已挂 sun_pet.ogv）+ 隐藏的几何占位
 │                                #   ├── QualityFlash 出货品质闪光特效
 │                                #   └── UILayer      CanvasLayer 悬浮中文 UI
 │                                #        ├── HudPanel      代币 / 状态倒计时 / 进度条 / 仓库挂起

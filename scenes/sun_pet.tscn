@@ -1,8 +1,9 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/sun_pet.gd" id="1_sunpet"]
 [ext_resource type="Theme" path="res://assets/fonts/sun_pet_theme.tres" id="2_theme"]
 [ext_resource type="Shader" path="res://assets/videos/video_key.gdshader" id="3_videokey"]
+[ext_resource type="VideoStreamTheora" path="res://assets/videos/sun_pet.ogv" id="4_ogv"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_videokey"]
 shader = ExtResource("3_videokey")
@@ -40,6 +41,7 @@ offset_top = 98.0
 offset_right = 240.0
 offset_bottom = 258.0
 mouse_filter = 2
+stream = ExtResource("4_ogv")
 volume_db = -80.0
 autoplay = true
 expand = true
@@ -47,6 +49,7 @@ loop = true
 
 [node name="PlaceholderVisual" type="Control" parent="PetVisual"]
 unique_name_in_owner = true
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0

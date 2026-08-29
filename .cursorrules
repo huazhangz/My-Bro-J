@@ -80,9 +80,10 @@
  `VideoStream` 的唯一子类是 `VideoStreamTheora`。绝不要写 `.mp4` / `.webm` 的加载代码，
  也不要臆造 `VideoStreamWebm` 之类不存在的类。素材一律先用 FFmpeg 转 `.ogv`
  （命令见 `assets/videos/README.md`）。
-- 视频资源**不在场景里硬连 `ext_resource`**：`sun_pet.gd` 启动时用
- `ResourceLoader.exists()` / `DirAccess` 去找，找不到就回落到几何占位并 `push_warning`，
- 保证仓库里没有视频文件时项目照样能跑。
+- `scenes/sun_pet.tscn` 里 `PetVideo.stream` **直接挂** `res://assets/videos/sun_pet.ogv`
+ （`VideoStreamTheora`），让编辑器视口能预览视频帧；`PlaceholderVisual` 默认
+ `visible = false`。运行时仍由 `_setup_pet_video()` 校验，失败才把占位图打开。
+ 不要删掉这份 `ext_resource`，否则编辑器又会默认露出几何占位。
 - `VideoStreamPlayer` 必须 `mouse_filter = Control.MOUSE_FILTER_IGNORE`，否则会吃掉窗口拖拽。
 - Theora **没有 Alpha 通道**，透明背景只能靠 `assets/videos/video_key.gdshader` 抠像，
  参数走主场景根节点的 `@export`（`video_key_mode` 等），不要在脚本里写死。

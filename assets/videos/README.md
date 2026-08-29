@@ -41,16 +41,20 @@ ffmpeg -i "C:\Users\ASUS\Desktop\1995b34184dfa977183dd6c7f60eff92.mp4" `
 - `-an` 去掉音轨。想保留声音就去掉它，同时把场景里 `PetVideo` 的
   `volume_db` 从 `-80` 调回 `0`（默认静音，桌宠常驻时不吵人）。
 
-## 二、放进项目
+## 二、放进项目 / 编辑器预览
 
-文件名固定为 **`sun_pet.ogv`**，放在本目录（`res://assets/videos/sun_pet.ogv`）即可，
-**不需要在编辑器里连任何节点**：`scripts/sun_pet.gd` 启动时会自动找到并播放。
+`scenes/sun_pet.tscn` 里 `PetVideo.stream` 已经直接指向本文件
+`res://assets/videos/sun_pet.ogv`（类型 `VideoStreamTheora`），
+并且 `PlaceholderVisual` 默认隐藏。所以：
 
-- 用别的文件名也行：脚本找不到 `sun_pet.ogv` 时，会自动取本目录下第一个 `.ogv`。
-- 一个 `.ogv` 都没有时，会打印一条 `push_warning` 并自动回落到原来的
-  `ColorRect` 几何占位，项目照常运行，不会报错。
-- 视频按自身宽高比在 **230 × 160** 区域里居中内接，不会被拉伸变形，
-  也不会盖住顶部 HUD 和底部按钮。
+- **编辑器视口**会显示视频帧，而不是 ColorRect 几何占位。
+- 用你自己的素材时，转码后**覆盖同名文件**即可，不用再在检查器里重新拖一次。
+- `autoplay` / `loop` / `expand` 都已在场景里打开。
+- 运行时 `_setup_pet_video()` 仍会校验文件头和能否解出画面；
+  只有校验失败才会把 `PlaceholderVisual` 打开。
+
+仓库里带了一份很小的占位 `.ogv`，保证没拷你自己的素材时场景也能加载、编辑器也有画面。
+换成你的孙哥视频后覆盖这个文件。
 
 ## 三、启动日志与排错
 

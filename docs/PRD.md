@@ -238,14 +238,16 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 
 ```
 PetVisual (Control, IGNORE)
-├── PetVideo (VideoStreamPlayer, IGNORE)   # 动态立绘，autoplay + loop
-├── PlaceholderVisual (Control, IGNORE)    # 没有 .ogv 时的 ColorRect 几何占位
+├── PetVideo (VideoStreamPlayer, IGNORE)   # stream 直接挂 sun_pet.ogv，编辑器可预览
+├── PlaceholderVisual (Control, IGNORE, 默认隐藏)  # 仅运行时校验失败才打开
 │   └── Head / EyeLeft / EyeRight / Body / Basin
 └── EquippedMark (ColorRect, IGNORE)       # 换装色块，视频模式下贴到立绘底部
 ```
 
-视频**不在场景里硬连 `ext_resource`**，而是 `_setup_pet_video()` 运行时解析，
-每一步都有回落，全过程无条件打印 `[SunPet/Video]` 日志（不用加 `--petlog`）：
+`PetVideo.stream` **在场景里直接挂** `res://assets/videos/sun_pet.ogv`（`VideoStreamTheora`），
+编辑器视口就能预览视频帧；`PlaceholderVisual` 默认 `visible = false`。
+运行时 `_setup_pet_video()` 仍会校验，失败才把占位图打开。全过程无条件打印
+`[SunPet/Video]` 日志（不用加 `--petlog`）：
 
 1. **找文件**：场景里连了 `stream` 就用它 → 否则 `FileAccess.file_exists(sun_pet.ogv)`
    → 否则取目录下第一个 `.ogv`。用 `FileAccess` 而不是 `ResourceLoader.exists()`
@@ -344,8 +346,8 @@ My-Bro-J/
 ```
 SunPet (Control, 铺满窗口, MOUSE_FILTER_STOP —— 负责接收拖拽, theme = sun_pet_theme)
 ├── PetVisual (Control, IGNORE)
-│   ├── PetVideo (VideoStreamPlayer)     # 动态立绘：autoplay + loop，无 .ogv 时自动隐藏
-│   ├── PlaceholderVisual (Control)      # 几何占位兜底
+│   ├── PetVideo (VideoStreamPlayer)     # stream = sun_pet.ogv，autoplay + loop + expand
+│   ├── PlaceholderVisual (Control)      # 默认隐藏，仅校验失败才显示
 │   │   └── Head / EyeLeft / EyeRight / Body / Basin (ColorRect)
 │   └── EquippedMark (ColorRect)         # 换装品质色标记
 ├── QualityFlash (ColorRect, IGNORE)     # 出货品质闪光特效

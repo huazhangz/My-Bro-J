@@ -441,10 +441,14 @@ func _setup_pet_video() -> void:
 			_convert_hint(path))
 		return
 
-	_pet_video.stream = stream
-	# 这两项场景里已经设好，这里再显式兜一层，避免检查器被人手滑改掉。
+	# 场景里已经把 sun_pet.ogv 赋给 stream（编辑器预览用）。路径没变就沿用，
+	# 避免 F5 时再 load 一次把播放器冲掉。
+	if _pet_video.stream != stream:
+		_pet_video.stream = stream
+	# 这三项场景里已经设好，这里再显式兜一层，避免检查器被人手滑改掉。
 	_pet_video.autoplay = true
 	_pet_video.loop = true
+	_pet_video.expand = true
 	if not _pet_video.finished.is_connected(_on_video_finished):
 		_pet_video.finished.connect(_on_video_finished)
 
@@ -478,11 +482,11 @@ func _on_video_finished() -> void:
 		_pet_video.play()
 
 
-## 优先用约定文件名，其次取目录下第一个 .ogv，方便直接把文件拖进来而不用改代码。
-## 场景里手动连了 stream 就直接沿用它。
+## 优先用场景里挂好的 stream（编辑器预览那份），再退到约定文件名 / 目录扫描。
 func _resolve_video_path() -> String:
-	if _pet_video.stream != null and not _pet_video.stream.resource_path.is_empty():
-		return _pet_video.stream.resource_path
+	var from_stream: String = _stream_file_path(_pet_video.stream)
+	if not from_stream.is_empty() and FileAccess.file_exists(from_stream):
+		return from_stream
 	# 用 FileAccess 而不是 ResourceLoader.exists() 来判断存在性：
 	# 文件刚拷进来、编辑器还没重新扫描时，资源系统里可能还查不到它。
 	if FileAccess.file_exists(VIDEO_PATH):
@@ -492,6 +496,21 @@ func _resolve_video_path() -> String:
 		var clean: String = file_name.trim_suffix(".remap")
 		if clean.get_extension().to_lower() == "ogv":
 			return "%s/%s" % [VIDEO_DIR, clean]
+	return ""
+
+
+## 从 VideoStream 上取出真正的 .ogv 路径。
+## 场景里直接挂 ogv 时 resource_path 就是文件本身；
+## 若是 VideoStreamTheora 子资源，路径在 file 属性上。
+func _stream_file_path(stream: VideoStream) -> String:
+	if stream == null:
+		return ""
+	var theora: VideoStreamTheora = stream as VideoStreamTheora
+	if theora != null and not theora.file.is_empty():
+		return theora.file
+	var path: String = stream.resource_path
+	if path.get_extension().to_lower() == "ogv":
+		return path
 	return ""
 
 
@@ -608,10 +627,11 @@ func _fail_video(reason: String, hint: String = "") -> void:
 	push_warning("动态立绘未启用：%s" % reason)
 
 
-## 视频真正确认可播之前保留几何占位，避免坏素材时中间一片空白。
+## 占位图只在校验失败时亮起。编辑器 / 正常播放都保持 PlaceholderVisual 隐藏，
+## 避免视口默认露出 ColorRect 几何占位。
 func _refresh_visual_swap() -> void:
 	_pet_video.visible = _video_enabled
-	_placeholder_visual.visible = not (_video_enabled and _video_confirmed)
+	_placeholder_visual.visible = not _video_enabled
 
 
 ## 每帧轮询：拿到第一帧就算确认可播（顺便按宽高比摆好）；
