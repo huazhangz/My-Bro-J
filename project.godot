@@ -34,7 +34,7 @@ window/subwindows/embed_subwindows=false
 
 [gui]
 
-; 全局默认主题。若根目录有 hanyiyongzixiaoxiongmao.ttf，运行时会替换默认字体。
+; 全局主题。汉仪永字小熊猫已获授权入库；文件未到仓时主题回落人偶仿宋，运行时再替换。
 theme/custom="res://assets/fonts/steve_theme.tres"
 theme/custom_font="res://assets/fonts/RenOuFangSong-16.ttf"
 

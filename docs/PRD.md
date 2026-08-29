@@ -213,8 +213,9 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 
 | 项 | 内容 |
 |----|------|
-| 字体 | `assets/fonts/RenOuFangSong-16.ttf`（人偶仿宋 16，像素仿宋，OFL 1.1） |
-| 主题 | `assets/fonts/steve_theme.tres`，`default_font` 指向该字体，`default_font_size = 16` |
+| 字体 | `assets/fonts/hanyiyongzixiaoxiongmao.ttf`（汉仪永字小熊猫，项目方已获授权提交 GitHub） |
+| 回落 | 文件未入库时用 `RenOuFangSong-16.ttf`（人偶仿宋，OFL 1.1）；运行时找到授权 TTF 即替换并拷进 `assets/fonts/` |
+| 主题 | `assets/fonts/steve_theme.tres`，编译期 `default_font` 为人偶仿宋，`default_font_size = 16` |
 | 挂载 | `project.godot` → `gui/theme/custom` + `gui/theme/custom_font` + `steve.tscn` 根节点 `theme` |
 
 因此**新增任何 Label / Button 都自动是中文字体**，不需要逐节点 `theme_override_fonts/font`。
@@ -283,9 +284,10 @@ PetVisual (Control, IGNORE)
 运行时 `_setup_pet_video()` 仍会校验，失败才把占位图打开。全过程无条件打印
 `[Steve/Video]` 日志（不用加 `--petlog`）：
 
-1. **找文件**：`C:/Users/ASUS/My-Bro-J/steve3.mp4`（或双击根目录 `convert_video.bat` 写成 `assets/videos/steve.ogv`）
-   → 否则 `FileAccess.file_exists(res://assets/videos/steve.ogv)` → 否则场景 stream
-   → 否则取目录下第一个 `.ogv`。
+1. **找文件**：`C:/Users/ASUS/My-Bro-J/steve3.mp4`（或双击根目录 `convert_video.bat` 写成 `assets/videos/steve.ogv`）。
+   仓库里自带的 `steve.ogv`（约 70KB / 4 秒）是测试占位片，`<= STUB_VIDEO_MAX_BYTES` **一律拒绝播放**，
+   也不会因为「占位片 mtime 比 mp4 新」而跳过转码。转码成功以**目标路径**是否写出大文件为准，
+   不再误查 `user://steve.ogv`。找不到可用 ogv 时回落 `Steve2.jpg` / 几何占位，并打印 ffmpeg 命令。
 2. **体检文件头**：Ogg 必须以 `OggS` 开头。识别 MP4/MOV（`ftyp`）、Matroska/WebM
    （`1A 45 DF A3`）、AVI（`RIFF`）、FLV，直接点名「这其实是 XX 容器，只是改了扩展名」。
 3. **加载**：`ResourceLoader.load(path, "VideoStream", CACHE_MODE_REPLACE)`
@@ -374,7 +376,9 @@ My-Bro-J/
 │   │   ├── dryer.jpg       # 烘干机 / 抽屉弹层背景
 │   │   └── steve2.jpg      # 备用立绘素材
 │   ├── fonts/
-│   │   ├── RenOuFangSong-16.ttf           # 默认中文字体（人偶仿宋 16）
+│   │   ├── hanyiyongzixiaoxiongmao.ttf    # 汉仪永字小熊猫（已授权入库；本机拷贝）
+│   │   ├── HAN-YI-LICENSE.md              # 授权说明
+│   │   ├── RenOuFangSong-16.ttf           # 回落中文字体（人偶仿宋 16）
 │   │   ├── steve_theme.tres             # 全局 UI 主题
 │   │   ├── RenOuFangSong-OFL.txt          # 人偶仿宋许可
 │   │   └── README.md                      # 字体来源说明
@@ -457,13 +461,15 @@ Steve (Control, 铺满窗口, theme = steve_theme)
   - [x] 悬浮 HUD / 图鉴 / 加速按钮已拆除，默认只留角色立绘
   - [x] 右键菜单：`ExitPopup`（烘干机 / 抽屉 / 退出游戏）
   - [x] 烘干机 / 抽屉：`InventoryPopup`（dryer.jpg + 黑遮罩 + 5 列滚动网格）
-  - [x] 默认字体改为人偶仿宋 16（`RenOuFangSong-16.ttf` + `steve_theme.tres`）
+  - [x] 默认字体改为汉仪永字小熊猫（已授权提交 GitHub；未入库时回落人偶仿宋）
+  - [x] 默认字体改为人偶仿宋 16（`RenOuFangSong-16.ttf` + `steve_theme.tres`，作回落）
   - [x] 品质重构为一次性 / 涤纶 / 纯棉 / 真丝 / 奢华 / 火星科技，并附加 8 档磨损前缀
   - [x] 引擎实跑验证：中文字形零缺失、四种状态文案、信号驱动刷新、满仓暂停与恢复
 - [ ] **Day 4**：换装展示系统 + 跑路冷却与 CD 缩减算法对接
   - [x] `VideoStreamPlayer` 动态立绘：autoplay + loop、宽高比内接、鼠标穿透不影响拖拽、
         跑路隐藏并暂停 / 冷却结束续播、缺素材自动回落几何占位、抠像着色器还原透明背景
-  - [ ] Steve 立绘美术资源替换 ColorRect 占位
+  - [x] 拒绝 70KB 测试占位 `steve.ogv`；仅播 steve3 转出的正规 Theora，失败回落 Steve2
+  - [ ] Steve 立绘美术资源替换 ColorRect 占位（需本机 `steve3.mp4` → `assets/videos/steve.ogv`）
   - [ ] 换装面板调用 `GameData.equip_quality()`
   - [ ] 大红品质特效
   - [ ] 跑路期间的冷却倒计时可视化
@@ -478,8 +484,10 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 
 1. 字体是 **GB2312 子集**，出现该范围外的生僻字会显示方块；按
    `assets/fonts/README.md` 的脚本把字加进 `EXTRA` 重新生成即可。
-2. 动态立绘需自备 `.ogv` 素材（Godot 4 不支持 mp4 / webm）；仓库里没有素材时
-   显示 `ColorRect` 几何占位。Theora 无 Alpha 通道，透明背景要靠抠像着色器。
+2. 动态立绘需自备 `.ogv` 素材（Godot 4 不支持 mp4 / webm）。仓库自带的 70KB
+   `steve.ogv` 是测试占位片，运行时不会播放；请把 `steve3.mp4` 放到仓库根目录后
+   F5 自动转码，或双击 `convert_video.bat`。失败时显示 `Steve2.jpg` / 几何占位。
+   Theora 无 Alpha 通道，透明背景要靠抠像着色器。
 3. 跑路时用「隐藏内容 + 整窗鼠标穿透」模拟窗口消失，未真正 `hide()` 主窗口；
    为了让玩家知道 Steve 何时回来，保留一条半透明的 `Steve跑路中 CD: xxs` 提示条。
 4. 离线收益未结算：条目已存 `dry_deadline` 时间戳，Day 5 读档时按现实时间补算。

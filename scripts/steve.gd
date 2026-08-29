@@ -25,7 +25,6 @@ const HOVER_BAR_HEIGHT: float = 12.0
 const HOVER_GAP: float = 6.0
 const VIDEO_PROBE_FRAMES: int = 45
 const VIDEO_LOG_PREFIX: String = "[Steve/Video] "
-const STUB_VIDEO_MAX_BYTES: int = 80000
 const CHROMA_SHADER_PATH: String = "res://assets/shaders/chroma_key.gdshader"
 
 @export_group("视频立绘 / 色度键")
@@ -197,9 +196,13 @@ func _ingest_user_images() -> void:
 
 
 func _apply_ui_font() -> void:
-	var path: String = GameData.first_existing_file(GameData.USER_UI_FONT_FILE)
+	var path: String = GameData.first_existing_named(GameData.USER_UI_FONT_ALIASES)
 	if path.is_empty():
+		print("%s UI font fallback RenOuFangSong (hanyi ttf not in project yet)" % VIDEO_LOG_PREFIX)
 		return
+	if path != GameData.RES_UI_FONT_PATH and GameData.copy_file(path, GameData.RES_UI_FONT_PATH):
+		print("%s authorized Hanyi font copied -> %s" % [VIDEO_LOG_PREFIX, GameData.RES_UI_FONT_PATH])
+		path = GameData.RES_UI_FONT_PATH
 	var font: FontFile = null
 	if path.begins_with("res://") and ResourceLoader.exists(path, "FontFile"):
 		font = ResourceLoader.load(path, "FontFile") as FontFile
@@ -510,8 +513,12 @@ func _setup_pet_video() -> void:
 
 	var path: String = _resolve_video_path()
 	if path.is_empty():
-		_fail_video("在 %s 里没找到任何 .ogv 文件。%s" % [VIDEO_DIR, _describe_video_dir()],
-			_convert_hint(_find_unplayable_source()))
+		_fail_video(
+			"没有可用的人物动画。仓库里的 steve.ogv 仍是测试占位片（<%d bytes），不会再当立绘播放。%s" % [
+				GameData.STUB_VIDEO_MAX_BYTES, _describe_video_dir(),
+			],
+			_convert_hint(_find_unplayable_source())
+		)
 		return
 
 	var container_problem: String = _diagnose_container(path)
@@ -554,7 +561,6 @@ func _setup_pet_video() -> void:
 	])
 	if not _video_confirmed:
 		print_rich("[color=#ffcc66]%s  时长读出来是 0，正在等第一帧确认能不能解码……[/color]" % VIDEO_LOG_PREFIX)
-	_warn_if_stub_video(path)
 	_log_chroma_key_state()
 
 
@@ -565,18 +571,36 @@ func _on_video_finished() -> void:
 
 func _resolve_video_path() -> String:
 	var ingested: String = _ingest_desktop_source()
-	if not ingested.is_empty():
+	if _is_usable_ogv(ingested):
 		return ingested
-	if FileAccess.file_exists(VIDEO_PATH):
+	if _is_usable_ogv(VIDEO_PATH):
 		return VIDEO_PATH
 	var from_stream: String = _stream_file_path(_pet_video.stream if is_instance_valid(_pet_video) else null)
-	if not from_stream.is_empty() and FileAccess.file_exists(from_stream):
+	if _is_usable_ogv(from_stream):
 		return from_stream
 	for file_name: String in _video_dir_files():
 		var clean: String = file_name.trim_suffix(".remap")
-		if clean.get_extension().to_lower() == "ogv":
-			return "%s/%s" % [VIDEO_DIR, clean]
+		if clean.get_extension().to_lower() != "ogv":
+			continue
+		var candidate: String = "%s/%s" % [VIDEO_DIR, clean]
+		if _is_usable_ogv(candidate):
+			return candidate
 	return ""
+
+
+func _is_usable_ogv(path: String) -> bool:
+	if path.is_empty() or not FileAccess.file_exists(path):
+		return false
+	if GameData.is_stub_ogv(path):
+		print_rich("[color=#ffcc66]%s拒绝占位片：%s（%d bytes ≤ %d）[/color]" % [
+			VIDEO_LOG_PREFIX, path, GameData.file_byte_count(path), GameData.STUB_VIDEO_MAX_BYTES,
+		])
+		return false
+	var container_problem: String = _diagnose_container(path)
+	if not container_problem.is_empty():
+		print_rich("[color=#ffcc66]%s拒绝坏容器：%s — %s[/color]" % [VIDEO_LOG_PREFIX, path, container_problem])
+		return false
+	return true
 
 
 func _ingest_desktop_source() -> String:
@@ -588,23 +612,23 @@ func _ingest_desktop_source() -> String:
 		return ""
 	print_rich("[color=#54d18c]%s找到本机素材：%s[/color]" % [VIDEO_LOG_PREFIX, source])
 	if source.get_extension().to_lower() == "ogv":
-		return source
+		return source if _is_usable_ogv(source) else ""
 	var dest_res: String = ProjectSettings.globalize_path(VIDEO_PATH)
 	var dest_user: String = ProjectSettings.globalize_path(USER_CACHE_OGV)
 	var src_mtime: int = FileAccess.get_modified_time(source)
-	if FileAccess.file_exists(VIDEO_PATH) and FileAccess.get_modified_time(VIDEO_PATH) >= src_mtime:
+	if _is_usable_ogv(VIDEO_PATH) and FileAccess.get_modified_time(VIDEO_PATH) >= src_mtime:
 		print_verbose("%s project ogv is newer than %s" % [VIDEO_LOG_PREFIX, source])
 		return VIDEO_PATH
-	if FileAccess.file_exists(USER_CACHE_OGV) and FileAccess.get_modified_time(USER_CACHE_OGV) >= src_mtime:
+	if _is_usable_ogv(USER_CACHE_OGV) and FileAccess.get_modified_time(USER_CACHE_OGV) >= src_mtime:
 		print_verbose("%s chroma-ready cache hit: %s" % [VIDEO_LOG_PREFIX, USER_CACHE_OGV])
 		return USER_CACHE_OGV
-	if _run_ffmpeg_theora(source, dest_res):
+	if _run_ffmpeg_theora(source, dest_res) and _is_usable_ogv(VIDEO_PATH):
 		print_rich("[color=#54d18c]%s已转码 steve3 -> %s[/color]" % [VIDEO_LOG_PREFIX, VIDEO_PATH])
 		return VIDEO_PATH
-	if _run_ffmpeg_theora(source, dest_user):
+	if _run_ffmpeg_theora(source, dest_user) and _is_usable_ogv(USER_CACHE_OGV):
 		print_rich("[color=#54d18c]%s已转码绿幕视频 -> %s[/color]" % [VIDEO_LOG_PREFIX, USER_CACHE_OGV])
 		return USER_CACHE_OGV
-	print_rich("[color=#ffcc66]%sFFmpeg 转码失败，回落到仓库里的 .ogv。[/color]" % VIDEO_LOG_PREFIX)
+	print_rich("[color=#ff8b6a]%sFFmpeg 转码失败，不会回落到占位片。请双击 convert_video.bat。[/color]" % VIDEO_LOG_PREFIX)
 	return ""
 
 
@@ -625,17 +649,31 @@ func _find_desktop_source() -> String:
 
 
 func _run_ffmpeg_theora(source: String, dest_os: String) -> bool:
-	var args: PackedStringArray = PackedStringArray([
-		"-y", "-i", source,
-		"-vf", "fps=24,scale=460:-2",
-		"-c:v", "libtheora", "-q:v", "8", "-an", dest_os,
-	])
-	var output: Array = []
-	var code: int = OS.execute("ffmpeg", args, output, true)
-	if code != 0:
-		print_verbose("%s ffmpeg exit=%d  %s" % [VIDEO_LOG_PREFIX, code, str(output)])
-		return false
-	return FileAccess.file_exists(USER_CACHE_OGV)
+	var attempts: Array = [
+		PackedStringArray([
+			"-y", "-i", source,
+			"-vf", "fps=24,scale=460:-2",
+			"-c:v", "libtheora", "-q:v", "8", "-an", dest_os,
+		]),
+		PackedStringArray([
+			"-y", "-i", source,
+			"-vf", "fps=24,scale=460:-2",
+			"-c:v", "theora", "-qscale:v", "7", "-an", dest_os,
+		]),
+	]
+	for args: PackedStringArray in attempts:
+		var output: Array = []
+		var code: int = OS.execute("ffmpeg", args, output, true)
+		if code != 0:
+			print_verbose("%s ffmpeg exit=%d  dest=%s  %s" % [VIDEO_LOG_PREFIX, code, dest_os, str(output)])
+			continue
+		if FileAccess.file_exists(dest_os) and not GameData.is_stub_ogv(dest_os):
+			return true
+		if dest_os == ProjectSettings.globalize_path(VIDEO_PATH) and _is_usable_ogv(VIDEO_PATH):
+			return true
+		if dest_os == ProjectSettings.globalize_path(USER_CACHE_OGV) and _is_usable_ogv(USER_CACHE_OGV):
+			return true
+	return false
 
 
 func _stream_file_path(stream: VideoStream) -> String:
@@ -788,19 +826,6 @@ func _feed_pet_frame_texture() -> void:
 	var video_tex: Texture2D = _pet_video.get_video_texture()
 	if video_tex != null:
 		_pet_frame.texture = video_tex
-
-
-func _warn_if_stub_video(path: String) -> void:
-	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
-	if file == null:
-		return
-	var byte_count: int = file.get_length()
-	file.close()
-	if byte_count <= 0 or byte_count > STUB_VIDEO_MAX_BYTES:
-		return
-	print_rich("[color=#ffcc66]%s  Detected placeholder video (%d bytes). Please double-click convert_video.bat to convert steve3.mp4 to assets/videos/steve.ogv, then press F5 again.[/color]" % [
-		VIDEO_LOG_PREFIX, byte_count,
-	])
 
 
 func _tick_video_probe() -> void:

@@ -10,7 +10,9 @@ Godot 4 内置的 `VideoStreamPlayer` **只有 `VideoStreamTheora` 一种实现*
 `C:\Users\ASUS\My-Bro-J\steve3.mp4`
 
 双击仓库根目录的 `convert_video.bat`（需要 FFmpeg 在 PATH 里）即可写成
-`assets/videos/steve.ogv`。运行时若根目录仍有 mp4，脚本也会尝试转 `user://steve.ogv`。
+`assets/videos/steve.ogv`。运行时若根目录仍有 mp4，脚本会**强制**转出大于 80KB 的
+正规 Theora；仓库自带的 70KB / 4 秒测试片会被拒绝，不再当人物动画。
+转码失败时回落 `Steve2.jpg`，不会默默播占位片。
 
 ## 一、手动转码
 

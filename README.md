@@ -19,9 +19,9 @@
    ```
    不要执行 `git reset --hard origin/main`，那会回到没有新 UI 的旧代码。
 2. 用 Godot **4.7.x** 打开本仓库根目录（含 `project.godot`）。主场景已锁定为 `res://scenes/steve.tscn`。
-3. 把 `steve3.mp4`、`dryer.jpg`、`Steve2.jpg` 放到仓库根目录。
-4. 双击 `convert_video.bat`（需已安装 FFmpeg 并加入 PATH），把 `steve3.mp4` 转成 `assets/videos/steve.ogv`。
-5. 用 **F5** 跑主场景 `steve.tscn`。Game 面板关掉 *Embed Game on Play*。
+3. 把 `steve3.mp4`、`hanyiyongzixiaoxiongmao.ttf`、`dryer.jpg`、`Steve2.jpg` 放到仓库根目录。
+4. 双击 `convert_video.bat`（需已安装 FFmpeg 并加入 PATH），把 `steve3.mp4` 转成 `assets/videos/steve.ogv`（输出必须大于 80KB，否则仍是占位片）。
+5. 用 **F5** 跑主场景 `steve.tscn`。Game 面板关掉 *Embed Game on Play*。仓库自带的 70KB `steve.ogv` **不会**再当人物动画播放。
 
 ### 操作方式
 
@@ -61,6 +61,8 @@ My-Bro-J/
 │   │   ├── dryer.jpg
 │   │   └── steve2.jpg
 │   ├── fonts/
+│   │   ├── hanyiyongzixiaoxiongmao.ttf
+│   │   ├── HAN-YI-LICENSE.md
 │   │   ├── RenOuFangSong-16.ttf
 │   │   ├── steve_theme.tres
 │   │   └── RenOuFangSong-OFL.txt
@@ -78,17 +80,18 @@ My-Bro-J/
 |---------|-----|
 | `project.godot` → `run/main_scene` | `res://scenes/steve.tscn` |
 | `project.godot` → `gui/theme/custom` | `res://assets/fonts/steve_theme.tres` |
-| `project.godot` → `gui/theme/custom_font` | `res://assets/fonts/RenOuFangSong-16.ttf` |
+| `project.godot` → `gui/theme/custom_font` | `RenOuFangSong-16.ttf`（回落；运行时换汉仪永字小熊猫） |
 | `scenes/steve.tscn` → script / theme / video | `steve.gd` / `steve_theme.tres` / `steve.ogv` |
 
 ---
 
 ## 动态立绘视频
 
-源文件：`C:\Users\ASUS\My-Bro-J\steve3.mp4`（绿幕）。Godot 4 只播 `.ogv`，
-启动时若找到该 mp4 会用 FFmpeg 转到 `user://steve.ogv`。
-色度键默认开启：绿 `#00FF00`，similarity `0.35`，smoothness `0.10`。
-日志前缀 `[Steve/Video]`。详见 [`assets/videos/README.md`](assets/videos/README.md)。
+源文件：`C:\Users\ASUS\My-Bro-J\steve3.mp4`（绿幕）。Godot 4 只播 `.ogv`。
+启动时若找到该 mp4 会用 FFmpeg 覆盖 `assets/videos/steve.ogv`（失败再写 `user://steve.ogv`）。
+仓库里 70KB 测试占位片会被拒绝，不会再当立绘。色度键默认开启：绿 `#00FF00`，
+similarity `0.40`，smoothness `0.10`。日志前缀 `[Steve/Video]`。
+详见 [`assets/videos/README.md`](assets/videos/README.md)。
 
 ---
 

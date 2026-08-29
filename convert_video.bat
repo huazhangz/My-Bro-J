@@ -20,6 +20,17 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-echo Conversion complete: assets\videos\steve.ogv
+for %%A in ("assets\videos\steve.ogv") do set "OGV_SIZE=%%~zA"
+echo Conversion complete: assets\videos\steve.ogv  (%OGV_SIZE% bytes)
+if %OGV_SIZE% LEQ 80000 (
+  echo WARNING: output is still a tiny placeholder. Check that %SRC% is the real green-screen take.
+  pause
+  exit /b 2
+)
+
+if exist "hanyiyongzixiaoxiongmao.ttf" copy /Y "hanyiyongzixiaoxiongmao.ttf" "assets\fonts\hanyiyongzixiaoxiongmao.ttf" >nul
+if exist "HYYongZiXiaoXiongMao-W.ttf" copy /Y "HYYongZiXiaoXiongMao-W.ttf" "assets\fonts\hanyiyongzixiaoxiongmao.ttf" >nul
+if exist "assets\fonts\hanyiyongzixiaoxiongmao.ttf" echo Copied authorized Hanyi font into assets\fonts\
+
 echo You can now press F5 in Godot.
 pause

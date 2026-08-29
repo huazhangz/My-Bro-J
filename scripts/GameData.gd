@@ -93,6 +93,18 @@ const USER_DRYER_FILE: String = "dryer.jpg"
 const USER_DRAWER_FILE: String = "drawer.jpg"
 const USER_STEVE2_FILE: String = "Steve2.jpg"
 const USER_UI_FONT_FILE: String = "hanyiyongzixiaoxiongmao.ttf"
+## 项目方已获授权，目标入库路径（运行时若只在本机根目录找到，会拷进来）。
+const RES_UI_FONT_PATH: String = "res://assets/fonts/hanyiyongzixiaoxiongmao.ttf"
+const USER_UI_FONT_ALIASES: PackedStringArray = PackedStringArray([
+	"hanyiyongzixiaoxiongmao.ttf",
+	"HYYongZiXiaoXiongMao-W.ttf",
+	"HYYongZiXiaoXiongMaoW.ttf",
+	"HYYongZiXiaoXiongMao-W.otf",
+	"汉仪永字小熊猫.ttf",
+	"汉仪永字小熊猫 W.ttf",
+])
+## 仓库里 70KB / 4 秒的 steve.ogv 是测试占位片，不能当人物动画。
+const STUB_VIDEO_MAX_BYTES: int = 80000
 const ALWAYS_ON_TOP_DEFAULT: bool = true
 
 # --- 核心数值 -------------------------------------------------------------
@@ -397,6 +409,8 @@ func user_file_candidates(file_name: String) -> PackedStringArray:
 		"res://assets/videos",
 		USER_DESKTOP_DIR,
 		"/mnt/c/Users/ASUS/Desktop",
+		"C:/Windows/Fonts",
+		"/mnt/c/Windows/Fonts",
 	])
 	var out: PackedStringArray = PackedStringArray()
 	for dir: String in dirs:
@@ -412,6 +426,49 @@ func first_existing_file(file_name: String) -> String:
 		if FileAccess.file_exists(path):
 			return path
 	return ""
+
+
+func first_existing_named(names: PackedStringArray) -> String:
+	for file_name: String in names:
+		var path: String = first_existing_file(file_name)
+		if not path.is_empty():
+			return path
+	return ""
+
+
+func file_byte_count(path: String) -> int:
+	if path.is_empty() or not FileAccess.file_exists(path):
+		return -1
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return -1
+	var byte_count: int = file.get_length()
+	file.close()
+	return byte_count
+
+
+func is_stub_ogv(path: String) -> bool:
+	var byte_count: int = file_byte_count(path)
+	return byte_count >= 0 and byte_count <= STUB_VIDEO_MAX_BYTES
+
+
+func copy_file(src: String, dest: String) -> bool:
+	if src.is_empty() or dest.is_empty() or src == dest:
+		return false
+	var bytes: PackedByteArray = FileAccess.get_file_as_bytes(src)
+	if bytes.is_empty():
+		return false
+	var dest_os: String = dest
+	if dest.begins_with("res://") or dest.begins_with("user://"):
+		dest_os = ProjectSettings.globalize_path(dest)
+	var out: FileAccess = FileAccess.open(dest, FileAccess.WRITE)
+	if out == null:
+		out = FileAccess.open(dest_os, FileAccess.WRITE)
+	if out == null:
+		return false
+	out.store_buffer(bytes)
+	out.close()
+	return FileAccess.file_exists(dest) or FileAccess.file_exists(dest_os)
 
 
 func load_image_texture(file_name: String) -> Texture2D:
