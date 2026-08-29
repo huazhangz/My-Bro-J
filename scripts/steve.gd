@@ -893,21 +893,12 @@ func _is_pointer_on_pet(local_pos: Vector2) -> bool:
 	return video_rect.has_point(local_pos)
 
 
-func _open_context_menu(local_pos: Vector2) -> void:
+func _open_context_menu(_local_pos: Vector2) -> void:
 	if _state == State.RUNAWAY:
 		return
 	_refresh_buttons()
 	_context_menu.visible = true
-	_context_menu.reset_size()
-	var menu_size: Vector2 = _context_menu.get_combined_minimum_size()
-	if _context_menu.size.x > menu_size.x:
-		menu_size = _context_menu.size
-	var view_size: Vector2 = get_viewport_rect().size
-	var pos: Vector2 = local_pos
-	pos.x = clampf(pos.x, 4.0, maxf(4.0, view_size.x - menu_size.x - 4.0))
-	pos.y = clampf(pos.y, 4.0, maxf(4.0, view_size.y - menu_size.y - 4.0))
-	_context_menu.position = pos
-	print_verbose("%s context menu open at (%.0f, %.0f)" % [VIDEO_LOG_PREFIX, pos.x, pos.y])
+	print_verbose("%s context menu open at lower center" % VIDEO_LOG_PREFIX)
 
 
 func _close_context_menu() -> void:
