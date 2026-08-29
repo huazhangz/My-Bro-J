@@ -6,6 +6,7 @@ extends Control
 ##   1. 透明无边框窗口的初始化与「全局鼠标坐标」拖拽（Day 1）
 ##   2. 洗涤 / 晾干 / 仓库满暂停 / 跑路冷却 的核心状态机（Day 2）
 ##   3. 悬浮中文 UI：代币 / 状态倒计时 / 仓库挂起 / 加速按钮 / 图鉴换装（Day 3）
+##   4. 动态立绘：VideoStreamPlayer 循环播放，跑路时隐藏并暂停（Day 4）
 ##
 ## 窗口移动一律走 DisplayServer，不用 Window.position，
 ## 否则在编辑器内嵌运行时会报 "Embedded windows can't be moved"。
@@ -14,6 +15,15 @@ enum State {
 	WASHING,     # 正在洗涤
 	PAUSED_FULL, # 仓库已满，暂停洗涤
 	RUNAWAY,     # 孙哥跑路中，窗口隐藏 + 冷却倒计时
+}
+
+## 视频抠像模式。Ogg Theora **不带 Alpha 通道**，视频会画成一块不透明矩形，
+## 想保住桌宠的透明背景就得靠抠像。具体实现见 assets/videos/video_key.gdshader。
+enum VideoKeyMode {
+	OFF,     # 不抠像，视频原样显示（背景不透明）
+	CHROMA,  # 色度键：抠掉接近 video_key_color 的像素（绿幕 / 纯色背景）
+	DARK,    # 抠掉暗于阈值的像素（黑底视频）
+	BRIGHT,  # 抠掉亮于阈值的像素（白底视频）
 }
 
 const DRAG_BUTTON: int = MOUSE_BUTTON_LEFT
@@ -26,7 +36,28 @@ const TOAST_FADE: float = 0.5
 const CODEX_NAME_WIDTH: int = 54
 const CODEX_BUTTON_WIDTH: int = 56
 
+## 动态立绘视频。Godot 4 只支持 Ogg Theora（`.ogv`），mp4 / webm 必须先转码，
+## 转换命令见 assets/videos/README.md。把文件放到 VIDEO_PATH 就会自动接管几何占位；
+## 文件不存在时回落到占位图形，项目照常能跑，不会报错。
+const VIDEO_DIR: String = "res://assets/videos"
+const VIDEO_PATH: String = "res://assets/videos/sun_pet.ogv"
+## 立绘可用区域（顶部 HUD 与底部按钮栏之间）。视频按自身宽高比在这块区域里
+## 居中内接，不会被拉伸变形，也不会盖住 UI。
+const VIDEO_AREA: Rect2 = Rect2(10.0, 98.0, 230.0, 160.0)
+
+@export_group("视频立绘")
+## 抠像模式，用来还原透明背景（Theora 没有 Alpha 通道）。
+@export var video_key_mode: VideoKeyMode = VideoKeyMode.OFF
+## CHROMA 模式要抠掉的背景色。
+@export var video_key_color: Color = Color(0.0, 1.0, 0.0)
+## 抠像阈值：CHROMA 是与背景色的色差，DARK / BRIGHT 是亮度分界。
+@export_range(0.0, 1.0, 0.01) var video_key_threshold: float = 0.28
+## 抠像边缘羽化宽度，太小会有锯齿，太大会把主体啃掉。
+@export_range(0.001, 1.0, 0.01) var video_key_softness: float = 0.12
+
 @onready var _pet_visual: Control = %PetVisual
+@onready var _pet_video: VideoStreamPlayer = %PetVideo
+@onready var _placeholder_visual: Control = %PlaceholderVisual
 @onready var _equipped_mark: ColorRect = %EquippedMark
 @onready var _quality_flash: ColorRect = %QualityFlash
 
@@ -69,10 +100,18 @@ var _dry_timers: Dictionary = {}
 var _codex_rows: Dictionary = {}
 var _toast_tween: Tween = null
 
+## 是否用视频立绘（找不到 .ogv 时为 false，走几何占位）。
+var _video_enabled: bool = false
+## 视频尺寸要解出第一帧才知道，按宽高比摆好位置后置 true，不再每帧重算。
+var _video_fitted: bool = false
+## 几何占位模式下换装色块的原始位置，视频模式会把它挪到视频底部。
+var _mark_default_rect: Rect2 = Rect2()
+
 
 func _ready() -> void:
 	_debug_log = OS.get_cmdline_user_args().has("--petlog")
 	_apply_window_setup()
+	_setup_pet_video()
 	_build_codex_rows()
 	_apply_static_ui_text()
 	_connect_ui()
@@ -231,6 +270,10 @@ func _process(delta: float) -> void:
 		State.PAUSED_FULL:
 			pass
 
+	# 视频宽高只有解出第一帧后才拿得到，成功摆好一次就不再重算。
+	if _video_enabled and not _video_fitted:
+		_video_fitted = _fit_video_rect()
+
 	# 每帧只刷新会跳秒的部分，其余文本由 GameData 信号驱动。
 	_update_status_text()
 	_update_wash_bar()
@@ -348,6 +391,7 @@ func _tick_runaway(delta: float) -> void:
 ## 只保留一条半透明的冷却提示条，让玩家知道孙哥什么时候回来。
 func _set_pet_hidden(hidden: bool) -> void:
 	_pet_visual.visible = not hidden
+	_set_video_playing(not hidden)
 	_hud_panel.visible = not hidden
 	_button_bar.visible = not hidden
 	_toast_label.visible = not hidden
@@ -355,6 +399,112 @@ func _set_pet_hidden(hidden: bool) -> void:
 	_runaway_banner.visible = hidden
 	# WINDOW_FLAG_MOUSE_PASSTHROUGH 为 true 时整窗鼠标事件全部穿透，无需设置多边形。
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_MOUSE_PASSTHROUGH, hidden)
+
+
+# =========================================================================
+# Day 4：动态立绘（VideoStreamPlayer）
+# =========================================================================
+
+## 找得到 .ogv 就用视频立绘，找不到就回落到几何占位，保证缺资源时项目照样能跑。
+func _setup_pet_video() -> void:
+	_mark_default_rect = Rect2(_equipped_mark.position, _equipped_mark.size)
+	_apply_video_key()
+
+	# 场景里手动指定过 stream 就直接用，否则按约定路径去找。
+	if _pet_video.stream == null:
+		var path: String = _find_video_path()
+		if path.is_empty():
+			_use_video_visual(false)
+			push_warning("未找到动态立绘视频，已回落到几何占位。把 Ogg Theora（.ogv）放到 %s 即可启用，转换命令见 assets/videos/README.md。" % VIDEO_PATH)
+			return
+		_pet_video.stream = load(path)
+
+	if _pet_video.stream == null:
+		_use_video_visual(false)
+		return
+
+	_use_video_visual(true)
+	# loop = true 已在场景里设好；这里再兜一层，防止某些流跑到结尾直接停住。
+	_pet_video.finished.connect(func() -> void:
+		if _video_enabled and not _pet_video.is_playing():
+			_pet_video.play()
+	)
+	_pet_video.play()
+	_log("video visual: %s" % _pet_video.stream.resource_path)
+
+
+## 优先用约定文件名，其次取目录下第一个 .ogv，方便直接把文件拖进来而不用改代码。
+func _find_video_path() -> String:
+	if ResourceLoader.exists(VIDEO_PATH):
+		return VIDEO_PATH
+	var dir: DirAccess = DirAccess.open(VIDEO_DIR)
+	if dir == null:
+		return ""
+	for file_name: String in dir.get_files():
+		# 导出后资源会带 .remap 后缀，去掉再判断扩展名。
+		var clean: String = file_name.trim_suffix(".remap")
+		if clean.get_extension().to_lower() == "ogv":
+			return "%s/%s" % [VIDEO_DIR, clean]
+	return ""
+
+
+func _use_video_visual(enabled: bool) -> void:
+	_video_enabled = enabled
+	_pet_video.visible = enabled
+	_placeholder_visual.visible = not enabled
+	if not enabled:
+		# 回落到几何占位：换装色块回到孙哥身上的原始位置。
+		_pet_video.stop()
+		_equipped_mark.position = _mark_default_rect.position
+		_equipped_mark.size = _mark_default_rect.size
+
+
+## 按视频自身宽高比在 VIDEO_AREA 里居中内接，避免 expand 拉伸变形。
+## 返回 false 表示第一帧还没解出来，下一帧继续试。
+func _fit_video_rect() -> bool:
+	var texture: Texture2D = _pet_video.get_video_texture()
+	if texture == null:
+		return false
+	var source: Vector2 = texture.get_size()
+	if source.x <= 0.0 or source.y <= 0.0:
+		return false
+
+	var ratio: float = minf(VIDEO_AREA.size.x / source.x, VIDEO_AREA.size.y / source.y)
+	var fitted: Vector2 = source * ratio
+	_pet_video.position = VIDEO_AREA.position + (VIDEO_AREA.size - fitted) * 0.5
+	_pet_video.size = fitted
+
+	# 视频模式下换装色块改成贴在立绘底部的一条品质色标记。
+	_equipped_mark.size = Vector2(minf(fitted.x * 0.36, 60.0), 10.0)
+	_equipped_mark.position = Vector2(
+		_pet_video.position.x + (fitted.x - _equipped_mark.size.x) * 0.5,
+		_pet_video.position.y + fitted.y - _equipped_mark.size.y - 2.0
+	)
+	return true
+
+
+## 跑路时隐藏并暂停视频（停止解码省 CPU），冷却结束后原地续播。
+func _set_video_playing(playing: bool) -> void:
+	if not _video_enabled:
+		return
+	_pet_video.visible = playing
+	if playing:
+		if not _pet_video.is_playing():
+			_pet_video.play()
+		_pet_video.paused = false
+	else:
+		_pet_video.paused = true
+
+
+func _apply_video_key() -> void:
+	var material: ShaderMaterial = _pet_video.material as ShaderMaterial
+	if material == null:
+		return
+	material.set_shader_parameter("key_mode", int(video_key_mode))
+	material.set_shader_parameter("key_color",
+		Vector3(video_key_color.r, video_key_color.g, video_key_color.b))
+	material.set_shader_parameter("key_threshold", video_key_threshold)
+	material.set_shader_parameter("key_softness", maxf(video_key_softness, 0.001))
 
 
 # =========================================================================

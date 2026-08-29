@@ -1,7 +1,15 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/sun_pet.gd" id="1_sunpet"]
 [ext_resource type="Theme" path="res://assets/fonts/sun_pet_theme.tres" id="2_theme"]
+[ext_resource type="Shader" path="res://assets/videos/video_key.gdshader" id="3_videokey"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_videokey"]
+shader = ExtResource("3_videokey")
+shader_parameter/key_mode = 0
+shader_parameter/key_color = Color(0, 1, 0, 1)
+shader_parameter/key_threshold = 0.28
+shader_parameter/key_softness = 0.12
 
 [node name="SunPet" type="Control"]
 layout_mode = 3
@@ -23,7 +31,31 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="Head" type="ColorRect" parent="PetVisual"]
+[node name="PetVideo" type="VideoStreamPlayer" parent="PetVisual"]
+unique_name_in_owner = true
+material = SubResource("ShaderMaterial_videokey")
+layout_mode = 0
+offset_left = 10.0
+offset_top = 98.0
+offset_right = 240.0
+offset_bottom = 258.0
+mouse_filter = 2
+volume_db = -80.0
+autoplay = true
+expand = true
+loop = true
+
+[node name="PlaceholderVisual" type="Control" parent="PetVisual"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Head" type="ColorRect" parent="PetVisual/PlaceholderVisual"]
 layout_mode = 0
 offset_left = 98.0
 offset_top = 100.0
@@ -32,7 +64,7 @@ offset_bottom = 150.0
 mouse_filter = 2
 color = Color(0.976471, 0.858824, 0.717647, 1)
 
-[node name="EyeLeft" type="ColorRect" parent="PetVisual"]
+[node name="EyeLeft" type="ColorRect" parent="PetVisual/PlaceholderVisual"]
 layout_mode = 0
 offset_left = 111.0
 offset_top = 118.0
@@ -41,7 +73,7 @@ offset_bottom = 126.0
 mouse_filter = 2
 color = Color(0.152941, 0.152941, 0.176471, 1)
 
-[node name="EyeRight" type="ColorRect" parent="PetVisual"]
+[node name="EyeRight" type="ColorRect" parent="PetVisual/PlaceholderVisual"]
 layout_mode = 0
 offset_left = 131.0
 offset_top = 118.0
@@ -50,7 +82,7 @@ offset_bottom = 126.0
 mouse_filter = 2
 color = Color(0.152941, 0.152941, 0.176471, 1)
 
-[node name="Body" type="ColorRect" parent="PetVisual"]
+[node name="Body" type="ColorRect" parent="PetVisual/PlaceholderVisual"]
 layout_mode = 0
 offset_left = 84.0
 offset_top = 150.0
@@ -58,6 +90,15 @@ offset_right = 166.0
 offset_bottom = 222.0
 mouse_filter = 2
 color = Color(0.176471, 0.501961, 0.878431, 1)
+
+[node name="Basin" type="ColorRect" parent="PetVisual/PlaceholderVisual"]
+layout_mode = 0
+offset_left = 60.0
+offset_top = 222.0
+offset_right = 190.0
+offset_bottom = 258.0
+mouse_filter = 2
+color = Color(0.239216, 0.729412, 0.788235, 0.870588)
 
 [node name="EquippedMark" type="ColorRect" parent="PetVisual"]
 unique_name_in_owner = true
@@ -69,15 +110,6 @@ offset_right = 148.0
 offset_bottom = 216.0
 mouse_filter = 2
 color = Color(0.82, 0.82, 0.82, 1)
-
-[node name="Basin" type="ColorRect" parent="PetVisual"]
-layout_mode = 0
-offset_left = 60.0
-offset_top = 222.0
-offset_right = 190.0
-offset_bottom = 258.0
-mouse_filter = 2
-color = Color(0.239216, 0.729412, 0.788235, 0.870588)
 
 [node name="QualityFlash" type="ColorRect" parent="."]
 unique_name_in_owner = true
