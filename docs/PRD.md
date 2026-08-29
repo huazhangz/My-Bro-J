@@ -180,8 +180,8 @@ window/subwindows/embed_subwindows=false
 
 运行时 `_ready()` / `_apply_window_setup()` 立刻设 `get_tree().root.gui_embed_subwindows = false`，
 再用 `DisplayServer.window_set_flag(..., true, 0)` 设置无边框 / 置顶 / 透明。
-拖拽在 `_input` 里收按下、松开和 `MouseMotion`；位置用
-`DisplayServer.mouse_get_position() - _drag_offset`，不用 `event.relative` 累加。
+立绘层 `mouse_filter = IGNORE`，根节点 `STOP`。`_gui_input` / `_input` 共用 `_process_drag_input()`：
+位置用 `DisplayServer.mouse_get_position() - _drag_offset`。内嵌时不调用置顶/移动，避免刷警告。
 
 **拖拽算法**（彻底避免抖动与 `Embedded windows can't be moved`）：
 

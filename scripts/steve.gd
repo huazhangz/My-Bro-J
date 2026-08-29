@@ -89,6 +89,7 @@ func _ready() -> void:
 	print("%s build=qualities-wear-dryer-drawer  scene=%s  menu=烘干机/抽屉/退出游戏" % [
 		VIDEO_LOG_PREFIX, scene_file_path,
 	])
+	_apply_mouse_filters()
 	_apply_window_setup()
 	_ingest_user_images()
 	_connect_exit_popup()
@@ -114,21 +115,37 @@ func _can_move_window() -> bool:
 	return not _embedded and not get_window().is_embedded()
 
 
+func _apply_mouse_filters() -> void:
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	var ignore_nodes: Array[Control] = [
+		_pet_visual, _pet_video, _pet_frame, _placeholder_visual,
+		_inventory_bg, _inventory_title, _inventory_empty,
+	]
+	for node: Control in ignore_nodes:
+		if is_instance_valid(node):
+			node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child: Node in _placeholder_visual.get_children():
+		var as_control: Control = child as Control
+		if as_control != null:
+			as_control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
 func _apply_window_setup() -> void:
 	get_tree().root.gui_embed_subwindows = false
 	var win: Window = get_window()
 	win.transparent_bg = true
 	_embedded = _is_embedded_in_editor()
 
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true, 0)
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, true, 0)
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_TRANSPARENT, true, 0)
-
+	## 内嵌时调用置顶/移动会刷 Embedded window 警告，且 DisplayServer 无效。
 	if not _can_move_window():
 		_embedded = true
 		push_warning("窗口被编辑器内嵌运行，无法置顶/拖拽。请在 Game 面板确认 Embed Game on Play 为关闭，然后 F5。")
 		print("%s embedded=true cmdline=%s" % [VIDEO_LOG_PREFIX, OS.get_cmdline_args()])
 		return
+
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true, 0)
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, true, 0)
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_TRANSPARENT, true, 0)
 
 	var usable: Rect2i = DisplayServer.screen_get_usable_rect()
 	var window_size: Vector2i = DisplayServer.window_get_size()
@@ -163,10 +180,7 @@ func _connect_exit_popup() -> void:
 		_close_inventory()
 	)
 	_inventory_popup.gui_input.connect(func(event: InputEvent) -> void:
-		if event is InputEventMouseButton:
-			var mb: InputEventMouseButton = event
-			if mb.button_index == DRAG_BUTTON and mb.pressed:
-				_begin_drag()
+		_process_drag_input(event)
 	)
 
 
@@ -184,33 +198,12 @@ func _gui_input(event: InputEvent) -> void:
 				_close_exit_popup()
 			accept_event()
 			return
-		if mb.button_index == DRAG_BUTTON and mb.pressed:
-			if _inventory_popup.visible:
-				return
-			if _exit_popup.visible:
-				if _exit_popup.get_global_rect().has_point(mb.global_position):
-					return
-				_close_exit_popup()
-				accept_event()
-				return
-			_begin_drag()
-			accept_event()
+	_process_drag_input(event)
 
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
-		var mb: InputEventMouseButton = event
-		if mb.button_index == DRAG_BUTTON:
-			if mb.pressed:
-				if _exit_popup.visible and not _inventory_popup.visible:
-					if not _exit_popup.get_global_rect().has_point(mb.global_position):
-						_close_exit_popup()
-			else:
-				_dragging = false
-	elif event is InputEventMouseMotion:
-		if _dragging:
-			_update_drag()
-	elif event is InputEventKey:
+	_process_drag_input(event)
+	if event is InputEventKey:
 		var key: InputEventKey = event
 		if not key.pressed:
 			return
@@ -232,19 +225,39 @@ func _placeholder_from_still(texture: Texture2D) -> void:
 	_pet_frame.material = null
 
 
-func _begin_drag() -> void:
-	if not _can_move_window():
-		return
-	_drag_offset = DisplayServer.mouse_get_position() - DisplayServer.window_get_position()
-	_dragging = true
+func _is_click_on_blocking_ui(global_pos: Vector2) -> bool:
+	if _exit_popup.visible and _exit_popup.get_global_rect().has_point(global_pos):
+		return true
+	if _inventory_popup.visible and _inventory_close_button.get_global_rect().has_point(global_pos):
+		return true
+	return false
 
 
-func _update_drag() -> void:
-	if not _can_move_window():
+func _process_drag_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event
+		if mb.button_index != DRAG_BUTTON:
+			return
+		if mb.pressed:
+			if _state == State.RUNAWAY:
+				return
+			if _is_click_on_blocking_ui(mb.global_position):
+				return
+			if _exit_popup.visible:
+				_close_exit_popup()
+			if not _can_move_window():
+				return
+			_dragging = true
+			_drag_offset = DisplayServer.mouse_get_position() - DisplayServer.window_get_position()
+		else:
+			_dragging = false
 		return
-	## 用全局鼠标 − 按下偏移，不用 event.relative 累加（窗口一动局部坐标会反噬，产生抖动）。
-	var target: Vector2i = DisplayServer.mouse_get_position() - _drag_offset
-	DisplayServer.window_set_position(_clamp_to_screen(target))
+	if event is InputEventMouseMotion and _dragging:
+		if not _can_move_window():
+			_dragging = false
+			return
+		var target: Vector2i = DisplayServer.mouse_get_position() - _drag_offset
+		DisplayServer.window_set_position(_clamp_to_screen(target))
 
 
 func _clamp_to_screen(pos: Vector2i) -> Vector2i:
