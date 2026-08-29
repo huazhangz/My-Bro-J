@@ -377,9 +377,10 @@ My-Bro-J/
 │   │   ├── steve_theme.tres             # 全局 UI 主题
 │   │   ├── RenOuFangSong-OFL.txt          # 人偶仿宋许可
 │   │   └── README.md                      # 字体来源说明
+│   ├── shaders/
+│   │   └── chroma_key.gdshader          # RGB+YCbCr 绿幕 + 溢色抑制
 │   └── videos/
 │       ├── steve.ogv                    # 动态立绘视频（需自备，Ogg Theora）
-│       ├── chroma_key.gdshader            # 见 assets/shaders/chroma_key.gdshader
 │       └── README.md                      # mp4 -> ogv 转换命令与抠像说明
 └── docs/
     └── PRD.md              # 本文档
