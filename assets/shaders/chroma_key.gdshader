@@ -1,7 +1,7 @@
 shader_type canvas_item;
 render_mode blend_mix, unshaded;
 
-// 兼容旧路径。实现与 res://assets/shaders/chroma_key.gdshader 相同。
+// 绿幕抠像：RGB 距离 + YCbCr 色度距离 + 绿色通道溢出抑制。
 uniform vec4 key_color : source_color = vec4(0.0, 1.0, 0.0, 1.0);
 uniform float similarity : hint_range(0.0, 1.0) = 0.4;
 uniform float smoothness : hint_range(0.0, 1.0) = 0.1;

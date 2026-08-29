@@ -331,7 +331,10 @@ PetVisual (Control, IGNORE)
 ### 透明背景：色度键抠像
 
 Theora **没有 Alpha 通道**，视频必然是一块不透明矩形。项目带了
-`assets/videos/video_key.gdshader`，挂在 `PetFrame` 与烘干机背景 `InventoryBg` 上。
+`assets/shaders/chroma_key.gdshader`（RGB + YCbCr 距离 + 绿色溢出抑制），
+强制挂到 `PetFrame` 与 `InventoryBg`。参数请改 **Steve 根节点** 的导出项
+（`chroma_key_*` / `chroma_spill_suppression`），不要改 ShaderMaterial 子资源——
+运行时会用导出值覆盖材质。
 打开 `chroma_key_enabled` 后：`PetFrame.visible = true`，
 `PetFrame.texture = PetVideo.get_video_texture()`，播放器 `modulate.a = 0`。
 库存背景同样抠绿幕，只留洗衣机画面。
@@ -340,11 +343,12 @@ Theora **没有 Alpha 通道**，视频必然是一块不透明矩形。项目�
 | 参数 | 默认 | 说明 |
 |------|------|------|
 | `chroma_key_enabled` | `true` | 默认开启绿幕抠像 |
-| `chroma_key_color` / `key_color` | `#00FF00` | 绿幕；也可改白 `#FFFFFF` / 黑 `#000000` |
-| `chroma_key_similarity` | `0.35` | 颜色容差（建议 0.3–0.4） |
-| `chroma_key_smoothness` | `0.10` | 边缘羽化，避免锯齿 |
+| `chroma_key_color` / `key_color` | `#00FF00` | 绿幕 |
+| `chroma_key_similarity` | `0.40` | 容差，越大抠得越多 |
+| `chroma_key_smoothness` | `0.10` | 边缘羽化 |
+| `chroma_spill_suppression` | `0.30` | 去掉人物边缘残留绿边 |
 
-运行时：`set_chroma_key_enabled(bool)`、`apply_chroma_key(color, similarity, smoothness)`。
+运行时：`set_chroma_key_enabled(bool)`、`apply_chroma_key(color, similarity, smoothness, spill)`。
 启动与开关时都会 `print_verbose` 是否正在抠背景。
 素材本身带 Alpha 时，更好的做法是导出 PNG 序列帧走 `AnimatedSprite2D`，能完美保留透明。
 
@@ -375,7 +379,7 @@ My-Bro-J/
 │   │   └── README.md                      # 字体来源说明
 │   └── videos/
 │       ├── steve.ogv                    # 动态立绘视频（需自备，Ogg Theora）
-│       ├── video_key.gdshader             # 视频抠像着色器（Theora 无 Alpha）
+│       ├── chroma_key.gdshader            # 见 assets/shaders/chroma_key.gdshader
 │       └── README.md                      # mp4 -> ogv 转换命令与抠像说明
 └── docs/
     └── PRD.md              # 本文档

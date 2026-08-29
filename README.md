@@ -66,7 +66,7 @@ My-Bro-J/
 │   │   └── RenOuFangSong-OFL.txt
 │   └── videos/
 │       ├── steve.ogv
-│       └── video_key.gdshader
+│       └── video_key.gdshader   # 兼容旧路径，实现同 chroma_key.gdshader
 │
 └── docs/
     └── PRD.md

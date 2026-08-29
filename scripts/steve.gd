@@ -22,6 +22,7 @@ const VIDEO_AREA: Rect2 = Rect2(5.0, 5.0, 240.0, 340.0)
 const VIDEO_PROBE_FRAMES: int = 45
 const VIDEO_LOG_PREFIX: String = "[Steve/Video] "
 const STUB_VIDEO_MAX_BYTES: int = 80000
+const CHROMA_SHADER_PATH: String = "res://assets/shaders/chroma_key.gdshader"
 
 @export_group("视频立绘 / 色度键")
 @export var chroma_key_enabled: bool = true:
@@ -36,7 +37,7 @@ const STUB_VIDEO_MAX_BYTES: int = 80000
 		chroma_key_color = value
 		if is_node_ready():
 			_apply_video_key()
-@export_range(0.0, 1.0, 0.01) var chroma_key_similarity: float = 0.35:
+@export_range(0.0, 1.0, 0.01) var chroma_key_similarity: float = 0.40:
 	set(value):
 		chroma_key_similarity = value
 		if is_node_ready():
@@ -44,6 +45,11 @@ const STUB_VIDEO_MAX_BYTES: int = 80000
 @export_range(0.0, 1.0, 0.01) var chroma_key_smoothness: float = 0.10:
 	set(value):
 		chroma_key_smoothness = value
+		if is_node_ready():
+			_apply_video_key()
+@export_range(0.0, 1.0, 0.01) var chroma_spill_suppression: float = 0.30:
+	set(value):
+		chroma_spill_suppression = value
 		if is_node_ready():
 			_apply_video_key()
 
@@ -516,7 +522,7 @@ func _setup_pet_video() -> void:
 
 
 func _on_video_finished() -> void:
-	if _video_enabled and not _pet_video.is_playing():
+	if _video_enabled and is_instance_valid(_pet_video) and not _pet_video.is_playing():
 		_pet_video.play()
 
 
@@ -795,7 +801,7 @@ func _fit_video_rect() -> bool:
 
 
 func _set_video_playing(playing: bool) -> void:
-	if not _video_enabled:
+	if not _video_enabled or not is_instance_valid(_pet_video):
 		return
 	if playing:
 		if not _pet_video.is_playing():
@@ -808,32 +814,40 @@ func _set_video_playing(playing: bool) -> void:
 		_pet_frame.visible = false
 
 
-func _apply_chroma_material(rect: TextureRect, similarity: float, smoothness: float) -> void:
+func _apply_chroma_material(rect: TextureRect, similarity: float, smoothness: float, spill: float) -> void:
 	if not is_instance_valid(rect):
+		return
+	var shader: Shader = load(CHROMA_SHADER_PATH) as Shader
+	if shader == null:
+		push_error("%s failed to load %s" % [VIDEO_LOG_PREFIX, CHROMA_SHADER_PATH])
 		return
 	var key_material: ShaderMaterial = rect.material as ShaderMaterial
 	if key_material == null:
 		key_material = ShaderMaterial.new()
-		key_material.shader = load("res://assets/videos/video_key.gdshader") as Shader
-		rect.material = key_material
-	key_material.set_shader_parameter("key_color",
-		Vector3(chroma_key_color.r, chroma_key_color.g, chroma_key_color.b))
+	if key_material.shader != shader:
+		key_material.shader = shader
+	rect.material = key_material
+	key_material.set_shader_parameter("key_color", chroma_key_color)
 	key_material.set_shader_parameter("similarity", similarity)
 	key_material.set_shader_parameter("smoothness", maxf(smoothness, 0.001))
+	key_material.set_shader_parameter("spill_suppression", clampf(spill, 0.0, 1.0))
 
 
 func _apply_video_key() -> void:
-	_apply_chroma_material(_pet_frame, chroma_key_similarity, chroma_key_smoothness)
-	_apply_chroma_material(_inventory_bg, maxf(chroma_key_similarity, 0.42), maxf(chroma_key_smoothness, 0.12))
+	if not chroma_key_enabled:
+		return
+	_apply_chroma_material(_pet_frame, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
+	_apply_chroma_material(_inventory_bg, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
 
 
 func _log_chroma_key_state() -> void:
 	if chroma_key_enabled:
-		print_verbose("%s chroma key ON  color=#%s  similarity=%.2f  smoothness=%.2f  frame_visible=%s" % [
+		print_verbose("%s chroma key ON  color=#%s  similarity=%.2f  smoothness=%.2f  spill=%.2f  frame_visible=%s" % [
 			VIDEO_LOG_PREFIX,
 			chroma_key_color.to_html(false),
 			chroma_key_similarity,
 			chroma_key_smoothness,
+			chroma_spill_suppression,
 			_pet_frame.visible if is_instance_valid(_pet_frame) else false,
 		])
 	else:
@@ -844,10 +858,11 @@ func set_chroma_key_enabled(enabled: bool) -> void:
 	chroma_key_enabled = enabled
 
 
-func apply_chroma_key(color: Color, similarity: float = 0.35, smoothness: float = 0.10) -> void:
+func apply_chroma_key(color: Color, similarity: float = 0.40, smoothness: float = 0.10, spill: float = 0.30) -> void:
 	chroma_key_color = color
 	chroma_key_similarity = similarity
 	chroma_key_smoothness = smoothness
+	chroma_spill_suppression = spill
 	chroma_key_enabled = true
 
 
