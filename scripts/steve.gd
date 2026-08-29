@@ -84,6 +84,7 @@ var _base_window_pos: Vector2i = Vector2i.ZERO
 
 
 func _ready() -> void:
+	get_tree().root.gui_embed_subwindows = false
 	_debug_log = OS.get_cmdline_user_args().has("--petlog")
 	print("%s build=qualities-wear-dryer-drawer  scene=%s  menu=烘干机/抽屉/退出游戏" % [
 		VIDEO_LOG_PREFIX, scene_file_path,
@@ -118,15 +119,16 @@ func _apply_window_setup() -> void:
 	var win: Window = get_window()
 	win.transparent_bg = true
 	_embedded = _is_embedded_in_editor()
+
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true, 0)
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, true, 0)
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_TRANSPARENT, true, 0)
+
 	if not _can_move_window():
 		_embedded = true
-		push_warning("窗口被编辑器内嵌运行，无法置顶/拖拽。请在 Game 面板关闭 Embed Game on Play，或用 F5 跑主场景。")
+		push_warning("窗口被编辑器内嵌运行，无法置顶/拖拽。请在 Game 面板确认 Embed Game on Play 为关闭，然后 F5。")
 		print("%s embedded=true cmdline=%s" % [VIDEO_LOG_PREFIX, OS.get_cmdline_args()])
 		return
-
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_TRANSPARENT, true)
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true)
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, true)
 
 	var usable: Rect2i = DisplayServer.screen_get_usable_rect()
 	var window_size: Vector2i = DisplayServer.window_get_size()
@@ -198,11 +200,16 @@ func _gui_input(event: InputEvent) -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event
-		if mb.button_index == DRAG_BUTTON and not mb.pressed:
-			_dragging = false
-		elif mb.pressed and _exit_popup.visible and not _inventory_popup.visible:
-			if not _exit_popup.get_global_rect().has_point(mb.global_position):
-				_close_exit_popup()
+		if mb.button_index == DRAG_BUTTON:
+			if mb.pressed:
+				if _exit_popup.visible and not _inventory_popup.visible:
+					if not _exit_popup.get_global_rect().has_point(mb.global_position):
+						_close_exit_popup()
+			else:
+				_dragging = false
+	elif event is InputEventMouseMotion:
+		if _dragging:
+			_update_drag()
 	elif event is InputEventKey:
 		var key: InputEventKey = event
 		if not key.pressed:
@@ -235,6 +242,7 @@ func _begin_drag() -> void:
 func _update_drag() -> void:
 	if not _can_move_window():
 		return
+	## 用全局鼠标 − 按下偏移，不用 event.relative 累加（窗口一动局部坐标会反噬，产生抖动）。
 	var target: Vector2i = DisplayServer.mouse_get_position() - _drag_offset
 	DisplayServer.window_set_position(_clamp_to_screen(target))
 
@@ -280,9 +288,6 @@ func _connect_game_data() -> void:
 
 
 func _process(delta: float) -> void:
-	if _dragging:
-		_update_drag()
-
 	match _state:
 		State.WASHING:
 			_tick_wash(delta)
