@@ -14,7 +14,7 @@
 
 - 渲染后端：`gl_compatibility`（兼容老显卡，2D 小游戏够用）
 - 窗口尺寸：**250 × 350**
-- 主场景：`res://scenes/steve.tscn`
+- 主场景：`res://scenes/sun_pet.tscn`
 
 ---
 
@@ -25,7 +25,7 @@
 | 1 | 基础洗涤循环 | Steve 自动洗内裤，正常速度 **45 秒 / 条** | ✅ 已实现 |
 | 2 | 自动晾干机制 | 洗完的内裤放置 **60 秒**后自动晾干进收藏 | ✅ 已实现 |
 | 3 | 仓库存储上限 | 未晾干内裤进仓库，容量 **10**，满后暂停洗涤，有空位自动恢复 | ✅ 已实现 |
-| 4 | 品质与收藏图鉴 | 普通 / 稀有 / 史诗 / 大红(传说)，大红带特效 | ✅ 数据层 + 图鉴弹层完成，特效待做 (Day 4) |
+| 4 | 品质、磨损与收藏 | 一次性 / 涤纶 / 纯棉 / 真丝 / 奢华 / 火星科技 + 8 档磨损前缀 | ✅ 数据层 + 烘干机 / 抽屉网格 |
 | 5 | 付费加速 | 已下线（`PAID_SPEEDUP_ENABLED = false`） | ⬜ 已禁用 |
 | 6 | 免费加速与风险触发 | 有概率触发"Steve 随机跑路" | ✅ 已实现 |
 | 7 | 跑路与冷却机制 | 跑路后隐藏桌宠 + 冷却倒计时，结束后自动回归 | ✅ 已实现 |
@@ -52,19 +52,41 @@
 | `FREE_SPEEDUP_SECONDS` | `20.0` 秒 | 免费加速成功时扣减的洗涤时间 |
 | `PAID_SPEEDUP_ENABLED` | `false` | 付费加速已下线 |
 | `CODEX_ENABLED` | `false` | 图鉴 / 换装 UI 已下线 |
+| `INVENTORY_SCALE` | `2.5` | 烘干机 / 抽屉弹层相对立绘区域的放大倍数 |
+| `GRID_COLUMNS` | `5` | 库存网格列数 |
+| `ITEM_CARD_SIZE` | `100 × 118` | 库存卡片最小尺寸 |
 
 ### 3.2 品质表 `enum Quality`
 
 | 品质 | Enum 值 | UI 中文名 | 掉率权重 | CD 缩减系数 | 晾干代币奖励 | 主色 |
 |------|---------|----------|---------|------------|------------|------|
-| 普通 NORMAL | 0 | 普通 | 70 | `0.00` | 1 | 浅灰 |
-| 稀有 RARE | 1 | 稀有 | 20 | `0.15` | 3 | 蓝 |
-| 史诗 EPIC | 2 | 史诗 | 8 | `0.30` | 8 | 紫 |
-| 大红 RED_GOLD | 3 | 大红 | 2 | `0.50` | 25 | 红（带特效） |
+| 一次性 ONEOFF | 0 | 一次性 | 36 | `0.00` | 1 | 浅灰 |
+| 涤纶 POLYESTER | 1 | 涤纶 | 24 | `0.10` | 2 | 蓝 |
+| 纯棉 COTTON | 2 | 纯棉 | 18 | `0.20` | 4 | 米 |
+| 真丝 SILK | 3 | 真丝 | 12 | `0.30` | 8 | 紫 |
+| 奢华 LUXURY | 4 | 奢华 | 7 | `0.45` | 16 | 金 |
+| 火星科技 MARTIAN | 5 | 火星科技 | 3 | `0.60` | 32 | 绿 |
 
 英文名 `QUALITY_NAMES` 只用于调试日志，UI 一律用 `QUALITY_NAMES_CN`。
 
 掉率按权重随机（`roll_quality()`，权重总和 100，不必凑整）。
+
+### 3.2.1 磨损前缀 `wear_from_roll()`
+
+创建内裤时掷 `wear_roll ∈ [0.0, 100.0]`，每 `WEAR_BUCKET = 12.5` 一档（共 8 档）：
+
+| `wear_roll` | 前缀 |
+|-------------|------|
+| `0.0 – 12.5` | 古神穿过的 |
+| `12.5 – 25.0` | 香甜的 |
+| `25.0 – 37.5` | 美味的 |
+| `37.5 – 50.0` | 瑕疵的 |
+| `50.0 – 62.5` | 二手的 |
+| `62.5 – 75.0` | 破洞的 |
+| `75.0 – 87.5` | 开裂的 |
+| `87.5 – 100.0` | 臭的 |
+
+`display_name` = `{wear}·{品质中文名}`，例如 `古神穿过的·火星科技`。
 
 ### 3.3 内裤条目结构
 
@@ -74,7 +96,11 @@
 ```gdscript
 {
     "id": 1,                      # int，自增唯一 ID
-    "quality": Quality.RARE,      # int，品质枚举
+    "quality": Quality.MARTIAN,   # int，品质枚举
+    "wear_roll": 4.2,             # float，创建时掷出的磨损值 [0, 100]
+    "wear": "古神穿过的",          # String，磨损前缀
+    "wear_modifier": "古神穿过的", # String，与 wear 同值
+    "display_name": "古神穿过的·火星科技",
     "washed_at": 1756400000.0,    # float，洗完的 Unix 时间戳
     "dry_deadline": 1756400060.0, # float，应晾干的 Unix 时间戳（= washed_at + 60）
     "dried_at": 1756400061.0,     # float，实际晾干时间（仅已晾干条目有）
@@ -104,12 +130,14 @@ GameData.get_calculated_cooldown(base_seconds := 120.0, quality := 当前穿戴)
 | 穿戴品质 | 总缩减 | 实际冷却 |
 |---------|-------|---------|
 | 未穿戴 | 0.5% | 119.40 s |
-| 普通 | 0.5% | 119.40 s |
-| 稀有 | 15.5% | 101.40 s |
-| 史诗 | 30.5% | 83.40 s |
-| 大红 | 50.5% | 59.40 s |
+| 一次性 | 0.5% | 119.40 s |
+| 涤纶 | 10.5% | 107.40 s |
+| 纯棉 | 20.5% | 95.40 s |
+| 真丝 | 30.5% | 83.40 s |
+| 奢华 | 45.5% | 65.40 s |
+| 火星科技 | 60.5% | 47.40 s |
 
-### 3.5 洗涤状态机（`steve.gd`）
+### 3.5 洗涤状态机（`sun_pet.gd`）
 
 ```
         ┌──────────────► WASHING ◄──────────────┐
@@ -179,10 +207,9 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 
 | 项 | 内容 |
 |----|------|
-| 字体 | `assets/fonts/GlowSansSC-Regular-Subset.otf`（Glow Sans SC / 未来荧黑（圆体），OFL 1.1） |
-| 处理 | 按 **GB2312 全字符集 + ASCII + 常用标点**子集化：完整 OTF ~9 MB → **约 2.0 MB** |
-| 主题 | `assets/fonts/steve_theme.tres`，`default_font` 指向该字体 |
-| 挂载 | `project.godot` → `gui/theme/custom`（覆盖 Tooltip 等引擎内建 UI）+ `steve.tscn` 根节点 `theme` |
+| 字体 | `assets/fonts/RenOuFangSong-16.ttf`（人偶仿宋 16，像素仿宋，OFL 1.1） |
+| 主题 | `assets/fonts/sun_pet_theme.tres`，`default_font` 指向该字体，`default_font_size = 16` |
+| 挂载 | `project.godot` → `gui/theme/custom` + `gui/theme/custom_font` + `sun_pet.tscn` 根节点 `theme` |
 
 因此**新增任何 Label / Button 都自动是中文字体**，不需要逐节点 `theme_override_fonts/font`。
 主题内还定义了一组类型变体（`TitleLabel` / `SmallLabel` / `CoinLabel` / `FloatLabel` /
@@ -194,11 +221,18 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 
 默认**不显示任何 HUD / CanvasLayer**。画面只有 `PetVisual`（视频或几何占位）。
 
-- **ExitPopup**（根节点下，默认隐藏）：在立绘上 **右键** 弹出居中确认框
-  - `Quit App`：退出进程
-  - `Cancel` / 点弹窗外 / `ESC`：关闭
+- **ExitPopup**（根节点下，默认隐藏）：在立绘上 **右键** 弹出居中菜单
+  - `烘干机`：打开库存弹层，展示 `wet_warehouse`（正在晾干）
+  - `抽屉`：打开库存弹层，展示 `dry_collection`（已晾干收藏）
+  - `退出游戏`：退出进程
+  - 点弹窗外 / `ESC`：关闭菜单
+- **InventoryPopup**（全屏，默认隐藏）：背景 `dryer.jpg` + 半透明黑遮罩 `Color(0,0,0,0.6)`
+  - 窗口临时放大为立绘区域的 **2.5 倍**（`INVENTORY_SCALE`，保持宽高比）
+  - `ScrollContainer` + `GridContainer.columns = 5`，条目从左到右、满行向下，超出可竖向滚动
+  - 卡片为紫色描边占位框，显示磨损前缀 + 品质中文名（尚无内裤贴图）
+  - `关闭` / `ESC` / 再右键：还原窗口尺寸并关闭弹层
 - 左键拖拽仍走根 `Control` + `DisplayServer`，与右键互不抢事件
-- 洗涤 / 仓库 / 跑路在后台继续跑，不再有状态文字、进度条、图鉴或加速按钮
+- 洗涤 / 仓库 / 跑路在后台继续跑，不再有常驻 HUD
 
 ### 5.3 信号 → UI 绑定
 
@@ -317,18 +351,20 @@ My-Bro-J/
 ├── .cursorrules            # AI 编码规则（强制 Godot 4.x 语法、DisplayServer、闭包信号）
 ├── .gitignore              # 忽略 .godot/ 导入缓存与导出产物
 ├── scenes/
-│   └── steve.tscn        # 主场景：根节点 Control，全屏铺满，背景全透明
+│   └── sun_pet.tscn      # 主场景：根节点 Control，全屏铺满，背景全透明
 ├── scripts/
-│   ├── steve.gd          # 窗口拖拽 + 洗涤/晾干/跑路状态机 + 中文 UI 绑定
-│   └── GameData.gd         # 全局数据单例（常量、仓库、图鉴、CD 算法、存档接口）
+│   ├── sun_pet.gd        # 窗口拖拽 + 洗涤/晾干/跑路状态机 + 右键菜单 / 库存网格
+│   └── GameData.gd         # 全局数据单例（常量、仓库、磨损、CD 算法、存档接口）
 ├── assets/
 │   ├── icon.svg            # 应用图标
-│   ├── images/             # Steve 立绘、内裤贴图（Day 4）
+│   ├── images/
+│   │   ├── dryer.jpg       # 烘干机 / 抽屉弹层背景
+│   │   └── steve2.jpg      # 备用立绘素材
 │   ├── fonts/
-│   │   ├── GlowSansSC-Regular-Subset.otf  # 中文字体（GB2312 子集，2.3 MB）
-│   │   ├── steve_theme.tres             # 全局 UI 主题（字体 + 按钮/面板样式）
-│   │   ├── OFL.txt                        # 字体许可（SIL OFL 1.1）
-│   │   └── README.md                      # 字体来源与子集重生成脚本
+│   │   ├── RenOuFangSong-16.ttf           # 默认中文字体（人偶仿宋 16）
+│   │   ├── sun_pet_theme.tres             # 全局 UI 主题
+│   │   ├── RenOuFangSong-OFL.txt          # 人偶仿宋许可
+│   │   └── README.md                      # 字体来源说明
 │   └── videos/
 │       ├── steve.ogv                    # 动态立绘视频（需自备，Ogg Theora）
 │       ├── video_key.gdshader             # 视频抠像着色器（Theora 无 Alpha）
@@ -340,14 +376,21 @@ My-Bro-J/
 场景节点树：
 
 ```
-Steve (Control, 铺满窗口, MOUSE_FILTER_STOP —— 负责接收拖拽, theme = steve_theme)
+SunPet (Control, 铺满窗口, theme = sun_pet_theme)
 ├── PetVisual (Control, IGNORE)
 │   ├── PetVideo (VideoStreamPlayer)
 │   ├── PetFrame (TextureRect)
 │   └── PlaceholderVisual (Control)
 │       └── Head / EyeLeft / EyeRight / Body / Basin
-└── ExitPopup (PanelContainer, 默认隐藏)
-    └── Quit App / Cancel
+├── ExitPopup (PanelContainer, 默认隐藏)
+│   └── 烘干机 / 抽屉 / 退出游戏
+└── InventoryPopup (Control, 默认隐藏, 全屏)
+    ├── InventoryBg (TextureRect = dryer.jpg)
+    ├── InventoryMask (ColorRect 0,0,0,0.6)
+    └── InventoryBody
+        ├── InventoryHeader（标题 + 关闭）
+        ├── InventoryScroll → InventoryGrid (columns = 5)
+        └── InventoryEmpty
 ```
 
 ---
@@ -357,10 +400,12 @@ Steve (Control, 铺满窗口, MOUSE_FILTER_STOP —— 负责接收拖拽, theme
 | 操作 | 效果 |
 |------|------|
 | 在桌宠/空白处按住左键拖动 | 移动桌宠窗口 |
-| 在立绘上右键 | 打开退出确认 |
-| 点「Quit App」 | 退出程序 |
-| 点「Cancel」或弹窗外 | 关闭确认框 |
-| `ESC` | 弹窗开着则关闭，否则退出 |
+| 在立绘上右键 | 打开菜单：烘干机 / 抽屉 / 退出游戏 |
+| 点「烘干机」 | 2.5× 弹层，5 列网格展示未晾干仓库 |
+| 点「抽屉」 | 2.5× 弹层，5 列网格展示已晾干收藏 |
+| 点「退出游戏」 | 退出程序 |
+| 点「关闭」/ 弹窗外 / 库存上再右键 | 关闭对应弹层并还原窗口 |
+| `ESC` | 先关库存，再关菜单，否则退出 |
 | 命令行加 `-- --petlog` | 输出状态机日志 |
 
 > 洗涤/闲置时画面上不常驻交互按钮，避免挡住立绘。
@@ -394,7 +439,10 @@ Steve (Control, 铺满窗口, MOUSE_FILTER_STOP —— 负责接收拖拽, theme
   - [x] 状态与倒计时 Label：`正在洗涤 32s` / `已暂停 - 仓库已满` / `Steve跑路中 CD: 85s`
   - [x] 仓库挂起 Label `未晾干: 3/10` + 洗涤进度条
   - [x] 悬浮 HUD / 图鉴 / 加速按钮已拆除，默认只留角色立绘
-  - [x] 右键退出确认：`ExitPopup`（Quit App / Cancel）
+  - [x] 右键菜单：`ExitPopup`（烘干机 / 抽屉 / 退出游戏）
+  - [x] 烘干机 / 抽屉：`InventoryPopup`（dryer.jpg + 黑遮罩 + 5 列滚动网格）
+  - [x] 默认字体改为人偶仿宋 16（`RenOuFangSong-16.ttf` + `sun_pet_theme.tres`）
+  - [x] 品质重构为一次性 / 涤纶 / 纯棉 / 真丝 / 奢华 / 火星科技，并附加 8 档磨损前缀
   - [x] 引擎实跑验证：中文字形零缺失、四种状态文案、信号驱动刷新、满仓暂停与恢复
 - [ ] **Day 4**：换装展示系统 + 跑路冷却与 CD 缩减算法对接
   - [x] `VideoStreamPlayer` 动态立绘：autoplay + loop、宽高比内接、鼠标穿透不影响拖拽、

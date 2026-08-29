@@ -1,9 +1,10 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/sun_pet.gd" id="1_sunpet"]
-[ext_resource type="Theme" path="res://assets/fonts/steve_theme.tres" id="2_theme"]
+[ext_resource type="Theme" path="res://assets/fonts/sun_pet_theme.tres" id="2_theme"]
 [ext_resource type="Shader" path="res://assets/videos/video_key.gdshader" id="3_videokey"]
 [ext_resource type="VideoStreamTheora" path="res://assets/videos/steve.ogv" id="4_ogv"]
+[ext_resource type="Texture2D" path="res://assets/images/dryer.jpg" id="5_dryer"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_videokey"]
 shader = ExtResource("3_videokey")
@@ -128,38 +129,122 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -88.0
-offset_top = -52.0
-offset_right = 88.0
-offset_bottom = 52.0
+offset_left = -78.0
+offset_top = -78.0
+offset_right = 78.0
+offset_bottom = 78.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_type_variation = &"SolidPanel"
 
 [node name="Rows" type="VBoxContainer" parent="ExitPopup"]
 layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="DryerButton" type="Button" parent="ExitPopup/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"CodexButton"
+text = "烘干机"
+
+[node name="DrawerButton" type="Button" parent="ExitPopup/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"CoinButton"
+text = "抽屉"
+
+[node name="QuitAppButton" type="Button" parent="ExitPopup/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"CloseButton"
+text = "退出游戏"
+
+[node name="InventoryPopup" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+z_index = 30
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="InventoryBg" type="TextureRect" parent="InventoryPopup"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("5_dryer")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="InventoryMask" type="ColorRect" parent="InventoryPopup"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.6)
+
+[node name="InventoryBody" type="VBoxContainer" parent="InventoryPopup"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 12.0
+offset_right = -16.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/separation = 10
 
-[node name="ExitTitle" type="Label" parent="ExitPopup/Rows"]
-layout_mode = 2
-mouse_filter = 2
-theme_type_variation = &"TitleLabel"
-text = "Quit App?"
-horizontal_alignment = 1
-
-[node name="ExitButtons" type="HBoxContainer" parent="ExitPopup/Rows"]
+[node name="InventoryHeader" type="HBoxContainer" parent="InventoryPopup/InventoryBody"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="QuitAppButton" type="Button" parent="ExitPopup/Rows/ExitButtons"]
+[node name="InventoryTitle" type="Label" parent="InventoryPopup/InventoryBody/InventoryHeader"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_type_variation = &"CloseButton"
-text = "Quit App"
+mouse_filter = 2
+theme_type_variation = &"TitleLabel"
+text = "烘干机"
+vertical_alignment = 1
 
-[node name="CancelExitButton" type="Button" parent="ExitPopup/Rows/ExitButtons"]
+[node name="InventoryCloseButton" type="Button" parent="InventoryPopup/InventoryBody/InventoryHeader"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(72, 0)
+layout_mode = 2
+theme_type_variation = &"CloseButton"
+text = "关闭"
+
+[node name="InventoryScroll" type="ScrollContainer" parent="InventoryPopup/InventoryBody"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 2
+
+[node name="InventoryGrid" type="GridContainer" parent="InventoryPopup/InventoryBody/InventoryScroll"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Cancel"
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+columns = 5
+
+[node name="InventoryEmpty" type="Label" parent="InventoryPopup/InventoryBody"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"SmallLabel"
+text = "空空如也"
+horizontal_alignment = 1

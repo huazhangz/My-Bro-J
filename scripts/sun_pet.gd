@@ -2,7 +2,7 @@ extends Control
 
 ## Steve 桌宠主脚本
 ##
-## 默认只显示角色立绘。左键拖拽窗口，右键在角色上打开退出确认。
+## 默认只显示角色立绘。左键拖拽窗口，右键打开烘干机 / 抽屉 / 退出菜单。
 ## 窗口移动一律走 DisplayServer，不用 Window.position。
 
 enum State {
@@ -53,8 +53,14 @@ const STUB_VIDEO_MAX_BYTES: int = 80000
 @onready var _pet_frame: TextureRect = %PetFrame
 @onready var _placeholder_visual: Control = %PlaceholderVisual
 @onready var _exit_popup: PanelContainer = %ExitPopup
+@onready var _dryer_button: Button = %DryerButton
+@onready var _drawer_button: Button = %DrawerButton
 @onready var _quit_app_button: Button = %QuitAppButton
-@onready var _cancel_exit_button: Button = %CancelExitButton
+@onready var _inventory_popup: Control = %InventoryPopup
+@onready var _inventory_title: Label = %InventoryTitle
+@onready var _inventory_close_button: Button = %InventoryCloseButton
+@onready var _inventory_grid: GridContainer = %InventoryGrid
+@onready var _inventory_empty: Label = %InventoryEmpty
 
 var _state: int = State.WASHING
 var _wash_remaining: float = 0.0
@@ -71,6 +77,10 @@ var _video_enabled: bool = false
 var _video_confirmed: bool = false
 var _video_probe_left: int = 0
 var _video_fitted: bool = false
+var _inventory_kind: String = ""
+var _inventory_window_open: bool = false
+var _base_window_size: Vector2i = Vector2i.ZERO
+var _base_window_pos: Vector2i = Vector2i.ZERO
 
 
 func _ready() -> void:
@@ -109,11 +119,23 @@ func _apply_window_setup() -> void:
 
 
 func _connect_exit_popup() -> void:
+	_dryer_button.pressed.connect(func() -> void:
+		_open_inventory("dryer")
+	)
+	_drawer_button.pressed.connect(func() -> void:
+		_open_inventory("drawer")
+	)
 	_quit_app_button.pressed.connect(func() -> void:
 		get_tree().quit()
 	)
-	_cancel_exit_button.pressed.connect(func() -> void:
-		_close_exit_popup()
+	_inventory_close_button.pressed.connect(func() -> void:
+		_close_inventory()
+	)
+	_inventory_popup.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton:
+			var mb: InputEventMouseButton = event
+			if mb.button_index == DRAG_BUTTON and mb.pressed:
+				_begin_drag()
 	)
 
 
@@ -121,6 +143,10 @@ func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event
 		if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
+			if _inventory_popup.visible:
+				_close_inventory()
+				accept_event()
+				return
 			if _state != State.RUNAWAY and _is_pointer_on_pet(mb.position):
 				_open_exit_popup()
 			else:
@@ -128,6 +154,8 @@ func _gui_input(event: InputEvent) -> void:
 			accept_event()
 			return
 		if mb.button_index == DRAG_BUTTON and mb.pressed:
+			if _inventory_popup.visible:
+				return
 			if _exit_popup.visible:
 				if _exit_popup.get_global_rect().has_point(mb.global_position):
 					return
@@ -143,7 +171,7 @@ func _input(event: InputEvent) -> void:
 		var mb: InputEventMouseButton = event
 		if mb.button_index == DRAG_BUTTON and not mb.pressed:
 			_dragging = false
-		elif mb.pressed and _exit_popup.visible:
+		elif mb.pressed and _exit_popup.visible and not _inventory_popup.visible:
 			if not _exit_popup.get_global_rect().has_point(mb.global_position):
 				_close_exit_popup()
 	elif event is InputEventKey:
@@ -151,7 +179,9 @@ func _input(event: InputEvent) -> void:
 		if not key.pressed:
 			return
 		if key.keycode == KEY_ESCAPE:
-			if _exit_popup.visible:
+			if _inventory_popup.visible:
+				_close_inventory()
+			elif _exit_popup.visible:
 				_close_exit_popup()
 			else:
 				get_tree().quit()
@@ -182,12 +212,18 @@ func _clamp_to_screen(pos: Vector2i) -> Vector2i:
 func _connect_game_data() -> void:
 	GameData.warehouse_changed.connect(func(_current: int, _capacity: int) -> void:
 		_try_resume_wash()
+		if _inventory_popup.visible and _inventory_kind == "dryer":
+			_fill_inventory_grid()
+	)
+	GameData.collection_changed.connect(func(_total: int) -> void:
+		if _inventory_popup.visible and _inventory_kind == "drawer":
+			_fill_inventory_grid()
 	)
 	GameData.item_washed.connect(func(item: Dictionary) -> void:
 		var quality: int = int(item["quality"])
 		_log("washed #%d %s -> wet=%d/%d" % [
 			int(item["id"]),
-			String(GameData.QUALITY_NAMES[quality]),
+			String(item.get("display_name", GameData.QUALITY_NAMES[quality])),
 			GameData.wet_warehouse.size(),
 			GameData.WAREHOUSE_CAPACITY,
 		])
@@ -196,7 +232,7 @@ func _connect_game_data() -> void:
 		var quality: int = int(item["quality"])
 		_log("dried #%d %s -> collection=%d coins=%d" % [
 			int(item["id"]),
-			String(GameData.QUALITY_NAMES[quality]),
+			String(item.get("display_name", GameData.QUALITY_NAMES[quality])),
 			GameData.dry_collection.size(),
 			GameData.coins,
 		])
@@ -282,6 +318,7 @@ func _trigger_runaway() -> void:
 	_cooldown_remaining = GameData.get_calculated_cooldown()
 	_dragging = false
 	_close_exit_popup()
+	_close_inventory()
 	_set_pet_hidden(true)
 	_log("RUNAWAY! hidden, cooldown=%.1fs (reduction=%.0f%%)" % [
 		_cooldown_remaining,
@@ -303,6 +340,7 @@ func _set_pet_hidden(hide_pet: bool) -> void:
 	_pet_visual.visible = not hide_pet
 	_set_video_playing(not hide_pet)
 	_close_exit_popup()
+	_close_inventory()
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_MOUSE_PASSTHROUGH, hide_pet)
 
 
@@ -693,12 +731,110 @@ func _open_exit_popup() -> void:
 	if _state == State.RUNAWAY:
 		return
 	_exit_popup.visible = true
-	print_verbose("%s exit popup open" % VIDEO_LOG_PREFIX)
+	print_verbose("%s context menu open" % VIDEO_LOG_PREFIX)
 
 
 func _close_exit_popup() -> void:
 	if is_instance_valid(_exit_popup):
 		_exit_popup.visible = false
+
+
+func _open_inventory(kind: String) -> void:
+	if _state == State.RUNAWAY:
+		return
+	_inventory_kind = kind
+	_close_exit_popup()
+	_expand_inventory_window()
+	_inventory_title.text = "烘干机" if kind == "dryer" else "抽屉"
+	_inventory_grid.columns = GameData.GRID_COLUMNS
+	_inventory_popup.visible = true
+	_fill_inventory_grid()
+
+
+func _close_inventory() -> void:
+	if is_instance_valid(_inventory_popup):
+		_inventory_popup.visible = false
+	_inventory_kind = ""
+	_restore_inventory_window()
+
+
+func _expand_inventory_window() -> void:
+	if _inventory_window_open or _embedded:
+		return
+	_base_window_size = DisplayServer.window_get_size()
+	_base_window_pos = DisplayServer.window_get_position()
+	var scaled: Vector2i = Vector2i(
+		maxi(int(VIDEO_AREA.size.x * GameData.INVENTORY_SCALE), 400),
+		maxi(int(VIDEO_AREA.size.y * GameData.INVENTORY_SCALE), 500)
+	)
+	DisplayServer.window_set_size(scaled)
+	DisplayServer.window_set_position(_clamp_to_screen(_base_window_pos))
+	_inventory_window_open = true
+
+
+func _restore_inventory_window() -> void:
+	if not _inventory_window_open:
+		return
+	DisplayServer.window_set_size(_base_window_size)
+	DisplayServer.window_set_position(_base_window_pos)
+	_inventory_window_open = false
+
+
+func _fill_inventory_grid() -> void:
+	for child: Node in _inventory_grid.get_children():
+		child.queue_free()
+	var items: Array[Dictionary] = (
+		GameData.wet_warehouse if _inventory_kind == "dryer" else GameData.dry_collection
+	)
+	_inventory_empty.visible = items.is_empty()
+	for item: Dictionary in items:
+		_inventory_grid.add_child(_make_item_card(item))
+
+
+func _make_item_card(item: Dictionary) -> Control:
+	var quality: int = int(item.get("quality", 0))
+	var wear: String = String(item.get("wear", item.get("wear_modifier", "")))
+	var quality_name: String = GameData.quality_display_name(quality)
+	var accent: Color = GameData.QUALITY_COLORS.get(quality, Color(0.7, 0.4, 0.9))
+
+	var card: PanelContainer = PanelContainer.new()
+	card.custom_minimum_size = GameData.ITEM_CARD_SIZE
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var box: StyleBoxFlat = StyleBoxFlat.new()
+	box.bg_color = Color(0.42, 0.18, 0.62, 0.88)
+	box.border_color = Color(0.78, 0.42, 1.0, 1.0)
+	box.set_border_width_all(2)
+	box.set_corner_radius_all(6)
+	box.set_content_margin_all(6)
+	card.add_theme_stylebox_override("panel", box)
+
+	var col: VBoxContainer = VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_theme_constant_override("separation", 4)
+	card.add_child(col)
+
+	var icon: ColorRect = ColorRect.new()
+	icon.custom_minimum_size = Vector2(0.0, 44.0)
+	icon.color = Color(accent.r, accent.g, accent.b, 0.85)
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(icon)
+
+	var wear_label: Label = Label.new()
+	wear_label.text = wear
+	wear_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	wear_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	wear_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wear_label.theme_type_variation = &"SmallLabel"
+	col.add_child(wear_label)
+
+	var quality_label: Label = Label.new()
+	quality_label.text = quality_name
+	quality_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	quality_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	quality_label.add_theme_color_override("font_color", accent)
+	col.add_child(quality_label)
+	return card
 
 
 func _log(message: String) -> void:

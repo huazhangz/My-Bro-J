@@ -4,7 +4,8 @@
 > Godot Engine **4.7.2 stable** · GDScript (Godot 4.x 语法)
 
 透明无边框窗口常驻桌面，Steve 自动洗内裤：**45 秒洗一条 → 进仓库（上限 10）→ 60 秒自动晾干进收藏**。
-内裤分普通 / 稀有 / 史诗 / 大红四档品质，穿戴品质越高，"Steve 跑路"的冷却时间缩减越多。
+内裤分一次性 / 涤纶 / 纯棉 / 真丝 / 奢华 / 火星科技六档品质，创建时再掷一档磨损前缀。
+穿戴品质越高，"Steve 跑路"的冷却时间缩减越多。
 
 ---
 
@@ -19,8 +20,9 @@
 | 操作 | 效果 |
 |------|------|
 | 左键拖动 | 移动桌宠窗口 |
-| **在立绘上右键** | 打开退出确认（Quit App / Cancel） |
-| 点 Cancel 或弹窗外 | 关闭退出确认 |
+| **在立绘上右键** | 打开菜单：烘干机 / 抽屉 / 退出游戏 |
+| 点「烘干机」/「抽屉」 | 打开 2.5× 滚动网格（晾干中 / 已收藏） |
+| 点关闭、再右键或 `ESC` | 关闭弹层 |
 | `ESC` | 弹窗开着则关闭，否则退出 |
 | 命令行加 `-- --petlog` | 输出状态机日志 |
 
@@ -38,20 +40,21 @@ My-Bro-J/
 ├── .gitignore
 │
 ├── scenes/
-│   └── steve.tscn               # 主场景，根节点 Steve (Control)
+│   └── sun_pet.tscn             # 主场景，根节点 SunPet (Control)
 │
 ├── scripts/
-│   ├── steve.gd                 # 窗口拖拽 + 状态机 + 右键菜单 + 视频/色度键
-│   ├── steve.gd.uid
+│   ├── sun_pet.gd               # 窗口拖拽 + 状态机 + 右键菜单 + 视频/色度键
 │   ├── GameData.gd
 │   └── GameData.gd.uid
 │
 ├── assets/
+│   ├── images/
+│   │   ├── dryer.jpg
+│   │   └── steve2.jpg
 │   ├── fonts/
-│   │   ├── GlowSansSC-Regular-Subset.otf  # 圆体中文（Glow Sans SC 子集）
-│   │   ├── steve_theme.tres
-│   │   ├── GlowSans-OFL.txt
-│   │   └── OFL.txt
+│   │   ├── RenOuFangSong-16.ttf
+│   │   ├── sun_pet_theme.tres
+│   │   └── RenOuFangSong-OFL.txt
 │   └── videos/
 │       ├── steve.ogv
 │       └── video_key.gdshader
@@ -65,9 +68,9 @@ My-Bro-J/
 | 引用位置 | 值 |
 |---------|-----|
 | `project.godot` → `run/main_scene` | `res://scenes/sun_pet.tscn` |
-| `project.godot` → `gui/theme/custom` | `res://assets/fonts/steve_theme.tres` |
-| `project.godot` → `gui/theme/custom_font` | `res://assets/fonts/GlowSansSC-Regular-Subset.otf` |
-| `scenes/steve.tscn` → script / theme / video | `steve.gd` / `steve_theme.tres` / `steve.ogv` |
+| `project.godot` → `gui/theme/custom` | `res://assets/fonts/sun_pet_theme.tres` |
+| `project.godot` → `gui/theme/custom_font` | `res://assets/fonts/RenOuFangSong-16.ttf` |
+| `scenes/sun_pet.tscn` → script / theme / video | `sun_pet.gd` / `sun_pet_theme.tres` / `steve.ogv` |
 
 ---
 

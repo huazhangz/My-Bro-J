@@ -32,9 +32,9 @@ window/per_pixel_transparency/allowed=true
 
 [gui]
 
-; 全局默认主题：圆体中文字体，保证 Label / Button / Tooltip 全都不再显示方块。
-theme/custom="res://assets/fonts/steve_theme.tres"
-theme/custom_font="res://assets/fonts/GlowSansSC-Regular-Subset.otf"
+; 全局默认主题：人偶仿宋，保证 Label / Button / Tooltip 全都不再显示方块。
+theme/custom="res://assets/fonts/sun_pet_theme.tres"
+theme/custom_font="res://assets/fonts/RenOuFangSong-16.ttf"
 
 [rendering]
 

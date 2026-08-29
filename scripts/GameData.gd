@@ -9,50 +9,80 @@ extends Node
 # --- 品质 -----------------------------------------------------------------
 
 enum Quality {
-	NORMAL,   # 普通
-	RARE,     # 稀有
-	EPIC,     # 史诗
-	RED_GOLD, # 大红 / 传说（带特效）
+	ONEOFF,     # 一次性
+	POLYESTER,  # 涤纶
+	COTTON,     # 纯棉
+	SILK,       # 真丝
+	LUXURY,     # 奢华
+	MARTIAN,    # 火星科技
 }
 
 ## 英文名，仅用于调试日志。
 const QUALITY_NAMES: Dictionary = {
-	Quality.NORMAL: "Normal",
-	Quality.RARE: "Rare",
-	Quality.EPIC: "Epic",
-	Quality.RED_GOLD: "RedGold",
+	Quality.ONEOFF: "OneOff",
+	Quality.POLYESTER: "Polyester",
+	Quality.COTTON: "Cotton",
+	Quality.SILK: "Silk",
+	Quality.LUXURY: "Luxury",
+	Quality.MARTIAN: "Martian",
 }
 
-## 中文名，UI 展示用（Day 3 起场景已接入中文字体）。
+## 中文名，UI 展示用。
 const QUALITY_NAMES_CN: Dictionary = {
-	Quality.NORMAL: "普通",
-	Quality.RARE: "稀有",
-	Quality.EPIC: "史诗",
-	Quality.RED_GOLD: "大红",
+	Quality.ONEOFF: "一次性",
+	Quality.POLYESTER: "涤纶",
+	Quality.COTTON: "纯棉",
+	Quality.SILK: "真丝",
+	Quality.LUXURY: "奢华",
+	Quality.MARTIAN: "火星科技",
 }
 
 const QUALITY_COLORS: Dictionary = {
-	Quality.NORMAL: Color(0.82, 0.82, 0.82),
-	Quality.RARE: Color(0.30, 0.62, 1.00),
-	Quality.EPIC: Color(0.72, 0.40, 0.95),
-	Quality.RED_GOLD: Color(1.00, 0.27, 0.20),
+	Quality.ONEOFF: Color(0.78, 0.78, 0.80),
+	Quality.POLYESTER: Color(0.45, 0.72, 0.88),
+	Quality.COTTON: Color(0.92, 0.84, 0.62),
+	Quality.SILK: Color(0.86, 0.62, 0.92),
+	Quality.LUXURY: Color(0.95, 0.72, 0.28),
+	Quality.MARTIAN: Color(0.35, 0.95, 0.55),
 }
 
 ## 掉率权重（相对值，不必凑成 100）。
 const QUALITY_WEIGHTS: Dictionary = {
-	Quality.NORMAL: 70.0,
-	Quality.RARE: 20.0,
-	Quality.EPIC: 8.0,
-	Quality.RED_GOLD: 2.0,
+	Quality.ONEOFF: 36.0,
+	Quality.POLYESTER: 24.0,
+	Quality.COTTON: 18.0,
+	Quality.SILK: 12.0,
+	Quality.LUXURY: 7.0,
+	Quality.MARTIAN: 3.0,
 }
 
 ## 穿戴对应品质内裤时，跑路冷却的缩减比例。品质越高缩减越多。
 const QUALITY_CD_REDUCTION: Dictionary = {
-	Quality.NORMAL: 0.00,
-	Quality.RARE: 0.15,
-	Quality.EPIC: 0.30,
-	Quality.RED_GOLD: 0.50,
+	Quality.ONEOFF: 0.00,
+	Quality.POLYESTER: 0.10,
+	Quality.COTTON: 0.20,
+	Quality.SILK: 0.30,
+	Quality.LUXURY: 0.45,
+	Quality.MARTIAN: 0.60,
 }
+
+## 磨损前缀：wear_roll ∈ [0, 100]，每 12.5 一档，共 8 档。
+const WEAR_BUCKET: float = 12.5
+const WEAR_PREFIXES: PackedStringArray = [
+	"古神穿过的",
+	"香甜的",
+	"美味的",
+	"瑕疵的",
+	"二手的",
+	"破洞的",
+	"开裂的",
+	"臭的",
+]
+
+## 烘干机 / 抽屉弹层相对立绘的放大倍数。
+const INVENTORY_SCALE: float = 2.5
+const GRID_COLUMNS: int = 5
+const ITEM_CARD_SIZE: Vector2 = Vector2(100.0, 118.0)
 
 # --- 核心数值 -------------------------------------------------------------
 
@@ -83,10 +113,12 @@ const MIN_COOLDOWN_SECONDS: float = 10.0
 
 ## 晾干一条内裤的代币奖励（按品质递增）。
 const COIN_REWARD: Dictionary = {
-	Quality.NORMAL: 1,
-	Quality.RARE: 3,
-	Quality.EPIC: 8,
-	Quality.RED_GOLD: 25,
+	Quality.ONEOFF: 1,
+	Quality.POLYESTER: 2,
+	Quality.COTTON: 4,
+	Quality.SILK: 8,
+	Quality.LUXURY: 16,
+	Quality.MARTIAN: 32,
 }
 
 # --- 信号 -----------------------------------------------------------------
@@ -104,7 +136,8 @@ signal equipped_changed(quality: int)
 var coins: int = 0
 
 ## 未晾干仓库（上限 WAREHOUSE_CAPACITY）。元素为 Dictionary：
-## { "id": int, "quality": int, "washed_at": float, "dry_deadline": float }
+## { "id", "quality", "wear" / "wear_modifier", "wear_roll", "display_name",
+##   "washed_at", "dry_deadline" }
 var wet_warehouse: Array[Dictionary] = []
 
 ## 已晾干收藏 / 图鉴条目。
@@ -144,7 +177,26 @@ func roll_quality() -> int:
 		roll -= float(QUALITY_WEIGHTS[q])
 		if roll <= 0.0:
 			return q
-	return Quality.NORMAL
+	return Quality.ONEOFF
+
+
+func wear_from_roll(wear_roll: float) -> String:
+	var idx: int = clampi(int(floor(wear_roll / WEAR_BUCKET)), 0, WEAR_PREFIXES.size() - 1)
+	return WEAR_PREFIXES[idx]
+
+
+func roll_wear() -> Dictionary:
+	var wear_roll: float = randf_range(0.0, 100.0)
+	var wear: String = wear_from_roll(wear_roll)
+	return {"wear_roll": wear_roll, "wear": wear}
+
+
+func quality_display_name(quality: int) -> String:
+	return String(QUALITY_NAMES_CN.get(quality, "未知"))
+
+
+func make_display_name(wear: String, quality: int) -> String:
+	return "%s·%s" % [wear, quality_display_name(quality)]
 
 
 ## 洗完一条内裤，放入未晾干仓库。仓库已满时返回空字典。
@@ -152,10 +204,16 @@ func add_wet_item(quality: int = -1) -> Dictionary:
 	if is_warehouse_full():
 		return {}
 	var q: int = quality if quality >= 0 else roll_quality()
+	var wear_info: Dictionary = roll_wear()
+	var wear: String = String(wear_info["wear"])
 	var now: float = Time.get_unix_time_from_system()
 	var item: Dictionary = {
 		"id": _next_item_id,
 		"quality": q,
+		"wear_roll": float(wear_info["wear_roll"]),
+		"wear": wear,
+		"wear_modifier": wear,
+		"display_name": make_display_name(wear, q),
 		"washed_at": now,
 		"dry_deadline": now + DRY_DURATION,
 	}
@@ -290,11 +348,26 @@ func load_from_dict(data: Dictionary) -> void:
 	codex_counts = data.get("codex_counts", {}).duplicate(true)
 	wet_warehouse.clear()
 	for entry: Dictionary in data.get("wet_warehouse", []):
-		wet_warehouse.append(entry.duplicate(true))
+		wet_warehouse.append(_normalize_item(entry))
 	dry_collection.clear()
 	for entry: Dictionary in data.get("dry_collection", []):
-		dry_collection.append(entry.duplicate(true))
+		dry_collection.append(_normalize_item(entry))
 	warehouse_changed.emit(wet_warehouse.size(), WAREHOUSE_CAPACITY)
 	collection_changed.emit(dry_collection.size())
 	coins_changed.emit(coins)
 	equipped_changed.emit(equipped_quality)
+
+
+func _normalize_item(entry: Dictionary) -> Dictionary:
+	var item: Dictionary = entry.duplicate(true)
+	var quality: int = int(item.get("quality", Quality.ONEOFF))
+	var wear: String = String(item.get("wear", item.get("wear_modifier", "")))
+	if wear.is_empty():
+		var wear_roll: float = float(item.get("wear_roll", 0.0))
+		wear = wear_from_roll(wear_roll)
+	item["quality"] = quality
+	item["wear"] = wear
+	item["wear_modifier"] = wear
+	if String(item.get("display_name", "")).is_empty():
+		item["display_name"] = make_display_name(wear, quality)
+	return item

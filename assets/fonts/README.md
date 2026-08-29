@@ -1,5 +1,18 @@
 # 中文字体说明
 
+## RenOuFangSong-16.ttf
+
+默认 UI 字体（**人偶仿宋 16** / RenOu FangSong，像素仿宋）。
+
+| 项 | 内容 |
+|----|------|
+| 原字体 | [yzdnn/RenOuFangSong](https://github.com/yzdnn/RenOuFangSong) |
+| 许可 | SIL Open Font License 1.1，见 `RenOuFangSong-OFL.txt` |
+| 主题 | `sun_pet_theme.tres` 的 `default_font` 指向本文件 |
+| 挂载 | `project.godot` → `gui/theme/custom` + `gui/theme/custom_font`，以及 `sun_pet.tscn` 根节点 |
+
+所有 Label / Button / 右键菜单 / 烘干机与抽屉网格都走这一套仿宋。
+
 ## GlowSansSC-Regular-Subset.otf
 
 圆体 UI 字体（思源黑体圆角衍生 **Glow Sans SC / 未来荧黑** Regular 的 GB2312 子集）。
