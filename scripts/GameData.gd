@@ -15,11 +15,20 @@ enum Quality {
 	RED_GOLD, # 大红 / 传说（带特效）
 }
 
+## 英文名，仅用于调试日志。
 const QUALITY_NAMES: Dictionary = {
 	Quality.NORMAL: "Normal",
 	Quality.RARE: "Rare",
 	Quality.EPIC: "Epic",
 	Quality.RED_GOLD: "RedGold",
+}
+
+## 中文名，UI 展示用（Day 3 起场景已接入中文字体）。
+const QUALITY_NAMES_CN: Dictionary = {
+	Quality.NORMAL: "普通",
+	Quality.RARE: "稀有",
+	Quality.EPIC: "史诗",
+	Quality.RED_GOLD: "大红",
 }
 
 const QUALITY_COLORS: Dictionary = {
@@ -60,9 +69,8 @@ const RUNAWAY_BASE_COOLDOWN: float = 120.0
 const FREE_SPEEDUP_RUNAWAY_CHANCE: float = 0.25
 ## 免费加速成功时直接扣掉的洗涤秒数。
 const FREE_SPEEDUP_SECONDS: float = 15.0
-## 付费加速：每次消耗代币数与扣掉的秒数。
+## 付费加速：消耗这么多代币，直接强行洗完当前这一条（无跑路风险）。
 const PAID_SPEEDUP_COST: int = 10
-const PAID_SPEEDUP_SECONDS: float = 20.0
 
 ## 图鉴收藏带来的额外 CD 缩减：每收藏一条 +0.5%，最多 10%。
 const COLLECTION_CD_REDUCTION_PER_ITEM: float = 0.005
@@ -221,6 +229,15 @@ func has_collected(quality: int) -> bool:
 		if int(item["quality"]) == quality:
 			return true
 	return false
+
+
+## 已晾干收藏里该品质的条数（图鉴 UI 用）。
+func count_collected(quality: int) -> int:
+	var total: int = 0
+	for item: Dictionary in dry_collection:
+		if int(item["quality"]) == quality:
+			total += 1
+	return total
 
 
 # --- 品质 CD 缩减算法 -----------------------------------------------------
