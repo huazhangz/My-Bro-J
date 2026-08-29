@@ -19,8 +19,8 @@
    ```
    不要执行 `git reset --hard origin/main`，那会回到没有新 UI 的旧代码。
 2. 用 Godot **4.7.x** 打开本仓库根目录（含 `project.godot`）。主场景已锁定为 `res://scenes/steve.tscn`。
-3. 把 `Steve1.mp4`、`dryer.jpg`、`Steve2.jpg` 放到仓库根目录。
-4. 双击 `convert_video.bat`（需已安装 FFmpeg 并加入 PATH），把 `Steve1.mp4` 转成 `assets/videos/steve.ogv`。
+3. 把 `steve3.mp4`、`dryer.jpg`、`Steve2.jpg` 放到仓库根目录。
+4. 双击 `convert_video.bat`（需已安装 FFmpeg 并加入 PATH），把 `steve3.mp4` 转成 `assets/videos/steve.ogv`。
 5. 用 **F5** 跑主场景 `steve.tscn`。Game 面板关掉 *Embed Game on Play*。
 
 ### 操作方式
@@ -85,7 +85,7 @@ My-Bro-J/
 
 ## 动态立绘视频
 
-源文件：`C:\Users\ASUS\My-Bro-J\Steve1.mp4`（绿幕）。Godot 4 只播 `.ogv`，
+源文件：`C:\Users\ASUS\My-Bro-J\steve3.mp4`（绿幕）。Godot 4 只播 `.ogv`，
 启动时若找到该 mp4 会用 FFmpeg 转到 `user://steve.ogv`。
 色度键默认开启：绿 `#00FF00`，similarity `0.35`，smoothness `0.10`。
 日志前缀 `[Steve/Video]`。详见 [`assets/videos/README.md`](assets/videos/README.md)。

@@ -552,14 +552,19 @@ func _ingest_desktop_source() -> String:
 	print_rich("[color=#54d18c]%s找到本机素材：%s[/color]" % [VIDEO_LOG_PREFIX, source])
 	if source.get_extension().to_lower() == "ogv":
 		return source
-	var dest_os: String = ProjectSettings.globalize_path(USER_CACHE_OGV)
-	if FileAccess.file_exists(USER_CACHE_OGV):
-		var src_mtime: int = FileAccess.get_modified_time(source)
-		var dst_mtime: int = FileAccess.get_modified_time(USER_CACHE_OGV)
-		if dst_mtime >= src_mtime:
-			print_verbose("%s chroma-ready cache hit: %s" % [VIDEO_LOG_PREFIX, USER_CACHE_OGV])
-			return USER_CACHE_OGV
-	if _run_ffmpeg_theora(source, dest_os):
+	var dest_res: String = ProjectSettings.globalize_path(VIDEO_PATH)
+	var dest_user: String = ProjectSettings.globalize_path(USER_CACHE_OGV)
+	var src_mtime: int = FileAccess.get_modified_time(source)
+	if FileAccess.file_exists(VIDEO_PATH) and FileAccess.get_modified_time(VIDEO_PATH) >= src_mtime:
+		print_verbose("%s project ogv is newer than %s" % [VIDEO_LOG_PREFIX, source])
+		return VIDEO_PATH
+	if FileAccess.file_exists(USER_CACHE_OGV) and FileAccess.get_modified_time(USER_CACHE_OGV) >= src_mtime:
+		print_verbose("%s chroma-ready cache hit: %s" % [VIDEO_LOG_PREFIX, USER_CACHE_OGV])
+		return USER_CACHE_OGV
+	if _run_ffmpeg_theora(source, dest_res):
+		print_rich("[color=#54d18c]%s已转码 steve3 -> %s[/color]" % [VIDEO_LOG_PREFIX, VIDEO_PATH])
+		return VIDEO_PATH
+	if _run_ffmpeg_theora(source, dest_user):
 		print_rich("[color=#54d18c]%s已转码绿幕视频 -> %s[/color]" % [VIDEO_LOG_PREFIX, USER_CACHE_OGV])
 		return USER_CACHE_OGV
 	print_rich("[color=#ffcc66]%sFFmpeg 转码失败，回落到仓库里的 .ogv。[/color]" % VIDEO_LOG_PREFIX)
@@ -569,9 +574,11 @@ func _ingest_desktop_source() -> String:
 func _find_desktop_source() -> String:
 	var names: PackedStringArray = PackedStringArray([
 		GameData.USER_VIDEO_FILE,
+		"Steve3.mp4",
+		"steve3.ogv",
+		"Steve3.ogv",
+		"Steve1.mp4",
 		"steve1.mp4",
-		"Steve1.ogv",
-		"steve1.ogv",
 	])
 	for file_name: String in names:
 		var path: String = GameData.first_existing_file(file_name)
@@ -641,7 +648,7 @@ func _convert_hint(source_path: String) -> String:
 	var source: String = "%s/%s" % [GameData.USER_PROJECT_DIR, GameData.USER_VIDEO_FILE]
 	var lead: String = "Godot 4 只能播 Ogg Theora（.ogv），用 FFmpeg 把绿幕 mp4 转一次："
 	if source_path == VIDEO_PATH:
-		lead = "Godot 4 只能播 Ogg Theora（.ogv）。请把仓库根目录的 Steve1.mp4 转成 steve.ogv："
+		lead = "Godot 4 只能播 Ogg Theora（.ogv）。请把仓库根目录的 steve3.mp4 转成 steve.ogv："
 	elif not source_path.is_empty():
 		source = source_path
 		if source.begins_with("res://") or source.begins_with("user://"):
@@ -754,7 +761,7 @@ func _warn_if_stub_video(path: String) -> void:
 	file.close()
 	if byte_count <= 0 or byte_count > STUB_VIDEO_MAX_BYTES:
 		return
-	print_rich("[color=#ffcc66]%s  Detected placeholder video (%d bytes). Please double-click convert_video.bat in the project folder to convert your Steve1.mp4 to steve.ogv, then press F5 again.[/color]" % [
+	print_rich("[color=#ffcc66]%s  Detected placeholder video (%d bytes). Please double-click convert_video.bat to convert steve3.mp4 to assets/videos/steve.ogv, then press F5 again.[/color]" % [
 		VIDEO_LOG_PREFIX, byte_count,
 	])
 

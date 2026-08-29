@@ -88,7 +88,7 @@ const ITEM_CARD_SIZE: Vector2 = Vector2(100.0, 118.0)
 const USER_PROJECT_DIR: String = "C:/Users/ASUS/My-Bro-J"
 const USER_PROJECT_DIR_WSL: String = "/mnt/c/Users/ASUS/My-Bro-J"
 const USER_DESKTOP_DIR: String = "C:/Users/ASUS/Desktop"
-const USER_VIDEO_FILE: String = "Steve1.mp4"
+const USER_VIDEO_FILE: String = "steve3.mp4"
 const USER_DRYER_FILE: String = "dryer.jpg"
 const USER_STEVE2_FILE: String = "Steve2.jpg"
 

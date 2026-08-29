@@ -282,7 +282,7 @@ PetVisual (Control, IGNORE)
 运行时 `_setup_pet_video()` 仍会校验，失败才把占位图打开。全过程无条件打印
 `[Steve/Video]` 日志（不用加 `--petlog`）：
 
-1. **找文件**：`C:/Users/ASUS/My-Bro-J/Steve1.mp4`（或双击根目录 `convert_video.bat` 写成 `assets/videos/steve.ogv`）
+1. **找文件**：`C:/Users/ASUS/My-Bro-J/steve3.mp4`（或双击根目录 `convert_video.bat` 写成 `assets/videos/steve.ogv`）
    → 否则 `FileAccess.file_exists(res://assets/videos/steve.ogv)` → 否则场景 stream
    → 否则取目录下第一个 `.ogv`。
 2. **体检文件头**：Ogg 必须以 `OggS` 开头。识别 MP4/MOV（`ftyp`）、Matroska/WebM
