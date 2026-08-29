@@ -1,0 +1,11 @@
+{
+  "name": "SunBro Desktop Pet (Godot 4.7.2)",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "terminals": [
+    {
+      "name": "sunbro-pet",
+      "command": "export DISPLAY=:1; for i in $(seq 1 30); do xdpyinfo >/dev/null 2>&1 && break; sleep 1; done; exec godot --path /workspace -- --petlog"
+    }
+  ]
+}
