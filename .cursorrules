@@ -68,7 +68,11 @@
 - 根 `Control` 不得放置不透明的 `ColorRect` / `Panel` 铺满全屏，否则窗口不再透明。
 - 需要 `get_window().transparent_bg = true` 配合 `display/window/per_pixel_transparency/allowed=true`。
 - 装饰性节点（纯展示）设置 `mouse_filter = Control.MOUSE_FILTER_IGNORE`，避免吃掉拖拽输入。
-- 内置默认字体不含中文字形，场景内 `Label` 的可见文本使用英文/数字；中文只写在注释与文档里。
+- 中文字体已接入（`assets/fonts/NotoSansSC-Regular-Subset.ttf` + 主题 `assets/fonts/sun_pet_theme.tres`），
+ UI 文本直接写中文。主题同时挂在 `project.godot` 的 `gui/theme/custom` 与主场景根节点 `theme` 上，
+ 新增 `Label` / `Button` 直接继承即可，**不要**再逐节点 `theme_override_fonts/font` 设字体；
+ 需要差异化样式时用主题里的类型变体（`theme_type_variation = &"RiskButton"` 等）。
+ 若新文案出现方块，说明字体子集缺字，按 `assets/fonts/README.md` 的脚本重新生成子集。
 
 ## 6. 自动化要求
 
