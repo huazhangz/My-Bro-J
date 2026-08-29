@@ -1,21 +1,24 @@
 # 中文字体说明
 
-## NotoSansSC-Regular-Subset.ttf
+## GlowSansSC-Regular-Subset.otf
+
+圆体 UI 字体（思源黑体圆角衍生 **Glow Sans SC / 未来荧黑** Regular 的 GB2312 子集）。
 
 | 项 | 内容 |
 |----|------|
-| 原字体 | Noto Sans SC（思源黑体 简体中文），Google Fonts 可变字体 `NotoSansSC[wght].ttf` |
-| 许可 | SIL Open Font License 1.1，全文见同目录 `OFL.txt` |
-| 处理 | 先把可变字重实例化到 `wght=400`（Regular），再按 **GB2312 全字符集**（一级 3755 + 二级 3008 汉字）+ ASCII + 常用中英文标点/符号做子集化 |
-| 体积 | 17.8 MB → **2.3 MB**（仓库友好，同时覆盖日常简体中文 UI 的全部用字） |
+| 原字体 | Glow Sans SC Normal Regular（[welai/glow-sans](https://github.com/welai/glow-sans) v0.93） |
+| 许可 | SIL Open Font License 1.1，见 `GlowSans-OFL.txt`（衍生自 Source Han Sans） |
+| 处理 | 按 **GB2312 全字符集** + ASCII + 常用标点做子集化 |
+| 体积 | 完整 OTF ~9 MB → **约 2.0 MB** |
 
-原始字体来自 <https://github.com/google/fonts/tree/main/ofl/notosanssc>。
+主题 `steve_theme.tres` 的 `default_font` 指向本文件，并挂到
+`project.godot` 的 `gui/theme/custom` 与 `scenes/steve.tscn` 根节点，
+因此 Label / Button / 图鉴弹层 / 右键菜单都走同一套圆体。
 
 ### 重新生成子集（需要 `pip install fonttools brotli`）
 
 ```python
 from fontTools.ttLib import TTFont
-from fontTools.varLib import instancer
 from fontTools import subset
 
 def gb2312_chars() -> str:
@@ -32,8 +35,7 @@ EXTRA = ("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
          " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
          "·×÷—…‘’“”、。《》【】！？：；，（）％￥° ▲▼◆●○★☆→←↑↓")
 
-font = TTFont("NotoSansSC[wght].ttf")
-instancer.instantiateVariableFont(font, {"wght": 400}, inplace=True, updateFontNames=True)
+font = TTFont("GlowSansSC-Normal-Regular.otf")
 options = subset.Options()
 options.layout_features = ["*"]
 options.name_IDs = ["*"]
@@ -42,31 +44,9 @@ options.drop_tables = ["BASE", "vhea", "vmtx", "VORG"]
 sub = subset.Subsetter(options=options)
 sub.populate(text=gb2312_chars() + EXTRA)
 sub.subset(font)
-font.save("NotoSansSC-Regular-Subset.ttf")
+font.save("GlowSansSC-Regular-Subset.otf")
 ```
 
-> 子集只包含 GB2312 范围内的汉字。若之后 UI 出现生僻字显示成方块，
-> 把该字加进 `EXTRA` 重新生成即可（`.ttf.import` 不用动）。
+## steve_theme.tres
 
-## sun_pet_theme.tres
-
-全局 UI 主题，`default_font` 指向上面的字体，同时定义了按钮/面板/进度条样式与
-一组 **类型变体（Type Variation）**：
-
-| 变体 | 基类 | 用途 |
-|------|------|------|
-| `TitleLabel` | Label | 标题（金色 15px） |
-| `SmallLabel` | Label | 次要信息（灰色 11px） |
-| `CoinLabel` | Label | 金币数（金色 14px） |
-| `FloatLabel` | Label | 直接浮在透明桌面上的文字（带 5px 描边） |
-| `SolidPanel` | PanelContainer | 图鉴弹层（不透明 + 金边） |
-| `ChipPanel` | PanelContainer | 跑路冷却提示条 |
-| `RiskButton` | Button | 免费加速（橙，带跑路风险） |
-| `CoinButton` | Button | 付费加速（金） |
-| `CodexButton` | Button | 图鉴 / 换装（紫） |
-| `EquipButton` | Button | 图鉴行内的穿戴按钮（绿） |
-| `CloseButton` | Button | 右上角退出（红） |
-
-主题同时挂在 `project.godot` 的 `gui/theme/custom`（覆盖 Tooltip 等引擎内建 UI）
-与 `scenes/sun_pet.tscn` 根节点的 `theme` 上，因此场景内所有 Label / Button
-都默认使用中文字体，无需逐节点设置。
+全局 UI 主题，类型变体与原先一致（`TitleLabel` / `RiskButton` / `SolidPanel` 等）。

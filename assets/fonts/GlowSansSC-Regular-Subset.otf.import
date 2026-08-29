@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://bvvamtotat4q1"
-path="res://.godot/imported/NotoSansSC-Regular-Subset.ttf-4988845b84cd379d4ab41a76180d6686.fontdata"
+uid="uid://bglowsansstevesc"
+path="res://.godot/imported/GlowSansSC-Regular-Subset.otf-steve.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/NotoSansSC-Regular-Subset.ttf"
-dest_files=["res://.godot/imported/NotoSansSC-Regular-Subset.ttf-4988845b84cd379d4ab41a76180d6686.fontdata"]
+source_file="res://assets/fonts/GlowSansSC-Regular-Subset.otf"
+dest_files=["res://.godot/imported/GlowSansSC-Regular-Subset.otf-steve.fontdata"]
 
 [params]
 

@@ -1,17 +1,17 @@
 [gd_scene load_steps=6 format=3]
 
-[ext_resource type="Script" path="res://scripts/sun_pet.gd" id="1_sunpet"]
-[ext_resource type="Theme" path="res://assets/fonts/sun_pet_theme.tres" id="2_theme"]
+[ext_resource type="Script" path="res://scripts/steve.gd" id="1_steve"]
+[ext_resource type="Theme" path="res://assets/fonts/steve_theme.tres" id="2_theme"]
 [ext_resource type="Shader" path="res://assets/videos/video_key.gdshader" id="3_videokey"]
-[ext_resource type="VideoStreamTheora" path="res://assets/videos/sun_pet.ogv" id="4_ogv"]
+[ext_resource type="VideoStreamTheora" path="res://assets/videos/steve.ogv" id="4_ogv"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_videokey"]
 shader = ExtResource("3_videokey")
-shader_parameter/key_color = Color(1, 1, 1, 1)
+shader_parameter/key_color = Color(0, 1, 0, 1)
 shader_parameter/similarity = 0.35
 shader_parameter/smoothness = 0.1
 
-[node name="SunPet" type="Control"]
+[node name="Steve" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -19,7 +19,11 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 theme = ExtResource("2_theme")
-script = ExtResource("1_sunpet")
+script = ExtResource("1_steve")
+chroma_key_enabled = true
+chroma_key_color = Color(0, 1, 0, 1)
+chroma_key_similarity = 0.35
+chroma_key_smoothness = 0.1
 
 [node name="PetVisual" type="Control" parent="."]
 unique_name_in_owner = true
@@ -35,9 +39,9 @@ mouse_filter = 2
 unique_name_in_owner = true
 layout_mode = 0
 offset_left = 10.0
-offset_top = 98.0
+offset_top = 92.0
 offset_right = 240.0
-offset_bottom = 258.0
+offset_bottom = 332.0
 mouse_filter = 2
 stream = ExtResource("4_ogv")
 volume_db = -80.0
@@ -51,9 +55,9 @@ visible = false
 material = SubResource("ShaderMaterial_videokey")
 layout_mode = 0
 offset_left = 10.0
-offset_top = 98.0
+offset_top = 92.0
 offset_right = 240.0
-offset_bottom = 258.0
+offset_bottom = 332.0
 mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
@@ -175,7 +179,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 theme_type_variation = &"TitleLabel"
-text = "孙哥洗衣店"
+text = "Steve洗衣店"
 vertical_alignment = 1
 
 [node name="CoinLabel" type="Label" parent="UILayer/UIRoot/HudPanel/Rows/HeaderRow"]
@@ -186,14 +190,6 @@ theme_type_variation = &"CoinLabel"
 text = "金币: 0"
 horizontal_alignment = 2
 vertical_alignment = 1
-
-[node name="QuitButton" type="Button" parent="UILayer/UIRoot/HudPanel/Rows/HeaderRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(24, 0)
-layout_mode = 2
-tooltip_text = "退出桌宠"
-theme_type_variation = &"CloseButton"
-text = "×"
 
 [node name="StatusLabel" type="Label" parent="UILayer/UIRoot/HudPanel/Rows"]
 unique_name_in_owner = true
@@ -249,47 +245,53 @@ text = ""
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="ButtonBar" type="VBoxContainer" parent="UILayer/UIRoot"]
+[node name="ContextMenu" type="PanelContainer" parent="UILayer/UIRoot"]
 unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 12
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 6.0
-offset_top = -66.0
-offset_right = -6.0
-offset_bottom = -6.0
-grow_horizontal = 2
-grow_vertical = 0
-mouse_filter = 2
+visible = false
+z_index = 20
+layout_mode = 0
+offset_left = 16.0
+offset_top = 120.0
+offset_right = 178.0
+offset_bottom = 268.0
+theme_type_variation = &"SolidPanel"
+
+[node name="ButtonBar" type="VBoxContainer" parent="UILayer/UIRoot/ContextMenu"]
+unique_name_in_owner = true
+layout_mode = 2
 theme_override_constants/separation = 5
 
-[node name="SpeedRow" type="HBoxContainer" parent="UILayer/UIRoot/ButtonBar"]
+[node name="SpeedRow" type="HBoxContainer" parent="UILayer/UIRoot/ContextMenu/ButtonBar"]
 layout_mode = 2
-mouse_filter = 2
 theme_override_constants/separation = 6
 
-[node name="FreeSpeedButton" type="Button" parent="UILayer/UIRoot/ButtonBar/SpeedRow"]
+[node name="FreeSpeedButton" type="Button" parent="UILayer/UIRoot/ContextMenu/ButtonBar/SpeedRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"RiskButton"
 text = "免费加速"
 
-[node name="PaidSpeedButton" type="Button" parent="UILayer/UIRoot/ButtonBar/SpeedRow"]
+[node name="PaidSpeedButton" type="Button" parent="UILayer/UIRoot/ContextMenu/ButtonBar/SpeedRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"CoinButton"
 text = "付费加速"
 
-[node name="CodexOpenButton" type="Button" parent="UILayer/UIRoot/ButtonBar"]
+[node name="CodexOpenButton" type="Button" parent="UILayer/UIRoot/ContextMenu/ButtonBar"]
 unique_name_in_owner = true
 layout_mode = 2
-tooltip_text = "查看已解锁的内裤品质，并切换孙哥的展示装扮"
+tooltip_text = "查看已解锁的内裤品质，并切换 Steve 的展示装扮"
 theme_type_variation = &"CodexButton"
 text = "图鉴 / 换装"
+
+[node name="QuitButton" type="Button" parent="UILayer/UIRoot/ContextMenu/ButtonBar"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "退出桌宠"
+theme_type_variation = &"CloseButton"
+text = "退出"
 
 [node name="RunawayBanner" type="PanelContainer" parent="UILayer/UIRoot"]
 unique_name_in_owner = true
@@ -314,7 +316,7 @@ theme_type_variation = &"ChipPanel"
 unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 2
-text = "孙哥跑路中 CD: 0s"
+text = "Steve跑路中 CD: 0s"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -360,7 +362,7 @@ mouse_filter = 2
 layout_mode = 2
 mouse_filter = 2
 theme_type_variation = &"SmallLabel"
-text = "品质越高，孙哥跑路后的冷却越短"
+text = "品质越高，Steve 跑路后的冷却越短"
 autowrap_mode = 3
 
 [node name="CodexCdLabel" type="Label" parent="UILayer/UIRoot/CodexPanel/Rows"]

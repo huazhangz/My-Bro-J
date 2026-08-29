@@ -2,9 +2,9 @@ extends Node
 
 ## 全局数据单例（Autoload 名称：GameData）
 ##
-## 集中存放《孙哥桌宠小游戏》的所有数值常量与运行时数据：
+## 集中存放《Steve 桌宠小游戏》的所有数值常量与运行时数据：
 ## 洗涤/晾干时长、仓库上限、品质枚举与掉率、品质 CD 缩减系数、代币、图鉴。
-## 业务脚本（sun_pet.gd 等）不得自行硬编码这些数值。
+## 业务脚本（steve.gd 等）不得自行硬编码这些数值。
 
 # --- 品质 -----------------------------------------------------------------
 
@@ -65,7 +65,7 @@ const WAREHOUSE_CAPACITY: int = 10
 
 ## 跑路冷却基础秒数（未穿戴任何内裤时的冷却）。
 const RUNAWAY_BASE_COOLDOWN: float = 120.0
-## 免费加速触发「孙哥跑路」的概率。
+## 免费加速触发「Steve 跑路」的概率。
 const FREE_SPEEDUP_RUNAWAY_CHANCE: float = 0.25
 ## 免费加速成功时直接扣掉的洗涤秒数。
 const FREE_SPEEDUP_SECONDS: float = 15.0

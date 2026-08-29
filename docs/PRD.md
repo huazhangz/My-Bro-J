@@ -1,4 +1,4 @@
-# 孙哥桌宠小游戏 · 产品需求文档 (PRD)
+# Steve 桌宠小游戏 · 产品需求文档 (PRD)
 
 > Steam Project · 单机基础版
 > 引擎：Godot Engine **4.7.2 stable** · 语言：GDScript (Godot 4.x 语法)
@@ -9,12 +9,12 @@
 ## 一、项目定位
 
 2D Idle / 放置类**桌面悬浮窗**小游戏（桌宠）。窗口透明、无边框、总在最前，
-常驻桌面右下角，可用鼠标左键任意拖拽。玩家离线挂机看孙哥自动洗内裤，
+常驻桌面右下角，可用鼠标左键任意拖拽。玩家离线挂机看 Steve 自动洗内裤，
 收集不同品质的内裤图鉴，用代币或"免费加速（带跑路风险）"推进循环。
 
 - 渲染后端：`gl_compatibility`（兼容老显卡，2D 小游戏够用）
 - 窗口尺寸：**250 × 350**
-- 主场景：`res://scenes/sun_pet.tscn`
+- 主场景：`res://scenes/steve.tscn`
 
 ---
 
@@ -22,15 +22,15 @@
 
 | # | 功能 | 说明 | 状态 |
 |---|------|------|------|
-| 1 | 基础洗涤循环 | 孙哥自动洗内裤，正常速度 **45 秒 / 条** | ✅ 已实现 |
+| 1 | 基础洗涤循环 | Steve 自动洗内裤，正常速度 **45 秒 / 条** | ✅ 已实现 |
 | 2 | 自动晾干机制 | 洗完的内裤放置 **60 秒**后自动晾干进收藏 | ✅ 已实现 |
 | 3 | 仓库存储上限 | 未晾干内裤进仓库，容量 **10**，满后暂停洗涤，有空位自动恢复 | ✅ 已实现 |
 | 4 | 品质与收藏图鉴 | 普通 / 稀有 / 史诗 / 大红(传说)，大红带特效 | ✅ 数据层 + 图鉴弹层完成，特效待做 (Day 4) |
 | 5 | 付费加速 | 消耗 **10 金币**强行洗完当前这一条，无风险 | ✅ 已实现 |
-| 6 | 免费加速与风险触发 | 有概率触发"孙哥随机跑路" | ✅ 已实现 |
+| 6 | 免费加速与风险触发 | 有概率触发"Steve 随机跑路" | ✅ 已实现 |
 | 7 | 跑路与冷却机制 | 跑路后隐藏桌宠 + 冷却倒计时，结束后自动回归 | ✅ 已实现 |
-| 8 | 换装与展示 | 选择已解锁品质给孙哥穿上展示 | 🟡 图鉴换装 UI 完成，换装立绘待做 (Day 4) |
-| 11 | 动态立绘 | `VideoStreamPlayer` 循环播放孙哥视频，跑路时隐藏并暂停 | ✅ 已实现（需自备 `.ogv` 素材） |
+| 8 | 换装与展示 | 选择已解锁品质给 Steve 穿上展示 | 🟡 图鉴换装 UI 完成，换装立绘待做 (Day 4) |
+| 11 | 动态立绘 | `VideoStreamPlayer` 循环播放 Steve 视频，跑路时隐藏并暂停 | ✅ 已实现（需自备 `.ogv` 素材） |
 | 9 | 品质 CD 缩减算法 | 穿戴品质越高，跑路冷却缩减越多 | ✅ 已实现 |
 | 10 | 本地持久化 | `save_data.json` 存读档 | ⬜ 待做 (Day 5)，`GameData` 已预留序列化接口 |
 
@@ -108,7 +108,7 @@ GameData.get_calculated_cooldown(base_seconds := 120.0, quality := 当前穿戴)
 | 史诗 | 30.5% | 83.40 s |
 | 大红 | 50.5% | 59.40 s |
 
-### 3.5 洗涤状态机（`sun_pet.gd`）
+### 3.5 洗涤状态机（`steve.gd`）
 
 ```
         ┌──────────────► WASHING ◄──────────────┐
@@ -148,7 +148,7 @@ window/size/always_on_top=true
 window/per_pixel_transparency/allowed=true
 ```
 
-运行时 `sun_pet.gd::_apply_window_setup()` 再次以 `DisplayServer` 兜底设置
+运行时 `steve.gd::_apply_window_setup()` 再次以 `DisplayServer` 兜底设置
 `WINDOW_FLAG_TRANSPARENT / BORDERLESS / ALWAYS_ON_TOP`，并设 `get_window().transparent_bg = true`，
 最后把窗口摆到屏幕右下角。
 
@@ -178,10 +178,10 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 
 | 项 | 内容 |
 |----|------|
-| 字体 | `assets/fonts/NotoSansSC-Regular-Subset.ttf`（Noto Sans SC / 思源黑体，OFL 1.1） |
-| 处理 | 可变字重实例化到 `wght=400`，再按 **GB2312 全字符集 + ASCII + 常用标点**子集化：17.8 MB → 2.3 MB |
-| 主题 | `assets/fonts/sun_pet_theme.tres`，`default_font` 指向该字体 |
-| 挂载 | `project.godot` → `gui/theme/custom`（覆盖 Tooltip 等引擎内建 UI）+ `sun_pet.tscn` 根节点 `theme` |
+| 字体 | `assets/fonts/GlowSansSC-Regular-Subset.otf`（Glow Sans SC / 未来荧黑（圆体），OFL 1.1） |
+| 处理 | 按 **GB2312 全字符集 + ASCII + 常用标点**子集化：完整 OTF ~9 MB → **约 2.0 MB** |
+| 主题 | `assets/fonts/steve_theme.tres`，`default_font` 指向该字体 |
+| 挂载 | `project.godot` → `gui/theme/custom`（覆盖 Tooltip 等引擎内建 UI）+ `steve.tscn` 根节点 `theme` |
 
 因此**新增任何 Label / Button 都自动是中文字体**，不需要逐节点 `theme_override_fonts/font`。
 主题内还定义了一组类型变体（`TitleLabel` / `SmallLabel` / `CoinLabel` / `FloatLabel` /
@@ -194,20 +194,21 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 全部 UI 挂在 `UILayer (CanvasLayer)` 下，与桌宠立绘分层，互不干扰：
 
 - **HudPanel**（顶部半透明圆角面板，`MOUSE_FILTER_IGNORE`，不吃拖拽）
-  - 标题「孙哥洗衣店」 + **代币** `金币: 37` + 右上角 `×` 退出按钮
-  - **状态倒计时**：`正在洗涤 32s` / `已暂停 - 仓库已满` / `孙哥跑路中 CD: 85s`
+  - 标题「Steve洗衣店」+ 代币；加速/退出改到立绘右键菜单
+  - **状态倒计时**：`正在洗涤 32s` / `已暂停 - 仓库已满` / `Steve跑路中 CD: 85s`
   - 洗涤进度条（`max_value = WASH_DURATION`）
   - **仓库挂起** `未晾干: 3/10` + `图鉴 4 · 已穿 史诗`
 - **ToastLabel**：底部飘字反馈（洗出/晾干/加速成功/跑路/金币不足…），停留 1.1s 后淡出
-- **ButtonBar**
+- **ContextMenu**（默认隐藏）：立绘上 **右键** 弹出，点菜单外关闭
   - `免费加速`（橙）：`-15s`，**25% 概率触发跑路**
   - `付费加速 10币`（金）：扣 10 金币**立刻洗完**当前这一条；金币不足时按钮自动置灰
   - `图鉴 / 换装`（紫）：打开图鉴弹层
+  - `退出`：结束进程
 - **CodexPanel**（图鉴弹层，默认隐藏）：按 `GameData.Quality` **动态生成**每个品质一行
   （`● 品质名` / `收藏 n · 累计 m` / `穿戴｜已穿戴｜未解锁`），底部显示
   `当前跑路冷却: 82s（减免 32%）`，另有「脱下」「关闭」
 - **RunawayBanner**：跑路期间隐藏桌宠与全部按钮、开启整窗鼠标穿透，
-  只留一条半透明冷却提示条，让玩家知道孙哥什么时候回来
+  只留一条半透明冷却提示条，让玩家知道 Steve 什么时候回来
 
 ### 5.3 信号 → UI 绑定
 
@@ -218,10 +219,10 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 | `coins_changed` | 金币 Label、付费加速按钮可用态 |
 | `warehouse_changed` | `未晾干: n/10`，并触发 `_try_resume_wash()` |
 | `collection_changed` | `图鉴 n`、图鉴弹层各行收藏数与 CD 文本 |
-| `equipped_changed` | `已穿 xx`、孙哥身上的品质色补丁、图鉴行按钮态 |
+| `equipped_changed` | `已穿 xx`、立绘上的品质色补丁、图鉴行按钮态 |
 | `item_washed` | 品质闪光 + 飘字「洗出【稀有】内裤」 |
 | `item_dried` | 品质闪光 + 飘字「晾干【稀有】 +3 金币」 |
-| 每帧 `_process` | `正在洗涤 xxs` / `孙哥跑路中 CD: xxs` 与洗涤进度条 |
+| 每帧 `_process` | `正在洗涤 xxs` / `Steve跑路中 CD: xxs` 与洗涤进度条 |
 
 ---
 
@@ -238,21 +239,21 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 
 ```
 PetVisual (Control, IGNORE)
-├── PetVideo (VideoStreamPlayer, IGNORE)   # stream 直接挂 sun_pet.ogv，编辑器可预览
+├── PetVideo (VideoStreamPlayer, IGNORE)   # stream 直接挂 steve.ogv，编辑器可预览
 ├── PetFrame (TextureRect, IGNORE, 默认隐藏)  # 色度键：喂 get_video_texture()
 ├── PlaceholderVisual (Control, IGNORE, 默认隐藏)  # 仅运行时校验失败才打开
 │   └── Head / EyeLeft / EyeRight / Body / Basin
 └── EquippedMark (ColorRect, IGNORE)       # 换装色块，视频模式下贴到立绘底部
 ```
 
-`PetVideo.stream` **在场景里直接挂** `res://assets/videos/sun_pet.ogv`（`VideoStreamTheora`），
+`PetVideo.stream` **在场景里直接挂** `res://assets/videos/steve.ogv`（`VideoStreamTheora`），
 编辑器视口就能预览视频帧；`PlaceholderVisual` 默认 `visible = false`。
 运行时 `_setup_pet_video()` 仍会校验，失败才把占位图打开。全过程无条件打印
-`[SunPet/Video]` 日志（不用加 `--petlog`）：
+`[Steve/Video]` 日志（不用加 `--petlog`）：
 
-1. **找文件**：场景里连了 `stream` 就用它 → 否则 `FileAccess.file_exists(sun_pet.ogv)`
-   → 否则取目录下第一个 `.ogv`。用 `FileAccess` 而不是 `ResourceLoader.exists()`
-   判断存在性，因为文件刚拷进来、编辑器还没重新扫描时资源系统里查不到它。
+1. **找文件**：`C:/Users/ASUS/Desktop/Steve1.mp4`（存在则 FFmpeg 转 `user://steve.ogv`）
+   → 否则 `FileAccess.file_exists(res://assets/videos/steve.ogv)` → 否则场景 stream
+   → 否则取目录下第一个 `.ogv`。
 2. **体检文件头**：Ogg 必须以 `OggS` 开头。识别 MP4/MOV（`ftyp`）、Matroska/WebM
    （`1A 45 DF A3`）、AVI（`RIFF`）、FLV，直接点名「这其实是 XX 容器，只是改了扩展名」。
 3. **加载**：`ResourceLoader.load(path, "VideoStream", CACHE_MODE_REPLACE)`
@@ -282,7 +283,7 @@ PetVisual (Control, IGNORE)
 
 | 事项 | 处理 |
 |------|------|
-| 可用区域 | `VIDEO_AREA = Rect2(10, 98, 230, 160)`，夹在 HUD 面板与按钮栏之间 |
+| 可用区域 | `VIDEO_AREA = Rect2(10, 92, 230, 240)`，HUD 以下铺满 |
 | 缩放 | 第一帧解出后按视频宽高比在该区域内**居中内接**（`_fit_video_rect()`），不拉伸变形 |
 | 拖拽 | `PetVideo.mouse_filter = IGNORE`，点击穿到根 `Control` 的 `_gui_input`，拖拽逻辑零改动 |
 | 鼠标穿透 | 跑路时仍走原有的 `WINDOW_FLAG_MOUSE_PASSTHROUGH`，视频不参与输入 |
@@ -306,8 +307,8 @@ Theora **没有 Alpha 通道**，视频必然是一块不透明矩形。项目�
 
 | 参数 | 默认 | 说明 |
 |------|------|------|
-| `chroma_key_enabled` | `false` | 开关色度键处理 |
-| `chroma_key_color` / `key_color` | `#FFFFFF` | 要抠掉的颜色（白 / 绿 `#00FF00` / 黑 `#000000`） |
+| `chroma_key_enabled` | `true` | 默认开启绿幕抠像 |
+| `chroma_key_color` / `key_color` | `#00FF00` | 绿幕；也可改白 `#FFFFFF` / 黑 `#000000` |
 | `chroma_key_similarity` | `0.35` | 颜色容差（建议 0.3–0.4） |
 | `chroma_key_smoothness` | `0.10` | 边缘羽化，避免锯齿 |
 
@@ -326,20 +327,20 @@ My-Bro-J/
 ├── .cursorrules            # AI 编码规则（强制 Godot 4.x 语法、DisplayServer、闭包信号）
 ├── .gitignore              # 忽略 .godot/ 导入缓存与导出产物
 ├── scenes/
-│   └── sun_pet.tscn        # 主场景：根节点 Control，全屏铺满，背景全透明
+│   └── steve.tscn        # 主场景：根节点 Control，全屏铺满，背景全透明
 ├── scripts/
-│   ├── sun_pet.gd          # 窗口拖拽 + 洗涤/晾干/跑路状态机 + 中文 UI 绑定
+│   ├── steve.gd          # 窗口拖拽 + 洗涤/晾干/跑路状态机 + 中文 UI 绑定
 │   └── GameData.gd         # 全局数据单例（常量、仓库、图鉴、CD 算法、存档接口）
 ├── assets/
 │   ├── icon.svg            # 应用图标
-│   ├── images/             # 孙哥立绘、内裤贴图（Day 4）
+│   ├── images/             # Steve 立绘、内裤贴图（Day 4）
 │   ├── fonts/
-│   │   ├── NotoSansSC-Regular-Subset.ttf  # 中文字体（GB2312 子集，2.3 MB）
-│   │   ├── sun_pet_theme.tres             # 全局 UI 主题（字体 + 按钮/面板样式）
+│   │   ├── GlowSansSC-Regular-Subset.otf  # 中文字体（GB2312 子集，2.3 MB）
+│   │   ├── steve_theme.tres             # 全局 UI 主题（字体 + 按钮/面板样式）
 │   │   ├── OFL.txt                        # 字体许可（SIL OFL 1.1）
 │   │   └── README.md                      # 字体来源与子集重生成脚本
 │   └── videos/
-│       ├── sun_pet.ogv                    # 动态立绘视频（需自备，Ogg Theora）
+│       ├── steve.ogv                    # 动态立绘视频（需自备，Ogg Theora）
 │       ├── video_key.gdshader             # 视频抠像着色器（Theora 无 Alpha）
 │       └── README.md                      # mp4 -> ogv 转换命令与抠像说明
 └── docs/
@@ -349,9 +350,9 @@ My-Bro-J/
 场景节点树：
 
 ```
-SunPet (Control, 铺满窗口, MOUSE_FILTER_STOP —— 负责接收拖拽, theme = sun_pet_theme)
+Steve (Control, 铺满窗口, MOUSE_FILTER_STOP —— 负责接收拖拽, theme = steve_theme)
 ├── PetVisual (Control, IGNORE)
-│   ├── PetVideo (VideoStreamPlayer)     # stream = sun_pet.ogv，autoplay + loop + expand
+│   ├── PetVideo (VideoStreamPlayer)     # stream = steve.ogv，autoplay + loop + expand
 │   ├── PetFrame (TextureRect)           # 色度键抠像，默认隐藏
 │   ├── PlaceholderVisual (Control)      # 默认隐藏，仅校验失败才显示
 │   │   └── Head / EyeLeft / EyeRight / Body / Basin (ColorRect)
@@ -361,14 +362,13 @@ SunPet (Control, 铺满窗口, MOUSE_FILTER_STOP —— 负责接收拖拽, them
     └── UIRoot (Control, IGNORE)
         ├── HudPanel (PanelContainer, IGNORE)
         │   └── Rows (VBox)
-        │       ├── HeaderRow: TitleLabel / CoinLabel / QuitButton
+        │       ├── HeaderRow: TitleLabel / CoinLabel
         │       ├── StatusLabel            # 正在洗涤 32s
         │       ├── WashBar (ProgressBar)
         │       └── InfoRow: WarehouseLabel / EquippedLabel
         ├── ToastLabel (Label, IGNORE)     # 底部飘字反馈
-        ├── ButtonBar (VBox)
-        │   ├── SpeedRow: FreeSpeedButton / PaidSpeedButton
-        │   └── CodexOpenButton
+        ├── ContextMenu (PanelContainer, 默认隐藏)
+        │   └── ButtonBar: 免费加速 / 付费加速 / 图鉴 / 退出
         ├── RunawayBanner (PanelContainer) # 跑路期间唯一可见的冷却提示条
         └── CodexPanel (PanelContainer)    # 图鉴 / 换装弹层，行由脚本动态生成
 ```
@@ -382,16 +382,18 @@ SunPet (Control, 铺满窗口, MOUSE_FILTER_STOP —— 负责接收拖拽, them
 
 | 操作 | 效果 |
 |------|------|
-| 在桌宠/空白处按住左键拖动 | 移动桌宠窗口（按在按钮上不会误拖） |
-| 点「免费加速」 | `-15s`，25% 概率孙哥跑路 |
-| 点「付费加速 10币」 | 扣 10 金币立刻洗完当前这条；金币不足时按钮置灰 |
-| 点「图鉴 / 换装」 | 打开图鉴弹层，穿戴/脱下已解锁品质 |
-| 点右上角 `×` | 退出程序（无边框窗口没有系统关闭按钮） |
-| `ESC` | 图鉴开着时先关图鉴，否则退出程序 |
-| `空格` | 调试快捷键，等价于点一次「免费加速」 |
-| 命令行加 `-- --petlog` | 输出状态机日志，便于无 UI 调试 |
+| 在桌宠/空白处按住左键拖动 | 移动桌宠窗口 |
+| 在立绘上右键 | 打开上下文菜单 |
+| 菜单「免费加速」 | `-15s`，25% 概率 Steve 跑路 |
+| 菜单「付费加速 10币」 | 扣 10 金币立刻洗完当前这条 |
+| 菜单「图鉴 / 换装」 | 打开图鉴弹层 |
+| 菜单「退出」 | 退出程序 |
+| 点击菜单外 | 关闭上下文菜单 |
+| `ESC` | 先关菜单，再关图鉴，否则退出 |
+| `空格` | 调试快捷键，等价于「免费加速」 |
+| 命令行加 `-- --petlog` | 输出状态机日志 |
 
-> 鼠标右键退出已移除，改为右上角 `×`，避免误触把桌宠关掉。
+> 洗涤/闲置时画面上不常驻交互按钮，避免挡住立绘。
 
 ---
 
@@ -400,7 +402,7 @@ SunPet (Control, 铺满窗口, MOUSE_FILTER_STOP —— 负责接收拖拽, them
 - [x] **Day 1**：透明无边框窗口配置 + 桌面悬浮窗基础搭建 + 鼠标拖拽移动功能
   - [x] `project.godot` 写入 transparent / borderless / always_on_top / per_pixel_transparency
   - [x] 视口尺寸 250×350
-  - [x] `sun_pet.tscn` 根节点改为 `Control`，铺满窗口，背景完全透明
+  - [x] `steve.tscn` 根节点改为 `Control`，铺满窗口，背景完全透明
   - [x] 基于 `DisplayServer.mouse_get_position()` + `window_set_position()` 的拖拽
   - [x] 修复 "无法移动" / "embedded can't be moved"（禁用编辑器内嵌 + 运行时检测提示）
 - [x] **Day 2**：核心数据单例 (`GameData.gd`) + 洗涤/晾干状态机逻辑
@@ -414,22 +416,22 @@ SunPet (Control, 铺满窗口, MOUSE_FILTER_STOP —— 负责接收拖拽, them
   - [x] `trigger_free_speedup()`：概率跑路（隐藏窗口 + 进 CD）/ 成功加速
   - [x] 引擎实跑验证：45s 出货、60s 晾干、容量上限 10、CD 缩减数值全部正确
 - [x] **Day 3**：桌面 UI 控件搭建（加速按钮、仓库/图鉴界面、代币显示）
-  - [x] 接入中文字体：Noto Sans SC 子集化到 2.3 MB，OFL 许可随仓库提交
-  - [x] `sun_pet_theme.tres` 主题（字体 + 按钮/面板/进度条样式 + 11 个类型变体），
+  - [x] 接入中文字体：Glow Sans SC 圆体子集化到约 2.0 MB，OFL 许可随仓库提交
+  - [x] `steve_theme.tres` 主题（字体 + 按钮/面板/进度条样式 + 11 个类型变体），
         挂到 `gui/theme/custom` 与场景根节点，全场景 Label / Button 默认中文
   - [x] `CanvasLayer` 悬浮 UI 层，与桌宠立绘分层，面板 `MOUSE_FILTER_IGNORE` 不吃拖拽
   - [x] 代币 Label：`金币: 37`，随 `coins_changed` 刷新
-  - [x] 状态与倒计时 Label：`正在洗涤 32s` / `已暂停 - 仓库已满` / `孙哥跑路中 CD: 85s`
+  - [x] 状态与倒计时 Label：`正在洗涤 32s` / `已暂停 - 仓库已满` / `Steve跑路中 CD: 85s`
   - [x] 仓库挂起 Label `未晾干: 3/10` + 洗涤进度条
   - [x] 免费加速按钮（25% 跑路风险）、付费加速按钮（10 金币强行洗完，金币不足自动置灰）
   - [x] 图鉴/换装弹层：按品质动态生成行、收藏/累计数、穿戴/脱下、实时 CD 减免展示
   - [x] 底部飘字反馈（洗出/晾干/加速/跑路/金币不足）与品质闪光
-  - [x] 右上角 `×` 退出按钮，移除易误触的右键退出
+  - [x] 右键上下文菜单承载加速 / 图鉴 / 退出，闲置时不常驻按钮
   - [x] 引擎实跑验证：中文字形零缺失、四种状态文案、信号驱动刷新、满仓暂停与恢复
 - [ ] **Day 4**：换装展示系统 + 跑路冷却与 CD 缩减算法对接
   - [x] `VideoStreamPlayer` 动态立绘：autoplay + loop、宽高比内接、鼠标穿透不影响拖拽、
         跑路隐藏并暂停 / 冷却结束续播、缺素材自动回落几何占位、抠像着色器还原透明背景
-  - [ ] 孙哥立绘美术资源替换 ColorRect 占位
+  - [ ] Steve 立绘美术资源替换 ColorRect 占位
   - [ ] 换装面板调用 `GameData.equip_quality()`
   - [ ] 大红品质特效
   - [ ] 跑路期间的冷却倒计时可视化
@@ -447,6 +449,6 @@ SunPet (Control, 铺满窗口, MOUSE_FILTER_STOP —— 负责接收拖拽, them
 2. 动态立绘需自备 `.ogv` 素材（Godot 4 不支持 mp4 / webm）；仓库里没有素材时
    显示 `ColorRect` 几何占位。Theora 无 Alpha 通道，透明背景要靠抠像着色器。
 3. 跑路时用「隐藏内容 + 整窗鼠标穿透」模拟窗口消失，未真正 `hide()` 主窗口；
-   为了让玩家知道孙哥何时回来，保留一条半透明的 `孙哥跑路中 CD: xxs` 提示条。
+   为了让玩家知道 Steve 何时回来，保留一条半透明的 `Steve跑路中 CD: xxs` 提示条。
 4. 离线收益未结算：条目已存 `dry_deadline` 时间戳，Day 5 读档时按现实时间补算。
 5. 拖拽已 clamp 在 `screen_get_usable_rect()` 内，多显示器场景待 Day 5 实测。

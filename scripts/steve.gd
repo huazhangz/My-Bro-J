@@ -1,12 +1,13 @@
 extends Control
+class_name Steve
 
-## 孙哥桌宠主脚本
+## Steve 桌宠主脚本
 ##
 ## 职责：
 ##   1. 透明无边框窗口的初始化与「全局鼠标坐标」拖拽（Day 1）
 ##   2. 洗涤 / 晾干 / 仓库满暂停 / 跑路冷却 的核心状态机（Day 2）
-##   3. 悬浮中文 UI：代币 / 状态倒计时 / 仓库挂起 / 加速按钮 / 图鉴换装（Day 3）
-##   4. 动态立绘：VideoStreamPlayer 循环播放，跑路时隐藏并暂停（Day 4）
+##   3. 右键菜单：加速 / 图鉴换装 / 退出（Day 3 UI 收进上下文菜单）
+##   4. 动态立绘：VideoStreamPlayer 循环播放绿幕视频 + 色度键（Day 4）
 ##
 ## 窗口移动一律走 DisplayServer，不用 Window.position，
 ## 否则在编辑器内嵌运行时会报 "Embedded windows can't be moved"。
@@ -14,7 +15,7 @@ extends Control
 enum State {
 	WASHING,     # 正在洗涤
 	PAUSED_FULL, # 仓库已满，暂停洗涤
-	RUNAWAY,     # 孙哥跑路中，窗口隐藏 + 冷却倒计时
+	RUNAWAY,     # Steve 跑路中，窗口隐藏 + 冷却倒计时
 }
 
 ## 视频抠像：Ogg Theora **不带 Alpha 通道**，视频会画成一块不透明矩形。
@@ -31,25 +32,26 @@ const TOAST_FADE: float = 0.5
 const CODEX_NAME_WIDTH: int = 54
 const CODEX_BUTTON_WIDTH: int = 56
 
-## 动态立绘视频。Godot 4 只支持 Ogg Theora（`.ogv`），mp4 / webm 必须先转码，
-## 转换命令见 assets/videos/README.md。把文件放到 VIDEO_PATH 就会自动接管几何占位；
-## 文件不存在时回落到占位图形，项目照常能跑，不会报错。
+## 动态立绘视频。Godot 4 只支持 Ogg Theora（`.ogv`），mp4 必须先转码。
+## 优先读取桌面上的绿幕源文件 USER_SOURCE_MP4，用 FFmpeg 转成 user://steve.ogv；
+## 转不了再回落到仓库里的 VIDEO_PATH。
 const VIDEO_DIR: String = "res://assets/videos"
-const VIDEO_PATH: String = "res://assets/videos/sun_pet.ogv"
-## 立绘可用区域（顶部 HUD 与底部按钮栏之间）。视频按自身宽高比在这块区域里
-## 居中内接，不会被拉伸变形，也不会盖住 UI。
-const VIDEO_AREA: Rect2 = Rect2(10.0, 98.0, 230.0, 160.0)
+const VIDEO_PATH: String = "res://assets/videos/steve.ogv"
+const USER_SOURCE_MP4: String = "C:/Users/ASUS/Desktop/Steve1.mp4"
+const USER_CACHE_OGV: String = "user://steve.ogv"
+## 立绘可用区域（顶部 HUD 以下、窗口底部以上）。视频按自身宽高比居中内接。
+const VIDEO_AREA: Rect2 = Rect2(10.0, 92.0, 230.0, 240.0)
 ## 视频有效性宽限帧数。坏流（比如容器合法但没有 Theora 视频轨）play() 之后
 ## is_playing() 照样是 true，只能靠「这么多帧还没解出画面」来判定它其实播不了。
 const VIDEO_PROBE_FRAMES: int = 45
 ## 视频相关日志前缀。这些日志不受 --petlog 控制，F5 就能在输出面板看到。
-const VIDEO_LOG_PREFIX: String = "[SunPet/Video] "
+const VIDEO_LOG_PREFIX: String = "[Steve/Video] "
 ## 仓库自带的占位片很小。超过这个体积就当作用户自己的素材，不再弹「请覆盖」提示。
 const STUB_VIDEO_MAX_BYTES: int = 80000
 
 @export_group("视频立绘 / 色度键")
 ## 打开后把视频帧送到 PetFrame，用着色器抠掉 chroma_key_color。
-@export var chroma_key_enabled: bool = false:
+@export var chroma_key_enabled: bool = true:
 	set(value):
 		chroma_key_enabled = value
 		if is_node_ready():
@@ -57,7 +59,7 @@ const STUB_VIDEO_MAX_BYTES: int = 80000
 			_sync_video_display()
 			_log_chroma_key_state()
 ## 要抠掉的背景色。白底 #FFFFFF、绿幕 #00FF00、黑底 #000000。
-@export var chroma_key_color: Color = Color(1.0, 1.0, 1.0):
+@export var chroma_key_color: Color = Color(0.0, 1.0, 0.0):
 	set(value):
 		chroma_key_color = value
 		if is_node_ready():
@@ -90,6 +92,7 @@ const STUB_VIDEO_MAX_BYTES: int = 80000
 @onready var _equipped_label: Label = %EquippedLabel
 @onready var _toast_label: Label = %ToastLabel
 
+@onready var _context_menu: PanelContainer = %ContextMenu
 @onready var _button_bar: VBoxContainer = %ButtonBar
 @onready var _free_button: Button = %FreeSpeedButton
 @onready var _paid_button: Button = %PaidSpeedButton
@@ -181,10 +184,19 @@ func _apply_window_setup() -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
-	# 只在桌宠自身区域内按下才开始拖拽（UI 按钮会先吃掉自己的点击）。
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event
+		if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
+			if _state != State.RUNAWAY and _is_pointer_on_pet(mb.position):
+				_open_context_menu(mb.position)
+			else:
+				_close_context_menu()
+			accept_event()
+			return
 		if mb.button_index == DRAG_BUTTON and mb.pressed:
+			if _context_menu.visible and _context_menu.get_global_rect().has_point(mb.global_position):
+				return
+			_close_context_menu()
 			_begin_drag()
 			accept_event()
 
@@ -195,14 +207,18 @@ func _input(event: InputEvent) -> void:
 		var mb: InputEventMouseButton = event
 		if mb.button_index == DRAG_BUTTON and not mb.pressed:
 			_dragging = false
+		elif mb.pressed and _context_menu.visible:
+			if not _context_menu.get_global_rect().has_point(mb.global_position):
+				_close_context_menu()
 	elif event is InputEventKey:
 		var key: InputEventKey = event
 		if not key.pressed:
 			return
 		match key.keycode:
 			KEY_ESCAPE:
-				# 图鉴开着时先关图鉴，再按一次才退出。
-				if _codex_panel.visible:
+				if _context_menu.visible:
+					_close_context_menu()
+				elif _codex_panel.visible:
 					_set_codex_visible(false)
 				else:
 					get_tree().quit()
@@ -364,7 +380,7 @@ func _try_resume_wash() -> void:
 # 加速 / 跑路
 # =========================================================================
 
-## 免费加速：有概率触发「孙哥随机跑路」，否则直接减少洗涤倒计时。
+## 免费加速：有概率触发「Steve 随机跑路」，否则直接减少洗涤倒计时。
 ## 返回 true 表示加速成功，false 表示触发了跑路（或当前不在洗涤中）。
 func trigger_free_speedup() -> bool:
 	if _state != State.WASHING:
@@ -390,12 +406,13 @@ func trigger_paid_speedup() -> bool:
 	return true
 
 
-## 孙哥跑路：隐藏桌宠 + 按品质缩减后的冷却时间倒计时。
+## Steve 跑路：隐藏桌宠 + 按品质缩减后的冷却时间倒计时。
 func _trigger_runaway() -> void:
 	_state = State.RUNAWAY
 	_cooldown_remaining = GameData.get_calculated_cooldown()
 	_dragging = false
 	_set_codex_visible(false)
+	_close_context_menu()
 	_set_pet_hidden(true)
 	_log("RUNAWAY! hidden, cooldown=%.1fs (reduction=%.0f%%)" % [
 		_cooldown_remaining,
@@ -410,19 +427,18 @@ func _tick_runaway(delta: float) -> void:
 	_cooldown_remaining = 0.0
 	_set_pet_hidden(false)
 	_log("cooldown over -> pet is back")
-	_show_toast("孙哥回来了", Color(0.55, 1.0, 0.75))
+	_show_toast("Steve回来了", Color(0.55, 1.0, 0.75))
 	_start_wash_cycle()
 
 
-## 跑路期间「隐藏窗口」：藏掉桌宠与全部可交互 UI，并开启鼠标穿透，
-## 使窗口在视觉与交互上都等于消失（不用 minimize，避免抢占任务栏焦点）。
-## 只保留一条半透明的冷却提示条，让玩家知道孙哥什么时候回来。
+## 跑路期间「隐藏窗口」：藏掉桌宠与 HUD，并开启鼠标穿透。
+## 只保留一条半透明的冷却提示条。
 ## 参数别叫 hidden：那是 CanvasItem 自带的信号名，会被 GDScript 判成遮蔽。
 func _set_pet_hidden(hide_pet: bool) -> void:
 	_pet_visual.visible = not hide_pet
 	_set_video_playing(not hide_pet)
 	_hud_panel.visible = not hide_pet
-	_button_bar.visible = not hide_pet
+	_close_context_menu()
 	_toast_label.visible = not hide_pet
 	_quality_flash.visible = false
 	_runaway_banner.visible = hide_pet
@@ -459,7 +475,7 @@ func _setup_pet_video() -> void:
 			_convert_hint(path))
 		return
 
-	# 场景里已经把 sun_pet.ogv 赋给 stream（编辑器预览用）。路径没变就沿用，
+	# 场景里已经把 steve.ogv 赋给 stream（编辑器预览用）。路径没变就沿用，
 	# 避免 F5 时再 load 一次把播放器冲掉。
 	if _pet_video.stream != stream:
 		_pet_video.stream = stream
@@ -503,21 +519,71 @@ func _on_video_finished() -> void:
 		_pet_video.play()
 
 
-## 优先用场景里挂好的 stream（编辑器预览那份），再退到约定文件名 / 目录扫描。
+## 优先吃桌面上的 Steve1.mp4（转成 Theora），再退到仓库 .ogv / 场景 stream。
 func _resolve_video_path() -> String:
+	var ingested: String = _ingest_desktop_source()
+	if not ingested.is_empty():
+		return ingested
+	if FileAccess.file_exists(VIDEO_PATH):
+		return VIDEO_PATH
 	var from_stream: String = _stream_file_path(_pet_video.stream)
 	if not from_stream.is_empty() and FileAccess.file_exists(from_stream):
 		return from_stream
-	# 用 FileAccess 而不是 ResourceLoader.exists() 来判断存在性：
-	# 文件刚拷进来、编辑器还没重新扫描时，资源系统里可能还查不到它。
-	if FileAccess.file_exists(VIDEO_PATH):
-		return VIDEO_PATH
 	for file_name: String in _video_dir_files():
-		# 导出后资源会带 .remap 后缀，去掉再判断扩展名。
 		var clean: String = file_name.trim_suffix(".remap")
 		if clean.get_extension().to_lower() == "ogv":
 			return "%s/%s" % [VIDEO_DIR, clean]
 	return ""
+
+
+## 在常见路径下找绿幕源文件。找到 mp4 就用 FFmpeg 转进 user://，找到 .ogv 直接用。
+func _ingest_desktop_source() -> String:
+	var source: String = _find_desktop_source()
+	if source.is_empty():
+		print_verbose("%s desktop source not found: %s" % [VIDEO_LOG_PREFIX, USER_SOURCE_MP4])
+		return ""
+	print_rich("[color=#54d18c]%s找到桌面素材：%s[/color]" % [VIDEO_LOG_PREFIX, source])
+	if source.get_extension().to_lower() == "ogv":
+		return source
+	var dest_os: String = ProjectSettings.globalize_path(USER_CACHE_OGV)
+	if FileAccess.file_exists(USER_CACHE_OGV):
+		var src_mtime: int = FileAccess.get_modified_time(source)
+		var dst_mtime: int = FileAccess.get_modified_time(USER_CACHE_OGV)
+		if dst_mtime >= src_mtime:
+			print_verbose("%s chroma-ready cache hit: %s" % [VIDEO_LOG_PREFIX, USER_CACHE_OGV])
+			return USER_CACHE_OGV
+	if _run_ffmpeg_theora(source, dest_os):
+		print_rich("[color=#54d18c]%s已转码绿幕视频 -> %s[/color]" % [VIDEO_LOG_PREFIX, USER_CACHE_OGV])
+		return USER_CACHE_OGV
+	print_rich("[color=#ffcc66]%sFFmpeg 转码失败，回落到仓库里的 .ogv。[/color]" % VIDEO_LOG_PREFIX)
+	return ""
+
+
+func _find_desktop_source() -> String:
+	var candidates: PackedStringArray = PackedStringArray([
+		USER_SOURCE_MP4,
+		"C:/Users/ASUS/Desktop/Steve1.ogv",
+		"/mnt/c/Users/ASUS/Desktop/Steve1.mp4",
+		"/mnt/c/Users/ASUS/Desktop/Steve1.ogv",
+	])
+	for path: String in candidates:
+		if FileAccess.file_exists(path):
+			return path
+	return ""
+
+
+func _run_ffmpeg_theora(source: String, dest_os: String) -> bool:
+	var args: PackedStringArray = PackedStringArray([
+		"-y", "-i", source,
+		"-vf", "fps=24,scale=460:-2",
+		"-c:v", "libtheora", "-q:v", "8", "-an", dest_os,
+	])
+	var output: Array = []
+	var code: int = OS.execute("ffmpeg", args, output, true)
+	if code != 0:
+		print_verbose("%s ffmpeg exit=%d  %s" % [VIDEO_LOG_PREFIX, code, str(output)])
+		return false
+	return FileAccess.file_exists(USER_CACHE_OGV)
 
 
 ## 从 VideoStream 上取出真正的 .ogv 路径。
@@ -558,24 +624,27 @@ func _describe_video_dir() -> String:
 
 ## 找出目录里放着的、Godot 播不了的视频源文件（多半是还没转码的 mp4）。
 func _find_unplayable_source() -> String:
+	var desktop: String = _find_desktop_source()
+	if not desktop.is_empty() and desktop.get_extension().to_lower() != "ogv":
+		return desktop
 	for file_name: String in _video_dir_files():
 		if file_name.get_extension().to_lower() in ["mp4", "webm", "mov", "mkv", "avi", "m4v", "flv"]:
 			return "%s/%s" % [VIDEO_DIR, file_name]
-	return ""
+	return USER_SOURCE_MP4
 
 
 ## 生成一条可以直接复制去跑的 ffmpeg 转码命令（打印真实的操作系统路径）。
 func _convert_hint(source_path: String) -> String:
 	var target: String = ProjectSettings.globalize_path(VIDEO_PATH)
-	var source: String = "你的视频.mp4"
-	var lead: String = "Godot 4 只能播 Ogg Theora（.ogv），用 FFmpeg 转一次："
+	var source: String = USER_SOURCE_MP4
+	var lead: String = "Godot 4 只能播 Ogg Theora（.ogv），用 FFmpeg 把绿幕 mp4 转一次："
 	if source_path == VIDEO_PATH:
-		# 源文件就是目标文件（比如 mp4 被改名成了 sun_pet.ogv），
-		# 直接转会自己覆盖自己，得先改回真实扩展名。
-		source = ProjectSettings.globalize_path("%s/sun_pet_src.mp4" % VIDEO_PATH.get_base_dir())
-		lead = "Godot 4 只能播 Ogg Theora（.ogv）。先把它改回真实扩展名（例如 sun_pet_src.mp4），再用 FFmpeg 转："
+		source = USER_SOURCE_MP4
+		lead = "Godot 4 只能播 Ogg Theora（.ogv）。请把桌面上的 Steve1.mp4 转成 steve.ogv："
 	elif not source_path.is_empty():
-		source = ProjectSettings.globalize_path(source_path)
+		source = source_path
+		if source.begins_with("res://") or source.begins_with("user://"):
+			source = ProjectSettings.globalize_path(source)
 	return "%s\n%s  ffmpeg -i \"%s\" -vf \"fps=24,scale=460:-2\" -c:v libtheora -q:v 8 -an \"%s\"" % [
 		lead, VIDEO_LOG_PREFIX, source, target,
 	]
@@ -637,7 +706,7 @@ func _fail_video(reason: String, hint: String = "") -> void:
 	_pet_video.stop()
 	_pet_video.stream = null
 	_refresh_visual_swap()
-	# 换装色块回到孙哥身上的原始位置。
+	# 换装色块回到占位立绘上的原始位置。
 	_equipped_mark.position = _mark_default_rect.position
 	_equipped_mark.size = _mark_default_rect.size
 
@@ -691,13 +760,13 @@ func _warn_if_stub_video(path: String) -> void:
 	file.close()
 	if byte_count <= 0 or byte_count > STUB_VIDEO_MAX_BYTES:
 		return
-	print_rich("[color=#ffcc66]%s  当前播的是仓库自带的彩色测试片（%d 字节），不是孙哥正片。[/color]" % [
+	print_rich("[color=#ffcc66]%s  当前播的是仓库自带的彩色测试片（%d 字节），不是 Steve 正片。[/color]" % [
 		VIDEO_LOG_PREFIX, byte_count,
 	])
 	print_rich("[color=#ffcc66]%s  把转好的 .ogv 覆盖到 %s 后再按 F5。[/color]" % [
 		VIDEO_LOG_PREFIX, ProjectSettings.globalize_path(VIDEO_PATH),
 	])
-	_show_toast("占位测试片：请覆盖 sun_pet.ogv", Color(1.0, 0.85, 0.35))
+	_show_toast("占位测试片：请放入 Steve1.mp4", Color(1.0, 0.85, 0.35))
 
 
 ## 每帧轮询：拿到第一帧就算确认可播（顺便按宽高比摆好）；
@@ -815,6 +884,37 @@ func apply_chroma_key(color: Color, similarity: float = 0.35, smoothness: float 
 	chroma_key_enabled = true
 
 
+func _is_pointer_on_pet(local_pos: Vector2) -> bool:
+	if _placeholder_visual.visible:
+		return VIDEO_AREA.has_point(local_pos)
+	var video_rect: Rect2 = Rect2(_pet_video.position, _pet_video.size)
+	if video_rect.size.x <= 1.0 or video_rect.size.y <= 1.0:
+		return VIDEO_AREA.has_point(local_pos)
+	return video_rect.has_point(local_pos)
+
+
+func _open_context_menu(local_pos: Vector2) -> void:
+	if _state == State.RUNAWAY:
+		return
+	_refresh_buttons()
+	_context_menu.visible = true
+	_context_menu.reset_size()
+	var menu_size: Vector2 = _context_menu.get_combined_minimum_size()
+	if _context_menu.size.x > menu_size.x:
+		menu_size = _context_menu.size
+	var view_size: Vector2 = get_viewport_rect().size
+	var pos: Vector2 = local_pos
+	pos.x = clampf(pos.x, 4.0, maxf(4.0, view_size.x - menu_size.x - 4.0))
+	pos.y = clampf(pos.y, 4.0, maxf(4.0, view_size.y - menu_size.y - 4.0))
+	_context_menu.position = pos
+	print_verbose("%s context menu open at (%.0f, %.0f)" % [VIDEO_LOG_PREFIX, pos.x, pos.y])
+
+
+func _close_context_menu() -> void:
+	if is_instance_valid(_context_menu):
+		_context_menu.visible = false
+
+
 # =========================================================================
 # Day 3：中文悬浮 UI
 # =========================================================================
@@ -823,7 +923,7 @@ func apply_chroma_key(color: Color, similarity: float = 0.35, smoothness: float 
 func _apply_static_ui_text() -> void:
 	_paid_button.text = "付费加速 %d币" % GameData.PAID_SPEEDUP_COST
 	_paid_button.tooltip_text = "花 %d 金币，立刻洗完当前这一条" % GameData.PAID_SPEEDUP_COST
-	_free_button.tooltip_text = "立刻少洗 %d 秒，但有 %d%% 概率让孙哥跑路" % [
+	_free_button.tooltip_text = "立刻少洗 %d 秒，但有 %d%% 概率让 Steve 跑路" % [
 		int(GameData.FREE_SPEEDUP_SECONDS),
 		int(GameData.FREE_SPEEDUP_RUNAWAY_CHANCE * 100.0),
 	]
@@ -831,9 +931,18 @@ func _apply_static_ui_text() -> void:
 
 
 func _connect_ui() -> void:
-	_free_button.pressed.connect(_on_free_speedup_pressed)
-	_paid_button.pressed.connect(_on_paid_speedup_pressed)
-	_codex_open_button.pressed.connect(func() -> void: _set_codex_visible(not _codex_panel.visible))
+	_free_button.pressed.connect(func() -> void:
+		_close_context_menu()
+		_on_free_speedup_pressed()
+	)
+	_paid_button.pressed.connect(func() -> void:
+		_close_context_menu()
+		_on_paid_speedup_pressed()
+	)
+	_codex_open_button.pressed.connect(func() -> void:
+		_close_context_menu()
+		_set_codex_visible(not _codex_panel.visible)
+	)
 	_codex_close_button.pressed.connect(func() -> void: _set_codex_visible(false))
 	_quit_button.pressed.connect(func() -> void: get_tree().quit())
 	_unequip_button.pressed.connect(func() -> void:
@@ -850,7 +959,7 @@ func _on_free_speedup_pressed() -> void:
 	if trigger_free_speedup():
 		_show_toast("加速成功 -%ds" % int(GameData.FREE_SPEEDUP_SECONDS), Color(0.6, 1.0, 0.7))
 	else:
-		_show_toast("孙哥跑路了！", Color(1.0, 0.45, 0.35))
+		_show_toast("Steve跑路了！", Color(1.0, 0.45, 0.35))
 
 
 func _on_paid_speedup_pressed() -> void:
@@ -942,7 +1051,7 @@ func _update_equipped_label() -> void:
 	_equipped_label.text = "图鉴 %d · %s" % [GameData.dry_collection.size(), equipped]
 
 
-## 换装的占位表现：在孙哥身上显示一块对应品质颜色的补丁（Day 4 换真实立绘）。
+## 换装的占位表现：在立绘上显示一块对应品质颜色的补丁（Day 4 换真实立绘）。
 func _update_equipped_mark(quality: int) -> void:
 	_equipped_mark.visible = quality >= 0
 	if quality >= 0:
@@ -957,7 +1066,7 @@ func _update_status_text() -> void:
 		State.PAUSED_FULL:
 			text = "已暂停 - 仓库已满"
 		State.RUNAWAY:
-			text = "孙哥跑路中 CD: %ds" % int(ceil(_cooldown_remaining))
+			text = "Steve跑路中 CD: %ds" % int(ceil(_cooldown_remaining))
 	if _status_label.text != text:
 		_status_label.text = text
 	if _runaway_label.text != text and _state == State.RUNAWAY:
@@ -1022,7 +1131,7 @@ func _show_toast(message: String, color: Color = Color(1, 1, 1)) -> void:
 
 func _log(message: String) -> void:
 	if _debug_log:
-		print("[SunPet] ", message)
+		print("[Steve] ", message)
 
 
 func _flash_quality(quality: int) -> void:
