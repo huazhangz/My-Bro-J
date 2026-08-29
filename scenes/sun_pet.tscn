@@ -314,7 +314,7 @@ mouse_filter = 2
 layout_mode = 2
 mouse_filter = 2
 theme_type_variation = &"SmallLabel"
-text = "穿上品质越高的内裤，孙哥跑路后的冷却越短。"
+text = "品质越高，孙哥跑路后的冷却越短"
 autowrap_mode = 3
 
 [node name="CodexCdLabel" type="Label" parent="UILayer/UIRoot/CodexPanel/Rows"]
