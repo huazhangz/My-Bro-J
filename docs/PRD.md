@@ -175,11 +175,12 @@ window/size/borderless=true
 window/size/transparent=true
 window/size/always_on_top=false
 window/per_pixel_transparency/allowed=true
+window/subwindows/embed_subwindows=false
 ```
 
-运行时 `steve.gd::_apply_window_setup()` 再次以 `DisplayServer` 兜底设置
-`WINDOW_FLAG_TRANSPARENT / BORDERLESS / ALWAYS_ON_TOP`，并设 `get_window().transparent_bg = true`，
-最后把窗口摆到屏幕右下角。
+运行时 `steve.gd::_apply_window_setup()` 先设 `get_tree().root.gui_embed_subwindows = false`，
+再以 `DisplayServer` 兜底设置 `WINDOW_FLAG_TRANSPARENT / BORDERLESS / ALWAYS_ON_TOP`，
+并设 `get_window().transparent_bg = true`，最后把窗口摆到屏幕右下角。
 
 **拖拽算法**（彻底避免抖动与 `Embedded windows can't be moved`）：
 

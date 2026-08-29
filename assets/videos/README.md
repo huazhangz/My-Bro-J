@@ -7,18 +7,21 @@ Godot 4 内置的 `VideoStreamPlayer` **只有 `VideoStreamTheora` 一种实现*
 
 约定的绿幕源文件：
 
-`C:\Users\ASUS\Desktop\Steve1.mp4`
+`C:\Users\ASUS\My-Bro-J\Steve1.mp4`
 
-运行时若该文件存在，脚本会调用本机 `ffmpeg` 转成 `user://steve.ogv` 再播放。
-转码失败或不在这台机器上时，回落到 `res://assets/videos/steve.ogv`。
+双击仓库根目录的 `convert_video.bat`（需要 FFmpeg 在 PATH 里）即可写成
+`assets/videos/steve.ogv`。运行时若根目录仍有 mp4，脚本也会尝试转 `user://steve.ogv`。
 
 ## 一、手动转码
 
+```bat
+convert_video.bat
+```
+
+或：
+
 ```powershell
-ffmpeg -i "C:\Users\ASUS\Desktop\Steve1.mp4" `
-       -vf "fps=24,scale=460:-2" `
-       -c:v libtheora -q:v 8 -an `
-       "<仓库目录>\assets\videos\steve.ogv"
+ffmpeg -y -i "Steve1.mp4" -c:v theora -qscale:v 7 -an "assets\videos\steve.ogv"
 ```
 
 立绘可用区域大约是 **230 × 240** 逻辑像素。

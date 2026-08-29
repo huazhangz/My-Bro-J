@@ -54,7 +54,7 @@
   `scripts/GameData.gd` 是全局 Autoload 单例（名称 `GameData`）。
 - `assets/`：美术、字体与视频资源（`assets/images/`、`assets/fonts/`、`assets/videos/`）。
 - `docs/`：`docs/PRD.md` 等文档。
-- 根目录只保留 `project.godot`、`README.md`、`.gitignore`、`.cursorrules`。
+- 根目录只保留 `project.godot`、`README.md`、`.gitignore`、`.cursorrules`、`convert_video.bat`。
 - 移动任何场景/脚本/资源后，必须同步修正 `project.godot` 的
   `run/main_scene`、`config/icon`、`[autoload]`，以及 `.tscn` 里的 `ext_resource path`，
   并跑一次 `godot --headless --path . --import` 确认无报错。

@@ -12,8 +12,9 @@
 ## 快速开始
 
 1. 用 Godot **4.7.x** 打开本仓库根目录（含 `project.godot`）。
-2. 把素材放到仓库根目录：`C:\Users\ASUS\My-Bro-J\Steve1.mp4`、`dryer.jpg`、`Steve2.jpg`（或覆盖 `assets/` 下对应文件）。
-3. 用 **F5** 跑主场景 `steve.tscn`（不要用 F6 跑旧的当前场景）。Game 面板关掉 *Embed Game on Play*。
+2. 把 `Steve1.mp4`、`dryer.jpg`、`Steve2.jpg` 放到仓库根目录。
+3. 双击 `convert_video.bat`（需已安装 FFmpeg 并加入 PATH），把 `Steve1.mp4` 转成 `assets/videos/steve.ogv`。
+4. 用 **F5** 跑主场景 `steve.tscn`。Game 面板关掉 *Embed Game on Play*。
 
 ### 操作方式
 

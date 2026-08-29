@@ -112,6 +112,7 @@ func _can_move_window() -> bool:
 
 
 func _apply_window_setup() -> void:
+	get_tree().root.gui_embed_subwindows = false
 	var win: Window = get_window()
 	win.transparent_bg = true
 	_embedded = _is_embedded_in_editor()
@@ -663,11 +664,8 @@ func _warn_if_stub_video(path: String) -> void:
 	file.close()
 	if byte_count <= 0 or byte_count > STUB_VIDEO_MAX_BYTES:
 		return
-	print_rich("[color=#ffcc66]%s  当前播的是仓库自带的彩色测试片（%d 字节），不是 Steve 正片。[/color]" % [
+	print_rich("[color=#ffcc66]%s  Detected placeholder video (%d bytes). Please double-click convert_video.bat in the project folder to convert your Steve1.mp4 to steve.ogv, then press F5 again.[/color]" % [
 		VIDEO_LOG_PREFIX, byte_count,
-	])
-	print_rich("[color=#ffcc66]%s  把转好的 .ogv 覆盖到 %s 后再按 F5。[/color]" % [
-		VIDEO_LOG_PREFIX, ProjectSettings.globalize_path(VIDEO_PATH),
 	])
 
 
