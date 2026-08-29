@@ -1,0 +1,165 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/steve.gd" id="1_steve"]
+[ext_resource type="Theme" path="res://assets/fonts/steve_theme.tres" id="2_theme"]
+[ext_resource type="Shader" path="res://assets/videos/video_key.gdshader" id="3_videokey"]
+[ext_resource type="VideoStreamTheora" path="res://assets/videos/steve.ogv" id="4_ogv"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_videokey"]
+shader = ExtResource("3_videokey")
+shader_parameter/key_color = Color(0, 1, 0, 1)
+shader_parameter/similarity = 0.35
+shader_parameter/smoothness = 0.1
+
+[node name="Steve" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_steve")
+chroma_key_enabled = true
+chroma_key_color = Color(0, 1, 0, 1)
+chroma_key_similarity = 0.35
+chroma_key_smoothness = 0.1
+
+[node name="PetVisual" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PetVideo" type="VideoStreamPlayer" parent="PetVisual"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 5.0
+offset_top = 5.0
+offset_right = 245.0
+offset_bottom = 345.0
+mouse_filter = 2
+stream = ExtResource("4_ogv")
+volume_db = -80.0
+autoplay = true
+expand = true
+loop = true
+
+[node name="PetFrame" type="TextureRect" parent="PetVisual"]
+unique_name_in_owner = true
+visible = false
+material = SubResource("ShaderMaterial_videokey")
+layout_mode = 0
+offset_left = 5.0
+offset_top = 5.0
+offset_right = 245.0
+offset_bottom = 345.0
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="PlaceholderVisual" type="Control" parent="PetVisual"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Head" type="ColorRect" parent="PetVisual/PlaceholderVisual"]
+layout_mode = 0
+offset_left = 98.0
+offset_top = 80.0
+offset_right = 152.0
+offset_bottom = 130.0
+mouse_filter = 2
+color = Color(0.976471, 0.858824, 0.717647, 1)
+
+[node name="EyeLeft" type="ColorRect" parent="PetVisual/PlaceholderVisual"]
+layout_mode = 0
+offset_left = 111.0
+offset_top = 98.0
+offset_right = 119.0
+offset_bottom = 106.0
+mouse_filter = 2
+color = Color(0.152941, 0.152941, 0.176471, 1)
+
+[node name="EyeRight" type="ColorRect" parent="PetVisual/PlaceholderVisual"]
+layout_mode = 0
+offset_left = 131.0
+offset_top = 98.0
+offset_right = 139.0
+offset_bottom = 106.0
+mouse_filter = 2
+color = Color(0.152941, 0.152941, 0.176471, 1)
+
+[node name="Body" type="ColorRect" parent="PetVisual/PlaceholderVisual"]
+layout_mode = 0
+offset_left = 84.0
+offset_top = 130.0
+offset_right = 166.0
+offset_bottom = 210.0
+mouse_filter = 2
+color = Color(0.176471, 0.501961, 0.878431, 1)
+
+[node name="Basin" type="ColorRect" parent="PetVisual/PlaceholderVisual"]
+layout_mode = 0
+offset_left = 60.0
+offset_top = 210.0
+offset_right = 190.0
+offset_bottom = 246.0
+mouse_filter = 2
+color = Color(0.239216, 0.729412, 0.788235, 0.870588)
+
+[node name="ExitPopup" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+z_index = 20
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -88.0
+offset_top = -52.0
+offset_right = 88.0
+offset_bottom = 52.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"SolidPanel"
+
+[node name="Rows" type="VBoxContainer" parent="ExitPopup"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ExitTitle" type="Label" parent="ExitPopup/Rows"]
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"TitleLabel"
+text = "Quit App?"
+horizontal_alignment = 1
+
+[node name="ExitButtons" type="HBoxContainer" parent="ExitPopup/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="QuitAppButton" type="Button" parent="ExitPopup/Rows/ExitButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"CloseButton"
+text = "Quit App"
+
+[node name="CancelExitButton" type="Button" parent="ExitPopup/Rows/ExitButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Cancel"
