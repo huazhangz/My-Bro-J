@@ -244,14 +244,36 @@ PetVisual (Control, IGNORE)
 └── EquippedMark (ColorRect, IGNORE)       # 换装色块，视频模式下贴到立绘底部
 ```
 
-视频**不在场景里硬连 `ext_resource`**，而是 `_setup_pet_video()` 运行时查找：
+视频**不在场景里硬连 `ext_resource`**，而是 `_setup_pet_video()` 运行时解析，
+每一步都有回落，全过程无条件打印 `[SunPet/Video]` 日志（不用加 `--petlog`）：
 
-1. `res://assets/videos/sun_pet.ogv` 存在 → 加载并播放；
-2. 否则取 `assets/videos/` 下第一个 `.ogv`；
-3. 一个都没有 → `push_warning` 并显示几何占位，**项目照常运行不报错**。
+1. **找文件**：场景里连了 `stream` 就用它 → 否则 `FileAccess.file_exists(sun_pet.ogv)`
+   → 否则取目录下第一个 `.ogv`。用 `FileAccess` 而不是 `ResourceLoader.exists()`
+   判断存在性，因为文件刚拷进来、编辑器还没重新扫描时资源系统里查不到它。
+2. **体检文件头**：Ogg 必须以 `OggS` 开头。识别 MP4/MOV（`ftyp`）、Matroska/WebM
+   （`1A 45 DF A3`）、AVI（`RIFF`）、FLV，直接点名「这其实是 XX 容器，只是改了扩展名」。
+3. **加载**：`ResourceLoader.load(path, "VideoStream", CACHE_MODE_REPLACE)`
+   （`REPLACE` 是为了换素材后不吃旧缓存）；资源系统查不到时兜底用
+   `VideoStreamTheora.new()` + `file = path` 直接读盘，绕开文件系统扫描。
+4. **校验能不能真播**：见下方「坏流检测」。
+5. 任何一步失败 → 显示几何占位 + 打印原因和可直接复制的 ffmpeg 命令，
+   **项目照常运行不报错**。
 
-这样仓库里不带视频素材也能 F5，把 `.ogv` 丢进目录就自动升级成视频立绘，
-不需要在编辑器里连任何节点（符合「不要求手动点按钮」的约定）。
+### 坏流检测（Day 4 修复的坑）
+
+把 `.mp4` 改名成 `.ogv` 时，`ResourceLoader.load()` **不返回 null**，
+而是返回一个内部解码失败的 `VideoStreamTheora`，`play()` 后 `is_playing()` 甚至是 `true`。
+只按「stream != null」判断成功，就会出现**视频没播、占位也被撤掉的空白画面**。
+实测下来可靠的区分信号只有两个：
+
+| 信号 | 好流 | 坏流 |
+|------|------|------|
+| `get_stream_length()` | `4.00` | `0.00` |
+| `get_video_texture().get_size()` | `(640, 360)` | `(0, 0)` |
+| `is_playing()` / `load()` 返回值 | 都正常 | **也都正常，不能用** |
+
+所以采用双重校验：时长 > 0 立刻确认；否则给 `VIDEO_PROBE_FRAMES = 45` 帧宽限期等第一帧，
+**确认可播之前不撤几何占位**，超时仍无画面就判定素材有问题并回落。
 
 ### 排版、拖拽与鼠标穿透
 

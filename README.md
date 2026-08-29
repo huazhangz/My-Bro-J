@@ -100,7 +100,12 @@ ffmpeg -i "你的视频.mp4" -vf "fps=24,scale=460:-2" -c:v libtheora -q:v 8 -an
 ```
 
 放进 `assets/videos/sun_pet.ogv` 就会自动播放，**不用在编辑器里连任何节点**。
-目录里没有 `.ogv` 时会自动回落到 `ColorRect` 几何占位，项目照常能跑。
+运行时会无条件打印一段 `[SunPet/Video]` 日志，告诉你到底加载成功了没有；失败时会说清楚
+原因（没找到 / 只是把 mp4 改了扩展名 / 解不出画面…）并附一条能直接复制的 ffmpeg 命令。
+任何一种失败都会自动回落到 `ColorRect` 几何占位，项目照常能跑。
+
+> ⚠️ 别把 `.mp4` 直接改名成 `.ogv` —— 这种文件 Godot 加载时**不会报 null**，
+> 只会静默解不出画面。脚本已经会检查文件头并明确点出来。
 
 Theora 没有 Alpha 通道，想保住透明背景要用抠像：在主场景根节点 `SunPet` 的检查器里
 把「视频立绘 → `video_key_mode`」调成 `CHROMA`（绿幕/纯色底）、`DARK`（黑底）
