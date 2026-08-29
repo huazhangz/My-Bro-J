@@ -1,0 +1,77 @@
+# 孙哥桌宠小游戏 —— AI 编码规则 (Godot 4.x + GDScript)
+
+本项目为 Godot Engine 4.x 桌面悬浮窗小游戏。任何生成或修改的 GDScript / 场景 / 配置文件
+都必须严格遵守以下约束。若发现历史代码违反规则，直接改写为 Godot 4 写法，不要保留兼容分支。
+
+## 1. 语言版本铁律
+
+- 目标引擎：**Godot 4.x**（`project.godot` 中 `config_version=5`）。绝不生成 Godot 3.x 语法。
+- **禁止 `yield`**。所有协程等待改用 `await`：
+  - 正确：`await get_tree().create_timer(1.5).timeout`
+  - 正确：`await some_node.some_signal`
+  - 错误：`yield(get_tree().create_timer(1.5), "timeout")`
+- 禁止 `.instance()`，使用 `.instantiate()`。
+- 禁止 `PoolStringArray` / `PoolVector2Array` 等，使用 `PackedStringArray` / `PackedVector2Array`。
+- 禁止 `OS.window_*` 系列旧 API（`OS.window_size`、`OS.set_window_position`…）。
+- 禁止 `export var`，使用注解 `@export var`。
+- 禁止 `onready var`，使用注解 `@onready var`。
+- 禁止 `tool` 关键字，使用 `@tool`。
+- 类型提示：变量、参数、返回值尽量显式标注（`func f(x: float) -> void:`）。
+- 空值/无效判断使用 `is_instance_valid()` 与 `!= null`，不使用 `is_valid()` 之类的臆造 API。
+- 随机数：`randf()` / `randi_range()` / `randf_range()`；`randomize()` 在 Godot 4 已默认执行，不需手动调用。
+
+## 2. 窗口操作只能用 DisplayServer
+
+桌宠依赖无边框透明窗口 + 手动拖拽，窗口相关操作**只允许**使用 `DisplayServer`：
+
+- 取窗口位置：`DisplayServer.window_get_position()`
+- 设窗口位置：`DisplayServer.window_set_position(Vector2i)`
+- 取全局鼠标位置：`DisplayServer.mouse_get_position()`（屏幕坐标，跨窗口有效）
+- 取/设窗口尺寸：`DisplayServer.window_get_size()` / `window_set_size()`
+- 窗口标志：`DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true)` 等
+- 屏幕信息：`DisplayServer.screen_get_usable_rect()`
+
+**禁止**通过 `Window.position` / `get_window().position = ...` 移动主窗口——在编辑器内嵌运行
+（Embedded Game Window）时会报 `Embedded windows can't be moved`。
+拖拽必须基于「全局鼠标位置 − 按下时的窗口内偏移」计算，不能用局部 `event.relative` 累加，
+否则窗口移动会反过来影响鼠标局部坐标，产生抖动/漂移。
+
+## 3. 信号必须用闭包（Callable）连接
+
+- 统一写法：`node.signal_name.connect(func(): do_something())`
+- 带参：`timer.timeout.connect(func() -> void: _on_dry_finished(item_id))`
+- **禁止**字符串式旧写法：`connect("timeout", self, "_on_timeout")`
+- 断开：`sig.disconnect(callable)`；一次性连接用 `CONNECT_ONE_SHOT`。
+- 闭包捕获循环变量时，必须在循环体内用局部 `var` 拷贝一份再捕获。
+
+## 4. 项目结构与命名
+
+目录划分固定如下，新增文件必须放进对应目录，不要再往根目录堆散文件：
+
+- `scenes/`：全部 `.tscn` 场景。主场景 `scenes/sun_pet.tscn`
+  （根节点必须是 `Control`，全屏铺满，背景完全透明）。
+- `scripts/`：全部 `.gd` 脚本。`scripts/sun_pet.gd` 为主场景脚本，
+  `scripts/GameData.gd` 是全局 Autoload 单例（名称 `GameData`）。
+- `assets/`：美术与字体资源（`assets/images/`、`assets/fonts/`）。
+- `docs/`：`docs/PRD.md` 等文档。
+- 根目录只保留 `project.godot`、`README.md`、`.gitignore`、`.cursorrules`。
+- 移动任何场景/脚本/资源后，必须同步修正 `project.godot` 的
+  `run/main_scene`、`config/icon`、`[autoload]`，以及 `.tscn` 里的 `ext_resource path`，
+  并跑一次 `godot --headless --path . --import` 确认无报错。
+- 所有数值常量（洗涤 45 秒、晾干 60 秒、仓库上限 10、CD 缩减系数…）集中定义在 `GameData` 中，
+  业务脚本不得散落硬编码魔法数字。
+- 私有成员以下划线开头：`var _wash_remaining: float`。
+- 文件名 `snake_case`，类名/节点名 `PascalCase`，常量 `SCREAMING_SNAKE_CASE`。
+
+## 5. 透明桌宠注意事项
+
+- 根 `Control` 不得放置不透明的 `ColorRect` / `Panel` 铺满全屏，否则窗口不再透明。
+- 需要 `get_window().transparent_bg = true` 配合 `display/window/per_pixel_transparency/allowed=true`。
+- 装饰性节点（纯展示）设置 `mouse_filter = Control.MOUSE_FILTER_IGNORE`，避免吃掉拖拽输入。
+- 内置默认字体不含中文字形，场景内 `Label` 的可见文本使用英文/数字；中文只写在注释与文档里。
+
+## 6. 自动化要求
+
+- 不要求用户在 Godot 编辑器里手动点按钮：Autoload、窗口标志、视口尺寸等一律写进 `project.godot`。
+- 修改代码后同步更新 `PRD.md` 的进度勾选。
+- 生成的 `.tscn` 使用 `format=3`，`ext_resource` 与 `node` 的属性名必须是 Godot 4 的真实属性。

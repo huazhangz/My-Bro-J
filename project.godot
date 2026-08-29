@@ -1,0 +1,37 @@
+; Engine configuration file.
+; 孙哥桌宠小游戏 (SunBro Desktop Pet)
+; 透明 / 无边框 / 总在最前 的 250x350 桌面悬浮窗。
+
+config_version=5
+
+[application]
+
+config/name="SunBro Desktop Pet"
+config/description="孙哥桌宠小游戏 - 2D Idle desktop pet built with Godot 4."
+run/main_scene="res://scenes/sun_pet.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://assets/icon.svg"
+boot_splash/show_image=false
+
+[autoload]
+
+GameData="*res://scripts/GameData.gd"
+
+[debug]
+
+gdscript/warnings/untyped_declaration=1
+
+[display]
+
+window/size/viewport_width=250
+window/size/viewport_height=350
+window/size/borderless=true
+window/size/transparent=true
+window/size/always_on_top=true
+window/per_pixel_transparency/allowed=true
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=0

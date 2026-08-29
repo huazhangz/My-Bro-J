@@ -1,0 +1,25 @@
+# Godot 4 生成目录（导入缓存、编辑器状态）——整体忽略
+/.godot/*
+
+# 例外：这个文件保存「运行时不要把游戏窗口内嵌进编辑器」的项目级设置，
+# 内嵌运行会导致桌宠窗口无法拖拽，所以必须随仓库一起提交。
+!/.godot/editor/
+/.godot/editor/*
+!/.godot/editor/project_metadata.cfg
+
+/android/
+
+# 导出产物
+export.cfg
+export_presets.cfg
+build/
+*.exe
+*.pck
+*.zip
+
+# 本地存档
+save_data.json
+
+# 系统垃圾
+.DS_Store
+Thumbs.db
