@@ -27,10 +27,5 @@ if %OGV_SIZE% LEQ 80000 (
   pause
   exit /b 2
 )
-
-if exist "hanyiyongzixiaoxiongmao.ttf" copy /Y "hanyiyongzixiaoxiongmao.ttf" "assets\fonts\hanyiyongzixiaoxiongmao.ttf" >nul
-if exist "HYYongZiXiaoXiongMao-W.ttf" copy /Y "HYYongZiXiaoXiongMao-W.ttf" "assets\fonts\hanyiyongzixiaoxiongmao.ttf" >nul
-if exist "assets\fonts\hanyiyongzixiaoxiongmao.ttf" echo Copied authorized Hanyi font into assets\fonts\
-
 echo You can now press F5 in Godot.
 pause

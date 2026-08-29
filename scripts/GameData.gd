@@ -92,20 +92,31 @@ const USER_VIDEO_FILE: String = "steve3.mp4"
 const USER_DRYER_FILE: String = "dryer.jpg"
 const USER_DRAWER_FILE: String = "drawer.jpg"
 const USER_STEVE2_FILE: String = "Steve2.jpg"
-const USER_UI_FONT_FILE: String = "hanyiyongzixiaoxiongmao.ttf"
-## 项目方已获授权，目标入库路径（运行时若只在本机根目录找到，会拷进来）。
-const RES_UI_FONT_PATH: String = "res://assets/fonts/hanyiyongzixiaoxiongmao.ttf"
-const USER_UI_FONT_ALIASES: PackedStringArray = PackedStringArray([
-	"hanyiyongzixiaoxiongmao.ttf",
-	"HYYongZiXiaoXiongMao-W.ttf",
-	"HYYongZiXiaoXiongMaoW.ttf",
-	"HYYongZiXiaoXiongMao-W.otf",
-	"汉仪永字小熊猫.ttf",
-	"汉仪永字小熊猫 W.ttf",
-])
+const USER_UI_FONT_FILE: String = "YuanRou-P-Bold.ttf"
+const USER_UI_FONT_ZIP: String = "YuanRou-P-Bold.zip"
+const RES_UI_FONT_PATH: String = "res://assets/fonts/YuanRou-P-Bold.ttf"
+## 必须用字面量数组。PackedStringArray(...) 构造不是常量表达式（Godot 报错 98）。
+const USER_UI_FONT_ALIASES: PackedStringArray = [
+	"YuanRou-P-Bold.ttf",
+	"YuanRou-P-Bold.otf",
+	"GenJyuuGothic-P-Bold.ttf",
+	"YuanRou-P-Bold.zip",
+]
 ## 仓库里 70KB / 4 秒的 steve.ogv 是测试占位片，不能当人物动画。
 const STUB_VIDEO_MAX_BYTES: int = 80000
 const ALWAYS_ON_TOP_DEFAULT: bool = true
+const USER_ASSET_DIRS: PackedStringArray = [
+	USER_PROJECT_DIR,
+	USER_PROJECT_DIR_WSL,
+	"res://",
+	"res://assets/images",
+	"res://assets/fonts",
+	"res://assets/videos",
+	USER_DESKTOP_DIR,
+	"/mnt/c/Users/ASUS/Desktop",
+	"C:/Windows/Fonts",
+	"/mnt/c/Windows/Fonts",
+]
 
 # --- 核心数值 -------------------------------------------------------------
 
@@ -400,20 +411,8 @@ func load_from_dict(data: Dictionary) -> void:
 
 ## 按「仓库根目录 → res:// → assets → 桌面兜底」查找用户拖进来的文件。
 func user_file_candidates(file_name: String) -> PackedStringArray:
-	var dirs: PackedStringArray = PackedStringArray([
-		USER_PROJECT_DIR,
-		USER_PROJECT_DIR_WSL,
-		"res://",
-		"res://assets/images",
-		"res://assets/fonts",
-		"res://assets/videos",
-		USER_DESKTOP_DIR,
-		"/mnt/c/Users/ASUS/Desktop",
-		"C:/Windows/Fonts",
-		"/mnt/c/Windows/Fonts",
-	])
 	var out: PackedStringArray = PackedStringArray()
-	for dir: String in dirs:
+	for dir: String in USER_ASSET_DIRS:
 		if dir == "res://":
 			out.append("res://%s" % file_name)
 		else:
@@ -433,6 +432,43 @@ func first_existing_named(names: PackedStringArray) -> String:
 		var path: String = first_existing_file(file_name)
 		if not path.is_empty():
 			return path
+	return ""
+
+
+func extract_font_from_zip(zip_path: String, dest: String) -> String:
+	var reader: ZIPReader = ZIPReader.new()
+	if reader.open(zip_path) != OK:
+		return ""
+	var picked: String = ""
+	for file_name: String in reader.get_files():
+		var ext: String = file_name.get_extension().to_lower()
+		if ext != "ttf" and ext != "otf":
+			continue
+		var base: String = file_name.get_file().to_lower()
+		if picked.is_empty() or base.contains("bold"):
+			picked = file_name
+		if base.contains("p-bold") or base.contains("yuanrou"):
+			picked = file_name
+			break
+	if picked.is_empty():
+		return ""
+	var bytes: PackedByteArray = reader.read_file(picked)
+	if bytes.is_empty():
+		return ""
+	var dest_os: String = dest
+	if dest.begins_with("res://") or dest.begins_with("user://"):
+		dest_os = ProjectSettings.globalize_path(dest)
+	var out: FileAccess = FileAccess.open(dest, FileAccess.WRITE)
+	if out == null:
+		out = FileAccess.open(dest_os, FileAccess.WRITE)
+	if out == null:
+		return ""
+	out.store_buffer(bytes)
+	out.close()
+	if FileAccess.file_exists(dest):
+		return dest
+	if FileAccess.file_exists(dest_os):
+		return dest_os
 	return ""
 
 

@@ -213,16 +213,16 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 
 | 项 | 内容 |
 |----|------|
-| 字体 | `assets/fonts/hanyiyongzixiaoxiongmao.ttf`（汉仪永字小熊猫，项目方已获授权提交 GitHub） |
-| 回落 | 文件未入库时用 `RenOuFangSong-16.ttf`（人偶仿宋，OFL 1.1）；运行时找到授权 TTF 即替换并拷进 `assets/fonts/` |
-| 主题 | `assets/fonts/steve_theme.tres`，编译期 `default_font` 为人偶仿宋，`default_font_size = 16` |
+| 字体 | `assets/fonts/YuanRou-P-Bold.ttf`（源柔ゴシック P Bold / GenJyuuGothic-P-Bold，OFL 1.1） |
+| 本机包 | `C:\Users\ASUS\My-Bro-J\YuanRou-P-Bold.zip`（gitignore 忽略 zip；运行时解包写入上述 TTF） |
+| 主题 | `assets/fonts/steve_theme.tres`，`default_font` 指向该 TTF，`default_font_size = 16` |
 | 挂载 | `project.godot` → `gui/theme/custom` + `gui/theme/custom_font` + `steve.tscn` 根节点 `theme` |
 
 因此**新增任何 Label / Button 都自动是中文字体**，不需要逐节点 `theme_override_fonts/font`。
 主题内还定义了一组类型变体（`TitleLabel` / `SmallLabel` / `CoinLabel` / `FloatLabel` /
 `SolidPanel` / `ChipPanel` / `RiskButton` / `CoinButton` / `CodexButton` / `EquipButton` /
 `CloseButton`），差异化配色靠 `theme_type_variation` 取用，不散写 StyleBox。
-字体来源、许可与子集重生成脚本见 `assets/fonts/README.md`。
+字体来源与 OFL 许可见 `assets/fonts/README.md`。仓库内不再保留第二套默认字体。
 
 ### 5.2 UI 结构
 
@@ -234,7 +234,7 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
   - `固定上层`：切换窗口置顶
   - `晚点再洗`：退出进程
   - 点弹窗外 / `ESC`：关闭菜单
-- **InventoryPopup**（全屏，默认隐藏）：背景 `dryer.jpg` + 半透明黑遮罩 `Color(0,0,0,0.6)`
+- **InventoryPopup**（全屏，默认隐藏）：背景随种类换 `dryer.jpg` / `drawer.jpg`，外加半透明黑遮罩
   - 窗口临时放大为立绘区域的 **2.5 倍**（`INVENTORY_SCALE`，保持宽高比）
   - `ScrollContainer` + `GridContainer.columns = 5`，条目从左到右、满行向下，超出可竖向滚动
   - 卡片为紫色描边占位框，显示磨损前缀 + 品质中文名（尚无内裤贴图）
@@ -245,17 +245,14 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 
 ### 5.3 信号 → UI 绑定
 
-倒计时类文本每帧刷新，其余全部由 `GameData` 信号驱动（闭包 `Callable` 连接）：
+常驻金币 / 状态 Label / 图鉴弹层 / 加速按钮已拆除。现存绑定：
 
-| 信号 | 刷新的 UI |
+| 信号 | 实际效果 |
 |------|----------|
-| `coins_changed` | 金币 Label、付费加速按钮可用态 |
-| `warehouse_changed` | `未晾干: n/10`，并触发 `_try_resume_wash()` |
-| `collection_changed` | `图鉴 n`、图鉴弹层各行收藏数与 CD 文本 |
-| `equipped_changed` | `已穿 xx`、立绘上的品质色补丁、图鉴行按钮态 |
-| `item_washed` | 品质闪光 + 飘字「洗出【稀有】内裤」 |
-| `item_dried` | 品质闪光 + 飘字「晾干【稀有】 +3 金币」 |
-| 每帧 `_process` | `正在洗涤 xxs` / `Steve跑路中 CD: xxs` 与洗涤进度条 |
+| `warehouse_changed` | `_try_resume_wash()`；烘干机网格打开时重填 |
+| `collection_changed` | 抽屉网格打开时重填 |
+| `item_washed` / `item_dried` | `--petlog` 日志 |
+| 悬停 1.5s | 头顶水条 `洗涤进度（n/100）` |
 
 ---
 
@@ -317,7 +314,7 @@ PetVisual (Control, IGNORE)
 
 | 事项 | 处理 |
 |------|------|
-| 可用区域 | `VIDEO_AREA = Rect2(10, 92, 230, 240)`，HUD 以下铺满 |
+| 可用区域 | `VIDEO_AREA = Rect2(5, 5, 240, 340)`，铺满窗口后按比例居中内接 |
 | 缩放 | 第一帧解出后按视频宽高比在该区域内**居中内接**（`_fit_video_rect()`），不拉伸变形 |
 | 拖拽 | `PetVideo.mouse_filter = IGNORE`，点击穿到根 `Control` 的 `_gui_input`，拖拽逻辑零改动 |
 | 鼠标穿透 | 跑路时仍走原有的 `WINDOW_FLAG_MOUSE_PASSTHROUGH`，视频不参与输入 |
@@ -365,6 +362,7 @@ My-Bro-J/
 ├── README.md               # 仓库说明与目录树
 ├── .cursorrules            # AI 编码规则（强制 Godot 4.x 语法、DisplayServer、闭包信号）
 ├── .gitignore              # 忽略 .godot/ 导入缓存与导出产物
+├── convert_video.bat       # steve3.mp4 → assets/videos/steve.ogv
 ├── scenes/
 │   └── steve.tscn      # 主场景：根节点 Control，全屏铺满，背景全透明
 ├── scripts/
@@ -373,14 +371,13 @@ My-Bro-J/
 ├── assets/
 │   ├── icon.svg            # 应用图标
 │   ├── images/
-│   │   ├── dryer.jpg       # 烘干机 / 抽屉弹层背景
-│   │   └── steve2.jpg      # 备用立绘素材
+│   │   ├── dryer.jpg       # 烘干机弹层背景
+│   │   ├── drawer.jpg      # 抽屉弹层背景
+│   │   └── steve2.jpg      # 无可用视频时的静帧回落
 │   ├── fonts/
-│   │   ├── hanyiyongzixiaoxiongmao.ttf    # 汉仪永字小熊猫（已授权入库；本机拷贝）
-│   │   ├── HAN-YI-LICENSE.md              # 授权说明
-│   │   ├── RenOuFangSong-16.ttf           # 回落中文字体（人偶仿宋 16）
+│   │   ├── YuanRou-P-Bold.ttf             # 唯一 UI 字体（源柔 P Bold）
+│   │   ├── YuanRou-OFL.txt                # SIL OFL 1.1
 │   │   ├── steve_theme.tres             # 全局 UI 主题
-│   │   ├── RenOuFangSong-OFL.txt          # 人偶仿宋许可
 │   │   └── README.md                      # 字体来源说明
 │   ├── shaders/
 │   │   └── chroma_key.gdshader          # RGB+YCbCr 绿幕 + 溢色抑制
@@ -449,22 +446,13 @@ Steve (Control, 铺满窗口, theme = steve_theme)
   - [x] 洗完入仓库 + 按品质烘干 Timer（90s + 10s×等级）
   - [x] 仓库满 10 条自动暂停，有空位自动恢复
   - [x] `trigger_free_speedup()`：概率跑路（隐藏窗口 + 进 CD）/ 成功加速
-  - [x] 引擎实跑验证：45s 出货、60s 晾干、容量上限 10、CD 缩减数值全部正确
-- [x] **Day 3**：桌面 UI 控件搭建（加速按钮、仓库/图鉴界面、代币显示）
-  - [x] 接入中文字体：Glow Sans SC 圆体子集化到约 2.0 MB，OFL 许可随仓库提交
-  - [x] `steve_theme.tres` 主题（字体 + 按钮/面板/进度条样式 + 11 个类型变体），
-        挂到 `gui/theme/custom` 与场景根节点，全场景 Label / Button 默认中文
-  - [x] `CanvasLayer` 悬浮 UI 层，与桌宠立绘分层，面板 `MOUSE_FILTER_IGNORE` 不吃拖拽
-  - [x] 代币 Label：`金币: 37`，随 `coins_changed` 刷新
-  - [x] 状态与倒计时 Label：`正在洗涤 32s` / `已暂停 - 仓库已满` / `Steve跑路中 CD: 85s`
-  - [x] 仓库挂起 Label `未晾干: 3/10` + 洗涤进度条
-  - [x] 悬浮 HUD / 图鉴 / 加速按钮已拆除，默认只留角色立绘
-  - [x] 右键菜单：`ExitPopup`（烘干机 / 抽屉 / 退出游戏）
-  - [x] 烘干机 / 抽屉：`InventoryPopup`（dryer.jpg + 黑遮罩 + 5 列滚动网格）
-  - [x] 默认字体改为汉仪永字小熊猫（已授权提交 GitHub；未入库时回落人偶仿宋）
-  - [x] 默认字体改为人偶仿宋 16（`RenOuFangSong-16.ttf` + `steve_theme.tres`，作回落）
+  - [x] 引擎实跑验证：45s 出货、90s+品质烘干、容量上限 10、CD 缩减数值全部正确
+- [x] **Day 3**：右键菜单 + 库存网格（常驻 HUD / 图鉴 / 加速按钮已拆除）
+  - [x] 唯一中文字体 YuanRou-P-Bold + `steve_theme.tres`
+  - [x] 右键 `ExitPopup`：烘干机 / 抽屉 / 固定上层 / 晚点再洗
+  - [x] `InventoryPopup`：dryer/drawer 绿幕背景 + 5 列滚动网格
+  - [x] 悬停 1.5s 头顶洗涤水条
   - [x] 品质重构为一次性 / 涤纶 / 纯棉 / 真丝 / 奢华 / 火星科技，并附加 8 档磨损前缀
-  - [x] 引擎实跑验证：中文字形零缺失、四种状态文案、信号驱动刷新、满仓暂停与恢复
 - [ ] **Day 4**：换装展示系统 + 跑路冷却与 CD 缩减算法对接
   - [x] `VideoStreamPlayer` 动态立绘：autoplay + loop、宽高比内接、鼠标穿透不影响拖拽、
         跑路隐藏并暂停 / 冷却结束续播、缺素材自动回落几何占位、抠像着色器还原透明背景
@@ -482,8 +470,7 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 
 ## 九、已知限制 / 后续注意
 
-1. 字体是 **GB2312 子集**，出现该范围外的生僻字会显示方块；按
-   `assets/fonts/README.md` 的脚本把字加进 `EXTRA` 重新生成即可。
+1. UI 字体是完整的源柔 P Bold（约 11 MB），不再做 GB2312 子集。
 2. 动态立绘需自备 `.ogv` 素材（Godot 4 不支持 mp4 / webm）。仓库自带的 70KB
    `steve.ogv` 是测试占位片，运行时不会播放；请把 `steve3.mp4` 放到仓库根目录后
    F5 自动转码，或双击 `convert_video.bat`。失败时显示 `Steve2.jpg` / 几何占位。

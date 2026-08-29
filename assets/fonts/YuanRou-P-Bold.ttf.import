@@ -2,18 +2,18 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://brenoufangsong16"
-path="res://.godot/imported/RenOuFangSong-16.ttf-renou.fontdata"
+uid="uid://byuanroupbold01"
+path="res://.godot/imported/YuanRou-P-Bold.ttf-yuanrou.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/RenOuFangSong-16.ttf"
-dest_files=["res://.godot/imported/RenOuFangSong-16.ttf-renou.fontdata"]
+source_file="res://assets/fonts/YuanRou-P-Bold.ttf"
+dest_files=["res://.godot/imported/YuanRou-P-Bold.ttf-yuanrou.fontdata"]
 
 [params]
 
 Rendering=null
-antialiasing=0
+antialiasing=1
 generate_mipmaps=false
 disable_embedded_bitmaps=true
 multichannel_signed_distance_field=false
@@ -22,8 +22,8 @@ msdf_size=48
 allow_system_fallback=true
 force_autohinter=false
 modulate_color_glyphs=false
-hinting=0
-subpixel_positioning=0
+hinting=1
+subpixel_positioning=1
 keep_rounding_remainders=true
 oversampling=0.0
 Fallbacks=null

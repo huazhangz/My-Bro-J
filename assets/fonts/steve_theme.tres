@@ -1,6 +1,6 @@
 [gd_resource type="Theme" format=3]
 
-[ext_resource type="FontFile" path="res://assets/fonts/RenOuFangSong-16.ttf" id="1_kugu7"]
+[ext_resource type="FontFile" path="res://assets/fonts/YuanRou-P-Bold.ttf" id="1_kugu7"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_lyj2d"]
 content_margin_left = 8.0

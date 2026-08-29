@@ -3,7 +3,7 @@
 > 2D Idle / 放置类**桌面悬浮窗**小游戏（桌宠）
 > Godot Engine **4.7.2 stable** · GDScript (Godot 4.x 语法)
 
-透明无边框窗口常驻桌面，Steve 自动洗内裤：**45 秒洗一条 → 进仓库（上限 10）→ 60 秒自动晾干进收藏**。
+透明无边框窗口常驻桌面，Steve 自动洗内裤：**45 秒洗一条 → 进仓库（上限 10）→ 基础 90 秒烘干（品质每级 +10 秒）进收藏**。
 内裤分一次性 / 涤纶 / 纯棉 / 真丝 / 奢华 / 火星科技六档品质，创建时再掷一档磨损前缀。
 穿戴品质越高，"Steve 跑路"的冷却时间缩减越多。
 
@@ -11,17 +11,17 @@
 
 ## 快速开始
 
-1. 本机必须检出 PR #8 分支（`main` 还是旧版，没有烘干机/抽屉）：
+1. 检出当前功能分支（`main` 没有烘干机 / 抽屉）：
    ```bat
    git fetch origin
    git checkout cursor/qualities-wear-dryer-drawer-0edd
    git pull origin cursor/qualities-wear-dryer-drawer-0edd
    ```
-   不要执行 `git reset --hard origin/main`，那会回到没有新 UI 的旧代码。
-2. 用 Godot **4.7.x** 打开本仓库根目录（含 `project.godot`）。主场景已锁定为 `res://scenes/steve.tscn`。
-3. 把 `steve3.mp4`、`hanyiyongzixiaoxiongmao.ttf`、`dryer.jpg`、`Steve2.jpg` 放到仓库根目录。
-4. 双击 `convert_video.bat`（需已安装 FFmpeg 并加入 PATH），把 `steve3.mp4` 转成 `assets/videos/steve.ogv`（输出必须大于 80KB，否则仍是占位片）。
-5. 用 **F5** 跑主场景 `steve.tscn`。Game 面板关掉 *Embed Game on Play*。仓库自带的 70KB `steve.ogv` **不会**再当人物动画播放。
+   不要执行 `git reset --hard origin/main`。
+2. 用 Godot **4.7.x** 打开本仓库根目录。主场景是 `res://scenes/steve.tscn`。
+3. 把 `steve3.mp4`、`dryer.jpg`、`Steve2.jpg` 放到仓库根目录。UI 字体已在 `assets/fonts/YuanRou-P-Bold.ttf`。本机若只有 `YuanRou-P-Bold.zip`，F5 会自动解包。
+4. 双击 `convert_video.bat`（需 FFmpeg 在 PATH），把 `steve3.mp4` 转成 `assets/videos/steve.ogv`（必须大于 80KB）。
+5. **F5** 跑 `steve.tscn`。Game 面板关掉 *Embed Game on Play*。仓库自带的 70KB `steve.ogv` 不会当人物动画播放。
 
 ### 操作方式
 
@@ -29,13 +29,13 @@
 |------|------|
 | 鼠标在立绘上停留 1.5 秒 | 头顶显示洗涤水条与进度文字 |
 | 左键拖动 | 移动桌宠窗口 |
-| **在立绘上右键** | 打开菜单：烘干机 / 抽屉 / 固定上层 / 晚点再洗 |
+| **在立绘上右键** | 烘干机 / 抽屉 / 固定上层 / 晚点再洗 |
 | 点「烘干机」/「抽屉」 | 打开 2.5× 滚动网格（晾干中 / 已收藏） |
 | 点关闭、再右键或 `ESC` | 关闭弹层 |
 | `ESC` | 弹窗开着则关闭，否则退出 |
 | 命令行加 `-- --petlog` | 输出状态机日志 |
 
-> 若窗口拖不动，说明编辑器把游戏窗口**内嵌**运行了。在 Godot 的 **Game** 面板关掉 *Embed Game on Play*。
+> 窗口拖不动：编辑器把游戏窗口内嵌了。关掉 Game 面板的 *Embed Game on Play*。
 
 ---
 
@@ -47,41 +47,26 @@ My-Bro-J/
 ├── README.md
 ├── .cursorrules
 ├── .gitignore
-│
-├── scenes/
-│   └── steve.tscn             # 主场景，根节点 Steve (Control)
-│
-├── scripts/
-│   ├── steve.gd               # 窗口拖拽 + 状态机 + 右键菜单 + 视频/色度键
-│   ├── GameData.gd
-│   └── GameData.gd.uid
-│
-├── assets/
-│   ├── images/
-│   │   ├── dryer.jpg
-│   │   └── steve2.jpg
-│   ├── fonts/
-│   │   ├── hanyiyongzixiaoxiongmao.ttf
-│   │   ├── HAN-YI-LICENSE.md
-│   │   ├── RenOuFangSong-16.ttf
-│   │   ├── steve_theme.tres
-│   │   └── RenOuFangSong-OFL.txt
-│   └── videos/
-│       ├── steve.ogv
-│       └── video_key.gdshader   # 兼容旧路径，实现同 chroma_key.gdshader
-│
-└── docs/
-    └── PRD.md
+├── convert_video.bat
+├── scenes/steve.tscn
+├── scripts/steve.gd
+├── scripts/GameData.gd
+├── assets/images/dryer.jpg
+├── assets/images/drawer.jpg
+├── assets/images/steve2.jpg
+├── assets/fonts/YuanRou-P-Bold.ttf
+├── assets/fonts/YuanRou-OFL.txt
+├── assets/fonts/steve_theme.tres
+├── assets/shaders/chroma_key.gdshader
+├── assets/videos/steve.ogv
+└── docs/PRD.md
 ```
-
-### 路径引用约定
 
 | 引用位置 | 值 |
 |---------|-----|
-| `project.godot` → `run/main_scene` | `res://scenes/steve.tscn` |
-| `project.godot` → `gui/theme/custom` | `res://assets/fonts/steve_theme.tres` |
-| `project.godot` → `gui/theme/custom_font` | `RenOuFangSong-16.ttf`（回落；运行时换汉仪永字小熊猫） |
-| `scenes/steve.tscn` → script / theme / video | `steve.gd` / `steve_theme.tres` / `steve.ogv` |
+| `run/main_scene` | `res://scenes/steve.tscn` |
+| `gui/theme/custom` | `res://assets/fonts/steve_theme.tres` |
+| `gui/theme/custom_font` | `res://assets/fonts/YuanRou-P-Bold.ttf` |
 
 ---
 
@@ -89,8 +74,7 @@ My-Bro-J/
 
 源文件：`C:\Users\ASUS\My-Bro-J\steve3.mp4`（绿幕）。Godot 4 只播 `.ogv`。
 启动时若找到该 mp4 会用 FFmpeg 覆盖 `assets/videos/steve.ogv`（失败再写 `user://steve.ogv`）。
-仓库里 70KB 测试占位片会被拒绝，不会再当立绘。色度键默认开启：绿 `#00FF00`，
-similarity `0.40`，smoothness `0.10`。日志前缀 `[Steve/Video]`。
+仓库里 70KB 测试占位片会被拒绝。色度键默认：绿 `#00FF00`，similarity `0.40`，smoothness `0.10`。
 详见 [`assets/videos/README.md`](assets/videos/README.md)。
 
 ---
@@ -105,6 +89,6 @@ similarity `0.40`，smoothness `0.10`。日志前缀 `[Steve/Video]`。
 | `RUNAWAY_BASE_COOLDOWN` | 120 s | 跑路冷却基础时长 |
 | `FREE_SPEEDUP_RUNAWAY_CHANCE` | 7.5% | 免费加速触发跑路的概率 |
 | `FREE_SPEEDUP_SECONDS` | 20 s | 免费加速成功时扣减的洗涤时间 |
-| `PAID_SPEEDUP_COST` | 10 币 | 付费加速：花 10 金币直接洗完当前这条 |
+| `PAID_SPEEDUP_ENABLED` | false | 付费加速已下线，无 UI |
 
 详见 [`docs/PRD.md`](docs/PRD.md)。

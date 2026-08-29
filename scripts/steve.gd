@@ -198,10 +198,16 @@ func _ingest_user_images() -> void:
 func _apply_ui_font() -> void:
 	var path: String = GameData.first_existing_named(GameData.USER_UI_FONT_ALIASES)
 	if path.is_empty():
-		print("%s UI font fallback RenOuFangSong (hanyi ttf not in project yet)" % VIDEO_LOG_PREFIX)
+		print("%s UI font missing: %s" % [VIDEO_LOG_PREFIX, GameData.RES_UI_FONT_PATH])
 		return
-	if path != GameData.RES_UI_FONT_PATH and GameData.copy_file(path, GameData.RES_UI_FONT_PATH):
-		print("%s authorized Hanyi font copied -> %s" % [VIDEO_LOG_PREFIX, GameData.RES_UI_FONT_PATH])
+	if path.get_extension().to_lower() == "zip":
+		var extracted: String = GameData.extract_font_from_zip(path, GameData.RES_UI_FONT_PATH)
+		if extracted.is_empty():
+			print("%s failed to unpack %s" % [VIDEO_LOG_PREFIX, path])
+			return
+		print("%s unpacked %s -> %s" % [VIDEO_LOG_PREFIX, path, extracted])
+		path = extracted
+	elif path != GameData.RES_UI_FONT_PATH and GameData.copy_file(path, GameData.RES_UI_FONT_PATH):
 		path = GameData.RES_UI_FONT_PATH
 	var font: FontFile = null
 	if path.begins_with("res://") and ResourceLoader.exists(path, "FontFile"):
@@ -638,8 +644,6 @@ func _find_desktop_source() -> String:
 		"Steve3.mp4",
 		"steve3.ogv",
 		"Steve3.ogv",
-		"Steve1.mp4",
-		"steve1.mp4",
 	])
 	for file_name: String in names:
 		var path: String = GameData.first_existing_file(file_name)
