@@ -106,11 +106,12 @@ func _apply_window_setup() -> void:
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, true)
 
 	# 首次启动时把窗口挪到屏幕右下角，避免正好压在编辑器上。
+	# 注意别把局部变量取名 size / position，会遮蔽 Control 自己的同名属性。
 	var usable: Rect2i = DisplayServer.screen_get_usable_rect()
-	var size: Vector2i = DisplayServer.window_get_size()
+	var window_size: Vector2i = DisplayServer.window_get_size()
 	var target: Vector2i = Vector2i(
-		usable.position.x + usable.size.x - size.x - 80,
-		usable.position.y + usable.size.y - size.y - 80
+		usable.position.x + usable.size.x - window_size.x - 80,
+		usable.position.y + usable.size.y - window_size.y - 80
 	)
 	DisplayServer.window_set_position(target)
 
@@ -162,10 +163,10 @@ func _update_drag() -> void:
 
 func _clamp_to_screen(pos: Vector2i) -> Vector2i:
 	var usable: Rect2i = DisplayServer.screen_get_usable_rect()
-	var size: Vector2i = DisplayServer.window_get_size()
-	var min_x: int = usable.position.x - size.x + SCREEN_MARGIN
+	var window_size: Vector2i = DisplayServer.window_get_size()
+	var min_x: int = usable.position.x - window_size.x + SCREEN_MARGIN
 	var max_x: int = usable.position.x + usable.size.x - SCREEN_MARGIN
-	var min_y: int = usable.position.y - size.y + SCREEN_MARGIN
+	var min_y: int = usable.position.y - window_size.y + SCREEN_MARGIN
 	var max_y: int = usable.position.y + usable.size.y - SCREEN_MARGIN
 	return Vector2i(clampi(pos.x, min_x, max_x), clampi(pos.y, min_y, max_y))
 
@@ -346,15 +347,16 @@ func _tick_runaway(delta: float) -> void:
 ## 跑路期间「隐藏窗口」：藏掉桌宠与全部可交互 UI，并开启鼠标穿透，
 ## 使窗口在视觉与交互上都等于消失（不用 minimize，避免抢占任务栏焦点）。
 ## 只保留一条半透明的冷却提示条，让玩家知道孙哥什么时候回来。
-func _set_pet_hidden(hidden: bool) -> void:
-	_pet_visual.visible = not hidden
-	_hud_panel.visible = not hidden
-	_button_bar.visible = not hidden
-	_toast_label.visible = not hidden
+## 参数别叫 hidden：那是 CanvasItem 自带的信号名，会被 GDScript 判成遮蔽。
+func _set_pet_hidden(hide_pet: bool) -> void:
+	_pet_visual.visible = not hide_pet
+	_hud_panel.visible = not hide_pet
+	_button_bar.visible = not hide_pet
+	_toast_label.visible = not hide_pet
 	_quality_flash.visible = false
-	_runaway_banner.visible = hidden
+	_runaway_banner.visible = hide_pet
 	# WINDOW_FLAG_MOUSE_PASSTHROUGH 为 true 时整窗鼠标事件全部穿透，无需设置多边形。
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_MOUSE_PASSTHROUGH, hidden)
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_MOUSE_PASSTHROUGH, hide_pet)
 
 
 # =========================================================================
