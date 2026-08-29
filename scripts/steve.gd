@@ -48,7 +48,8 @@ const STUB_VIDEO_MAX_BYTES: int = 80000
 			_apply_video_key()
 
 @onready var _pet_visual: Control = %PetVisual
-@onready var _pet_video: VideoStreamPlayer = %PetVideo
+## 不用 `%PetVideo` 的 @onready：节点缺失时 Godot 会在进树时直接报错并留下 null。
+var _pet_video: VideoStreamPlayer
 @onready var _pet_frame: TextureRect = %PetFrame
 @onready var _placeholder_visual: Control = %PlaceholderVisual
 @onready var _exit_popup: PanelContainer = %ExitPopup
@@ -95,6 +96,7 @@ func _ready() -> void:
 	print("%s build=qualities-wear-dryer-drawer  scene=%s  menu=烘干机/抽屉/退出游戏" % [
 		VIDEO_LOG_PREFIX, scene_file_path,
 	])
+	_ensure_pet_video_node()
 	_apply_mouse_filters()
 	_apply_window_setup()
 	_ingest_user_images()
@@ -421,7 +423,46 @@ func _set_pet_hidden(hide_pet: bool) -> void:
 		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_MOUSE_PASSTHROUGH, hide_pet)
 
 
+func _ensure_pet_video_node() -> void:
+	_pet_video = get_node_or_null("%PetVideo") as VideoStreamPlayer
+	if _pet_video == null:
+		_pet_video = get_node_or_null("PetVisual/PetVideo") as VideoStreamPlayer
+	if _pet_video == null:
+		_pet_video = find_child("PetVideo", true, false) as VideoStreamPlayer
+	if _pet_video != null:
+		_pet_video.unique_name_in_owner = true
+		_pet_video.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return
+	var visual: Control = _pet_visual
+	if visual == null:
+		visual = get_node_or_null("%PetVisual") as Control
+	if visual == null:
+		visual = get_node_or_null("PetVisual") as Control
+	if visual == null:
+		push_error("PetVideo node is missing or null! PetVisual is also missing.")
+		return
+	_pet_video = VideoStreamPlayer.new()
+	_pet_video.name = "PetVideo"
+	_pet_video.unique_name_in_owner = true
+	_pet_video.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pet_video.volume_db = -80.0
+	_pet_video.autoplay = true
+	_pet_video.expand = true
+	_pet_video.loop = true
+	_pet_video.position = VIDEO_AREA.position
+	_pet_video.size = VIDEO_AREA.size
+	visual.add_child(_pet_video)
+	visual.move_child(_pet_video, 0)
+	print("%s restored missing PetVideo under %s" % [VIDEO_LOG_PREFIX, visual.get_path()])
+
+
 func _setup_pet_video() -> void:
+	if not is_instance_valid(_pet_video):
+		_ensure_pet_video_node()
+	if not is_instance_valid(_pet_video):
+		push_error("PetVideo node is missing or null!")
+		_fail_video("场景里没有 PetVideo（VideoStreamPlayer）。")
+		return
 	_apply_video_key()
 
 	var path: String = _resolve_video_path()
@@ -485,7 +526,7 @@ func _resolve_video_path() -> String:
 		return ingested
 	if FileAccess.file_exists(VIDEO_PATH):
 		return VIDEO_PATH
-	var from_stream: String = _stream_file_path(_pet_video.stream)
+	var from_stream: String = _stream_file_path(_pet_video.stream if is_instance_valid(_pet_video) else null)
 	if not from_stream.is_empty() and FileAccess.file_exists(from_stream):
 		return from_stream
 	for file_name: String in _video_dir_files():
@@ -650,8 +691,9 @@ func _fail_video(reason: String, hint: String = "") -> void:
 	_video_enabled = false
 	_video_confirmed = false
 	_video_probe_left = 0
-	_pet_video.stop()
-	_pet_video.stream = null
+	if is_instance_valid(_pet_video):
+		_pet_video.stop()
+		_pet_video.stream = null
 	_refresh_visual_swap()
 	var still: Texture2D = GameData.load_image_texture(GameData.USER_STEVE2_FILE)
 	if still != null:
@@ -669,6 +711,10 @@ func _refresh_visual_swap() -> void:
 
 
 func _sync_video_display() -> void:
+	if not is_instance_valid(_pet_video):
+		if is_instance_valid(_pet_frame):
+			_pet_frame.visible = false
+		return
 	if not _video_enabled:
 		_pet_video.visible = false
 		_pet_frame.visible = false

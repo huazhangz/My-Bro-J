@@ -64,6 +64,7 @@ mouse_filter = 2
 
 [node name="PetVideo" type="VideoStreamPlayer" parent="PetVisual"]
 unique_name_in_owner = true
+editor_description = "Required unique name %PetVideo for steve.gd"
 layout_mode = 0
 offset_left = 5.0
 offset_top = 5.0
