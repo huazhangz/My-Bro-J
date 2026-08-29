@@ -29,7 +29,8 @@
 | 5 | 付费加速 | 消耗 **10 金币**强行洗完当前这一条，无风险 | ✅ 已实现 |
 | 6 | 免费加速与风险触发 | 有概率触发"孙哥随机跑路" | ✅ 已实现 |
 | 7 | 跑路与冷却机制 | 跑路后隐藏桌宠 + 冷却倒计时，结束后自动回归 | ✅ 已实现 |
-| 8 | 换装与展示 | 选择已解锁品质给孙哥穿上展示 | 🟡 图鉴换装 UI 完成，真实立绘待做 (Day 4) |
+| 8 | 换装与展示 | 选择已解锁品质给孙哥穿上展示 | 🟡 图鉴换装 UI 完成，换装立绘待做 (Day 4) |
+| 11 | 动态立绘 | `VideoStreamPlayer` 循环播放孙哥视频，跑路时隐藏并暂停 | ✅ 已实现（需自备 `.ogv` 素材） |
 | 9 | 品质 CD 缩减算法 | 穿戴品质越高，跑路冷却缩减越多 | ✅ 已实现 |
 | 10 | 本地持久化 | `save_data.json` 存读档 | ⬜ 待做 (Day 5)，`GameData` 已预留序列化接口 |
 
@@ -224,6 +225,69 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 
 ---
 
+## 五之二、动态立绘（VideoStreamPlayer）
+
+### 关键约束：Godot 4 只能播 Ogg Theora
+
+`VideoStream` 在 Godot 4 里**只有 `VideoStreamTheora` 一个子类**，
+`ResourceLoader.get_recognized_extensions_for_type("VideoStream")` 返回
+`["ogv", "tres", "res"]`。**`.mp4` / `.webm` 拖进项目不会被识别**，
+必须先用 FFmpeg 转码，命令见 `assets/videos/README.md`。
+
+### 节点与回落策略
+
+```
+PetVisual (Control, IGNORE)
+├── PetVideo (VideoStreamPlayer, IGNORE)   # 动态立绘，autoplay + loop
+├── PlaceholderVisual (Control, IGNORE)    # 没有 .ogv 时的 ColorRect 几何占位
+│   └── Head / EyeLeft / EyeRight / Body / Basin
+└── EquippedMark (ColorRect, IGNORE)       # 换装色块，视频模式下贴到立绘底部
+```
+
+视频**不在场景里硬连 `ext_resource`**，而是 `_setup_pet_video()` 运行时查找：
+
+1. `res://assets/videos/sun_pet.ogv` 存在 → 加载并播放；
+2. 否则取 `assets/videos/` 下第一个 `.ogv`；
+3. 一个都没有 → `push_warning` 并显示几何占位，**项目照常运行不报错**。
+
+这样仓库里不带视频素材也能 F5，把 `.ogv` 丢进目录就自动升级成视频立绘，
+不需要在编辑器里连任何节点（符合「不要求手动点按钮」的约定）。
+
+### 排版、拖拽与鼠标穿透
+
+| 事项 | 处理 |
+|------|------|
+| 可用区域 | `VIDEO_AREA = Rect2(10, 98, 230, 160)`，夹在 HUD 面板与按钮栏之间 |
+| 缩放 | 第一帧解出后按视频宽高比在该区域内**居中内接**（`_fit_video_rect()`），不拉伸变形 |
+| 拖拽 | `PetVideo.mouse_filter = IGNORE`，点击穿到根 `Control` 的 `_gui_input`，拖拽逻辑零改动 |
+| 鼠标穿透 | 跑路时仍走原有的 `WINDOW_FLAG_MOUSE_PASSTHROUGH`，视频不参与输入 |
+| 音量 | `volume_db = -80`（默认静音，桌宠常驻不吵人），要声音就调回 `0` |
+
+### 状态联动
+
+| 状态 | 视频 |
+|------|------|
+| `WASHING` / `PAUSED_FULL` | 显示 + 循环播放（`autoplay = true`、`loop = true`） |
+| `RUNAWAY` 触发 | `_set_video_playing(false)`：隐藏节点 + `paused = true`，停止解码省 CPU |
+| 冷却结束 | `_set_video_playing(true)`：恢复显示 + `paused = false` 原地续播 |
+
+### 透明背景：抠像
+
+Theora **没有 Alpha 通道**，视频必然是一块不透明矩形。项目带了
+`assets/videos/video_key.gdshader`，参数由主场景根节点检查器的「视频立绘」分组驱动：
+
+| `video_key_mode` | 适用素材 |
+|------------------|---------|
+| `OFF`（默认） | 不抠像，背景不透明 |
+| `CHROMA` | 绿幕 / 纯色背景，抠掉接近 `video_key_color` 的像素 |
+| `DARK` | 黑底视频 |
+| `BRIGHT` | 白底视频 |
+
+另有 `video_key_threshold`（抠除范围）与 `video_key_softness`（边缘羽化）。
+素材本身带 Alpha 时，更好的做法是导出 PNG 序列帧走 `AnimatedSprite2D`，能完美保留透明。
+
+---
+
 ## 六、文件结构
 
 ```
@@ -240,11 +304,15 @@ My-Bro-J/
 ├── assets/
 │   ├── icon.svg            # 应用图标
 │   ├── images/             # 孙哥立绘、内裤贴图（Day 4）
-│   └── fonts/
-│       ├── NotoSansSC-Regular-Subset.ttf  # 中文字体（GB2312 子集，2.3 MB）
-│       ├── sun_pet_theme.tres             # 全局 UI 主题（字体 + 按钮/面板样式）
-│       ├── OFL.txt                        # 字体许可（SIL OFL 1.1）
-│       └── README.md                      # 字体来源与子集重生成脚本
+│   ├── fonts/
+│   │   ├── NotoSansSC-Regular-Subset.ttf  # 中文字体（GB2312 子集，2.3 MB）
+│   │   ├── sun_pet_theme.tres             # 全局 UI 主题（字体 + 按钮/面板样式）
+│   │   ├── OFL.txt                        # 字体许可（SIL OFL 1.1）
+│   │   └── README.md                      # 字体来源与子集重生成脚本
+│   └── videos/
+│       ├── sun_pet.ogv                    # 动态立绘视频（需自备，Ogg Theora）
+│       ├── video_key.gdshader             # 视频抠像着色器（Theora 无 Alpha）
+│       └── README.md                      # mp4 -> ogv 转换命令与抠像说明
 └── docs/
     └── PRD.md              # 本文档
 ```
@@ -253,9 +321,11 @@ My-Bro-J/
 
 ```
 SunPet (Control, 铺满窗口, MOUSE_FILTER_STOP —— 负责接收拖拽, theme = sun_pet_theme)
-├── PetVisual (Control, IGNORE)          # 孙哥占位立绘（Day 4 换真实美术）
-│   ├── Head / EyeLeft / EyeRight / Body / Basin (ColorRect)
-│   └── EquippedMark (ColorRect)         # 换装占位：身上那块品质色补丁
+├── PetVisual (Control, IGNORE)
+│   ├── PetVideo (VideoStreamPlayer)     # 动态立绘：autoplay + loop，无 .ogv 时自动隐藏
+│   ├── PlaceholderVisual (Control)      # 几何占位兜底
+│   │   └── Head / EyeLeft / EyeRight / Body / Basin (ColorRect)
+│   └── EquippedMark (ColorRect)         # 换装品质色标记
 ├── QualityFlash (ColorRect, IGNORE)     # 出货品质闪光特效
 └── UILayer (CanvasLayer)
     └── UIRoot (Control, IGNORE)
@@ -327,6 +397,8 @@ SunPet (Control, 铺满窗口, MOUSE_FILTER_STOP —— 负责接收拖拽, them
   - [x] 右上角 `×` 退出按钮，移除易误触的右键退出
   - [x] 引擎实跑验证：中文字形零缺失、四种状态文案、信号驱动刷新、满仓暂停与恢复
 - [ ] **Day 4**：换装展示系统 + 跑路冷却与 CD 缩减算法对接
+  - [x] `VideoStreamPlayer` 动态立绘：autoplay + loop、宽高比内接、鼠标穿透不影响拖拽、
+        跑路隐藏并暂停 / 冷却结束续播、缺素材自动回落几何占位、抠像着色器还原透明背景
   - [ ] 孙哥立绘美术资源替换 ColorRect 占位
   - [ ] 换装面板调用 `GameData.equip_quality()`
   - [ ] 大红品质特效
@@ -342,7 +414,8 @@ SunPet (Control, 铺满窗口, MOUSE_FILTER_STOP —— 负责接收拖拽, them
 
 1. 字体是 **GB2312 子集**，出现该范围外的生僻字会显示方块；按
    `assets/fonts/README.md` 的脚本把字加进 `EXTRA` 重新生成即可。
-2. 孙哥立绘为 `ColorRect` 几何占位（含换装用的品质色补丁），等美术资源（Day 4 替换）。
+2. 动态立绘需自备 `.ogv` 素材（Godot 4 不支持 mp4 / webm）；仓库里没有素材时
+   显示 `ColorRect` 几何占位。Theora 无 Alpha 通道，透明背景要靠抠像着色器。
 3. 跑路时用「隐藏内容 + 整窗鼠标穿透」模拟窗口消失，未真正 `hide()` 主窗口；
    为了让玩家知道孙哥何时回来，保留一条半透明的 `孙哥跑路中 CD: xxs` 提示条。
 4. 离线收益未结算：条目已存 `dry_deadline` 时间戳，Day 5 读档时按现实时间补算。

@@ -43,7 +43,7 @@ My-Bro-J/
 │
 ├── scenes/                      # 全部 .tscn 场景
 │   └── sun_pet.tscn             # 主场景（root/main_scene）：根节点 Control，铺满窗口、背景全透明
-│                                #   ├── PetVisual    孙哥占位立绘 + 洗衣盆 + 换装色块
+│                                #   ├── PetVisual    动态立绘（VideoStreamPlayer）+ 几何占位兜底
 │                                #   ├── QualityFlash 出货品质闪光特效
 │                                #   └── UILayer      CanvasLayer 悬浮中文 UI
 │                                #        ├── HudPanel      代币 / 状态倒计时 / 进度条 / 仓库挂起
@@ -61,11 +61,15 @@ My-Bro-J/
 ├── assets/                      # 美术与字体资源
 │   ├── icon.svg                 # 应用图标
 │   ├── images/                  # 孙哥立绘、内裤贴图（Day 4 填充）
-│   └── fonts/                   # 中文字体与 UI 主题（引擎默认字体不含 CJK 字形）
-│       ├── NotoSansSC-Regular-Subset.ttf  # Noto Sans SC，GB2312 子集，2.3 MB
-│       ├── sun_pet_theme.tres             # 全局主题：中文字体 + 按钮/面板/进度条样式
-│       ├── OFL.txt                        # SIL Open Font License 1.1
-│       └── README.md                      # 字体来源与子集重生成脚本
+│   ├── fonts/                   # 中文字体与 UI 主题（引擎默认字体不含 CJK 字形）
+│   │   ├── NotoSansSC-Regular-Subset.ttf  # Noto Sans SC，GB2312 子集，2.3 MB
+│   │   ├── sun_pet_theme.tres             # 全局主题：中文字体 + 按钮/面板/进度条样式
+│   │   ├── OFL.txt                        # SIL Open Font License 1.1
+│   │   └── README.md                      # 字体来源与子集重生成脚本
+│   └── videos/                  # 动态立绘视频
+│       ├── sun_pet.ogv                    # 需自备：Godot 4 只认 Ogg Theora
+│       ├── video_key.gdshader             # 抠像着色器（Theora 无 Alpha 通道）
+│       └── README.md                      # mp4 -> ogv 转换命令与抠像参数说明
 │
 └── docs/
     └── PRD.md                   # 产品需求文档：完整需求、数据结构、数值表、CD 算法、开发进度
@@ -83,6 +87,24 @@ My-Bro-J/
 
 移动任何场景 / 脚本 / 资源后，务必同步修正上表，并执行
 `godot --headless --path . --import` 确认无报错。
+
+---
+
+## 动态立绘视频（重要）
+
+桌宠中间的立绘由 `VideoStreamPlayer` 循环播放。**Godot 4 只支持 Ogg Theora（`.ogv`）**，
+`.mp4` / `.webm` 拖进项目不会被识别，必须先转码：
+
+```powershell
+ffmpeg -i "你的视频.mp4" -vf "fps=24,scale=460:-2" -c:v libtheora -q:v 8 -an "assets\videos\sun_pet.ogv"
+```
+
+放进 `assets/videos/sun_pet.ogv` 就会自动播放，**不用在编辑器里连任何节点**。
+目录里没有 `.ogv` 时会自动回落到 `ColorRect` 几何占位，项目照常能跑。
+
+Theora 没有 Alpha 通道，想保住透明背景要用抠像：在主场景根节点 `SunPet` 的检查器里
+把「视频立绘 → `video_key_mode`」调成 `CHROMA`（绿幕/纯色底）、`DARK`（黑底）
+或 `BRIGHT`（白底）。详见 [`assets/videos/README.md`](assets/videos/README.md)。
 
 ---
 
@@ -122,5 +144,5 @@ My-Bro-J/
 - [x] **Day 1** 透明无边框窗口 + 桌面悬浮 + 鼠标拖拽移动
 - [x] **Day 2** 核心数据单例 `GameData.gd` + 洗涤/晾干状态机
 - [x] **Day 3** 中文字体 + 悬浮 UI（代币 / 状态倒计时 / 仓库挂起 / 加速按钮 / 图鉴换装弹层）
-- [ ] **Day 4** 换装展示系统 + 跑路冷却与 CD 缩减算法对接
+- [ ] **Day 4** 换装展示系统（动态立绘 `VideoStreamPlayer` 已完成，换装立绘与大红特效待做）
 - [ ] **Day 5** 本地持久化 `save_data.json` + 整体打包测试

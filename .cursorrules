@@ -52,7 +52,7 @@
   （根节点必须是 `Control`，全屏铺满，背景完全透明）。
 - `scripts/`：全部 `.gd` 脚本。`scripts/sun_pet.gd` 为主场景脚本，
   `scripts/GameData.gd` 是全局 Autoload 单例（名称 `GameData`）。
-- `assets/`：美术与字体资源（`assets/images/`、`assets/fonts/`）。
+- `assets/`：美术、字体与视频资源（`assets/images/`、`assets/fonts/`、`assets/videos/`）。
 - `docs/`：`docs/PRD.md` 等文档。
 - 根目录只保留 `project.godot`、`README.md`、`.gitignore`、`.cursorrules`。
 - 移动任何场景/脚本/资源后，必须同步修正 `project.godot` 的
@@ -74,7 +74,20 @@
  需要差异化样式时用主题里的类型变体（`theme_type_variation = &"RiskButton"` 等）。
  若新文案出现方块，说明字体子集缺字，按 `assets/fonts/README.md` 的脚本重新生成子集。
 
-## 6. 自动化要求
+## 6. 动态立绘视频
+
+- Godot 4 的 `VideoStreamPlayer` **只支持 Ogg Theora（`.ogv`）**，
+ `VideoStream` 的唯一子类是 `VideoStreamTheora`。绝不要写 `.mp4` / `.webm` 的加载代码，
+ 也不要臆造 `VideoStreamWebm` 之类不存在的类。素材一律先用 FFmpeg 转 `.ogv`
+ （命令见 `assets/videos/README.md`）。
+- 视频资源**不在场景里硬连 `ext_resource`**：`sun_pet.gd` 启动时用
+ `ResourceLoader.exists()` / `DirAccess` 去找，找不到就回落到几何占位并 `push_warning`，
+ 保证仓库里没有视频文件时项目照样能跑。
+- `VideoStreamPlayer` 必须 `mouse_filter = Control.MOUSE_FILTER_IGNORE`，否则会吃掉窗口拖拽。
+- Theora **没有 Alpha 通道**，透明背景只能靠 `assets/videos/video_key.gdshader` 抠像，
+ 参数走主场景根节点的 `@export`（`video_key_mode` 等），不要在脚本里写死。
+
+## 7. 自动化要求
 
 - 不要求用户在 Godot 编辑器里手动点按钮：Autoload、窗口标志、视口尺寸等一律写进 `project.godot`。
 - 修改代码后同步更新 `PRD.md` 的进度勾选。
