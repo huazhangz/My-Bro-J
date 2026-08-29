@@ -197,6 +197,8 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 - `_is_embedded_in_editor()` 检测命令行 `--wid` 参数；若编辑器内嵌运行游戏窗口，
   会 `push_warning` 提示关闭内嵌。项目已通过 `.godot/editor/project_metadata.cfg`
   设置 `game_view/embed_on_play=false` 默认关闭内嵌。
+  `display/window/subwindows/embed_subwindows=false` 与运行时
+  `gui_embed_subwindows = false` 强制独立 OS 窗口。
 
 ---
 
@@ -276,7 +278,7 @@ PetVisual (Control, IGNORE)
 运行时 `_setup_pet_video()` 仍会校验，失败才把占位图打开。全过程无条件打印
 `[Steve/Video]` 日志（不用加 `--petlog`）：
 
-1. **找文件**：`C:/Users/ASUS/My-Bro-J/Steve1.mp4`（存在则 FFmpeg 转 `user://steve.ogv`）
+1. **找文件**：`C:/Users/ASUS/My-Bro-J/Steve1.mp4`（或双击根目录 `convert_video.bat` 写成 `assets/videos/steve.ogv`）
    → 否则 `FileAccess.file_exists(res://assets/videos/steve.ogv)` → 否则场景 stream
    → 否则取目录下第一个 `.ogv`。
 2. **体检文件头**：Ogg 必须以 `OggS` 开头。识别 MP4/MOV（`ftyp`）、Matroska/WebM

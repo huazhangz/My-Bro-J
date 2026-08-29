@@ -85,7 +85,9 @@ var _base_window_pos: Vector2i = Vector2i.ZERO
 
 func _ready() -> void:
 	_debug_log = OS.get_cmdline_user_args().has("--petlog")
-	print("%s scene=%s" % [VIDEO_LOG_PREFIX, scene_file_path])
+	print("%s build=qualities-wear-dryer-drawer  scene=%s  menu=烘干机/抽屉/退出游戏" % [
+		VIDEO_LOG_PREFIX, scene_file_path,
+	])
 	_apply_window_setup()
 	_ingest_user_images()
 	_connect_exit_popup()

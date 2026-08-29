@@ -11,10 +11,17 @@
 
 ## 快速开始
 
-1. 用 Godot **4.7.x** 打开本仓库根目录（含 `project.godot`）。
-2. 把 `Steve1.mp4`、`dryer.jpg`、`Steve2.jpg` 放到仓库根目录。
-3. 双击 `convert_video.bat`（需已安装 FFmpeg 并加入 PATH），把 `Steve1.mp4` 转成 `assets/videos/steve.ogv`。
-4. 用 **F5** 跑主场景 `steve.tscn`。Game 面板关掉 *Embed Game on Play*。
+1. 本机必须检出 PR #8 分支（`main` 还是旧版，没有烘干机/抽屉）：
+   ```bat
+   git fetch origin
+   git checkout cursor/qualities-wear-dryer-drawer-0edd
+   git pull origin cursor/qualities-wear-dryer-drawer-0edd
+   ```
+   不要执行 `git reset --hard origin/main`，那会回到没有新 UI 的旧代码。
+2. 用 Godot **4.7.x** 打开本仓库根目录（含 `project.godot`）。主场景已锁定为 `res://scenes/steve.tscn`。
+3. 把 `Steve1.mp4`、`dryer.jpg`、`Steve2.jpg` 放到仓库根目录。
+4. 双击 `convert_video.bat`（需已安装 FFmpeg 并加入 PATH），把 `Steve1.mp4` 转成 `assets/videos/steve.ogv`。
+5. 用 **F5** 跑主场景 `steve.tscn`。Game 面板关掉 *Embed Game on Play*。
 
 ### 操作方式
 
