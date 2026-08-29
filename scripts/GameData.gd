@@ -66,10 +66,12 @@ const WAREHOUSE_CAPACITY: int = 10
 ## 跑路冷却基础秒数（未穿戴任何内裤时的冷却）。
 const RUNAWAY_BASE_COOLDOWN: float = 120.0
 ## 免费加速触发「Steve 跑路」的概率。
-const FREE_SPEEDUP_RUNAWAY_CHANCE: float = 0.25
+const FREE_SPEEDUP_RUNAWAY_CHANCE: float = 0.075
 ## 免费加速成功时直接扣掉的洗涤秒数。
-const FREE_SPEEDUP_SECONDS: float = 15.0
-## 付费加速：消耗这么多代币，直接强行洗完当前这一条（无跑路风险）。
+const FREE_SPEEDUP_SECONDS: float = 20.0
+## 付费加速 / 图鉴换装已下线（无 UI 入口）。常量保留给存档兼容。
+const PAID_SPEEDUP_ENABLED: bool = false
+const CODEX_ENABLED: bool = false
 const PAID_SPEEDUP_COST: int = 10
 
 ## 图鉴收藏带来的额外 CD 缩减：每收藏一条 +0.5%，最多 10%。
@@ -202,6 +204,8 @@ func add_coins(amount: int) -> void:
 
 
 func try_spend_coins(amount: int) -> bool:
+	if not PAID_SPEEDUP_ENABLED:
+		return false
 	if amount <= 0 or coins < amount:
 		return false
 	coins -= amount
@@ -213,6 +217,8 @@ func try_spend_coins(amount: int) -> bool:
 
 ## 只有收藏里存在该品质才允许穿戴。传入 -1 表示脱下。
 func equip_quality(quality: int) -> bool:
+	if not CODEX_ENABLED:
+		return false
 	if quality < 0:
 		equipped_quality = -1
 		equipped_changed.emit(equipped_quality)

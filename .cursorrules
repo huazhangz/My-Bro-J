@@ -85,7 +85,7 @@
  `visible = false`。运行时仍由 `_setup_pet_video()` 校验，失败才把占位图打开。
  不要删掉这份 `ext_resource`，否则编辑器又会默认露出几何占位。
  用户绿幕源文件约定为 `C:/Users/ASUS/Desktop/Steve1.mp4`：存在则 FFmpeg 转 `user://steve.ogv`。
-- 交互按钮不常驻画面：闲置/洗涤时只显示立绘与 HUD，功能入口在立绘上**右键**弹出的上下文菜单。
+- 默认画面只有角色立绘。右键角色弹出退出确认（Quit App / Cancel），不要再挂 CanvasLayer HUD。
 - `VideoStreamPlayer` 必须 `mouse_filter = Control.MOUSE_FILTER_IGNORE`，否则会吃掉窗口拖拽。
 - Theora **没有 Alpha 通道**，透明背景只能靠 `assets/videos/video_key.gdshader` 色度键抠像。
  着色器挂在 `PetFrame`（TextureRect）上，不要挂在 `VideoStreamPlayer` 上（其 TEXTURE
