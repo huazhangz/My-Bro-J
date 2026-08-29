@@ -49,6 +49,8 @@ const VIDEO_AREA: Rect2 = Rect2(10.0, 98.0, 230.0, 160.0)
 const VIDEO_PROBE_FRAMES: int = 45
 ## 视频相关日志前缀。这些日志不受 --petlog 控制，F5 就能在输出面板看到。
 const VIDEO_LOG_PREFIX: String = "[SunPet/Video] "
+## 仓库自带的占位片很小。超过这个体积就当作用户自己的素材，不再弹「请覆盖」提示。
+const STUB_VIDEO_MAX_BYTES: int = 80000
 
 @export_group("视频立绘")
 ## 抠像模式，用来还原透明背景（Theora 没有 Alpha 通道）。
@@ -62,6 +64,7 @@ const VIDEO_LOG_PREFIX: String = "[SunPet/Video] "
 
 @onready var _pet_visual: Control = %PetVisual
 @onready var _pet_video: VideoStreamPlayer = %PetVideo
+@onready var _pet_frame: TextureRect = %PetFrame
 @onready var _placeholder_visual: Control = %PlaceholderVisual
 @onready var _equipped_mark: ColorRect = %EquippedMark
 @onready var _quality_flash: ColorRect = %QualityFlash
@@ -283,6 +286,8 @@ func _process(delta: float) -> void:
 	# 视频宽高只有解出第一帧后才拿得到；顺便用它确认这个素材是不是真的能播。
 	if _video_enabled and not _video_fitted:
 		_tick_video_probe()
+	elif _video_enabled and video_key_mode != VideoKeyMode.OFF:
+		_pet_frame.texture = _pet_video.get_video_texture()
 
 	# 每帧只刷新会跳秒的部分，其余文本由 GameData 信号驱动。
 	_update_status_text()
@@ -455,6 +460,7 @@ func _setup_pet_video() -> void:
 	_video_enabled = true
 	_video_fitted = false
 	_pet_video.play()
+	_sync_video_display()
 
 	# 坏流（比如容器合法但没有 Theora 视频轨）play() 一样返回 is_playing() == true，
 	# 唯一靠谱的区分信号是时长和视频贴图：时长 > 0 立刻确认，否则给若干帧宽限期等第一帧。
@@ -474,6 +480,7 @@ func _setup_pet_video() -> void:
 	])
 	if not _video_confirmed:
 		print_rich("[color=#ffcc66]%s  时长读出来是 0，正在等第一帧确认能不能解码……[/color]" % VIDEO_LOG_PREFIX)
+	_warn_if_stub_video(path)
 
 
 func _on_video_finished() -> void:
@@ -627,11 +634,44 @@ func _fail_video(reason: String, hint: String = "") -> void:
 	push_warning("动态立绘未启用：%s" % reason)
 
 
-## 占位图只在校验失败时亮起。编辑器 / 正常播放都保持 PlaceholderVisual 隐藏，
-## 避免视口默认露出 ColorRect 几何占位。
+## 占位图只在校验失败时亮起。编辑器 / 正常播放都保持 PlaceholderVisual 隐藏。
 func _refresh_visual_swap() -> void:
-	_pet_video.visible = _video_enabled
 	_placeholder_visual.visible = not _video_enabled
+	_sync_video_display()
+
+
+## 默认直接显示 VideoStreamPlayer（不要把 canvas_item 着色器挂在播放器上，
+## 游戏运行时 TEXTURE 经常不是视频帧，会变成一块默认图）。
+## 只有打开抠像时，才改用 TextureRect 去画 get_video_texture()。
+func _sync_video_display() -> void:
+	if not _video_enabled:
+		_pet_video.visible = false
+		_pet_frame.visible = false
+		return
+	var use_key: bool = video_key_mode != VideoKeyMode.OFF
+	_pet_video.visible = not use_key
+	_pet_frame.visible = use_key
+	if use_key:
+		_pet_frame.texture = _pet_video.get_video_texture()
+		_pet_frame.position = _pet_video.position
+		_pet_frame.size = _pet_video.size
+
+
+func _warn_if_stub_video(path: String) -> void:
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return
+	var byte_count: int = file.get_length()
+	file.close()
+	if byte_count <= 0 or byte_count > STUB_VIDEO_MAX_BYTES:
+		return
+	print_rich("[color=#ffcc66]%s  当前播的是仓库自带的彩色测试片（%d 字节），不是孙哥正片。[/color]" % [
+		VIDEO_LOG_PREFIX, byte_count,
+	])
+	print_rich("[color=#ffcc66]%s  把转好的 .ogv 覆盖到 %s 后再按 F5。[/color]" % [
+		VIDEO_LOG_PREFIX, ProjectSettings.globalize_path(VIDEO_PATH),
+	])
+	_show_toast("占位测试片：请覆盖 sun_pet.ogv", Color(1.0, 0.85, 0.35))
 
 
 ## 每帧轮询：拿到第一帧就算确认可播（顺便按宽高比摆好）；
@@ -684,6 +724,7 @@ func _fit_video_rect() -> bool:
 		_pet_video.position.x + (fitted.x - _equipped_mark.size.x) * 0.5,
 		_pet_video.position.y + fitted.y - _equipped_mark.size.y - 2.0
 	)
+	_sync_video_display()
 	return true
 
 
@@ -691,18 +732,21 @@ func _fit_video_rect() -> bool:
 func _set_video_playing(playing: bool) -> void:
 	if not _video_enabled:
 		return
-	_pet_video.visible = playing
 	if playing:
 		if not _pet_video.is_playing():
 			_pet_video.play()
 		_pet_video.paused = false
+		_sync_video_display()
 	else:
 		_pet_video.paused = true
+		_pet_video.visible = false
+		_pet_frame.visible = false
 
 
 func _apply_video_key() -> void:
 	# 变量别叫 material：那是 CanvasItem 的属性名，会被判成遮蔽。
-	var key_material: ShaderMaterial = _pet_video.material as ShaderMaterial
+	# 着色器挂在 TextureRect 上，不要挂在 VideoStreamPlayer 上。
+	var key_material: ShaderMaterial = _pet_frame.material as ShaderMaterial
 	if key_material == null:
 		return
 	key_material.set_shader_parameter("key_mode", int(video_key_mode))

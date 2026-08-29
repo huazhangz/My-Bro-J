@@ -34,7 +34,6 @@ mouse_filter = 2
 
 [node name="PetVideo" type="VideoStreamPlayer" parent="PetVisual"]
 unique_name_in_owner = true
-material = SubResource("ShaderMaterial_videokey")
 layout_mode = 0
 offset_left = 10.0
 offset_top = 98.0
@@ -46,6 +45,19 @@ volume_db = -80.0
 autoplay = true
 expand = true
 loop = true
+
+[node name="PetFrame" type="TextureRect" parent="PetVisual"]
+unique_name_in_owner = true
+visible = false
+material = SubResource("ShaderMaterial_videokey")
+layout_mode = 0
+offset_left = 10.0
+offset_top = 98.0
+offset_right = 240.0
+offset_bottom = 258.0
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
 
 [node name="PlaceholderVisual" type="Control" parent="PetVisual"]
 unique_name_in_owner = true
