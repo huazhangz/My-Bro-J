@@ -342,29 +342,13 @@ My-Bro-J/
 ```
 Steve (Control, 铺满窗口, MOUSE_FILTER_STOP —— 负责接收拖拽, theme = steve_theme)
 ├── PetVisual (Control, IGNORE)
-│   ├── PetVideo (VideoStreamPlayer)     # stream = steve.ogv，autoplay + loop + expand
-│   ├── PetFrame (TextureRect)           # 色度键抠像，默认隐藏
-│   ├── PlaceholderVisual (Control)      # 默认隐藏，仅校验失败才显示
-│   │   └── Head / EyeLeft / EyeRight / Body / Basin (ColorRect)
-│   └── EquippedMark (ColorRect)         # 换装品质色标记
-├── QualityFlash (ColorRect, IGNORE)     # 出货品质闪光特效
-└── UILayer (CanvasLayer)
-    └── UIRoot (Control, IGNORE)
-        ├── HudPanel (PanelContainer, IGNORE)
-        │   └── Rows (VBox)
-        │       ├── HeaderRow: TitleLabel / CoinLabel
-        │       ├── StatusLabel            # 正在洗涤 32s
-        │       ├── WashBar (ProgressBar)
-        │       └── InfoRow: WarehouseLabel / EquippedLabel
-        ├── ToastLabel (Label, IGNORE)     # 底部飘字反馈
-        ├── ContextMenu (PanelContainer, 默认隐藏)
-        │   └── ButtonBar: 免费加速 / 付费加速 / 图鉴 / 退出
-        ├── RunawayBanner (PanelContainer) # 跑路期间唯一可见的冷却提示条
-        └── CodexPanel (PanelContainer)    # 图鉴 / 换装弹层，行由脚本动态生成
+│   ├── PetVideo (VideoStreamPlayer)
+│   ├── PetFrame (TextureRect)
+│   └── PlaceholderVisual (Control)
+│       └── Head / EyeLeft / EyeRight / Body / Basin
+└── ExitPopup (PanelContainer, 默认隐藏)
+    └── Quit App / Cancel
 ```
-
-> ✅ Day 3 已接入中文字体，UI 文本全部为中文；`CodexList` 的每一行按
-> `GameData.Quality` 动态生成，加品质不用改场景。
 
 ---
 
@@ -373,14 +357,10 @@ Steve (Control, 铺满窗口, MOUSE_FILTER_STOP —— 负责接收拖拽, theme
 | 操作 | 效果 |
 |------|------|
 | 在桌宠/空白处按住左键拖动 | 移动桌宠窗口 |
-| 在立绘上右键 | 打开上下文菜单 |
-| 菜单「免费加速」 | `-15s`，25% 概率 Steve 跑路 |
-| 菜单「付费加速 10币」 | 扣 10 金币立刻洗完当前这条 |
-| 菜单「图鉴 / 换装」 | 打开图鉴弹层 |
-| 菜单「退出」 | 退出程序 |
-| 点击菜单外 | 关闭上下文菜单 |
-| `ESC` | 先关菜单，再关图鉴，否则退出 |
-| `空格` | 调试快捷键，等价于「免费加速」 |
+| 在立绘上右键 | 打开退出确认 |
+| 点「Quit App」 | 退出程序 |
+| 点「Cancel」或弹窗外 | 关闭确认框 |
+| `ESC` | 弹窗开着则关闭，否则退出 |
 | 命令行加 `-- --petlog` | 输出状态机日志 |
 
 > 洗涤/闲置时画面上不常驻交互按钮，避免挡住立绘。
