@@ -174,17 +174,25 @@ const WASH_BAR_SHIFT_Y: float = 9.0
 const CONTEXT_MENU_SCALE: float = 4.0
 const CONTEXT_MENU_BASE_SIZE: Vector2i = Vector2i(244, 336)
 const CONTEXT_MENU_MARGIN: int = 16
-const MENU_ICON_SIZE: Vector2 = Vector2(168.0, 168.0)
+## 菜单图标相对旧 168 的 30%；烘干机再从中心放大 85%（×1.85）裁边。
+const MENU_ICON_SIZE: Vector2 = Vector2(50.0, 50.0)
+const DRYER_ICON_ZOOM: float = 1.85
 const POPUP_CORNER_RADIUS: int = 28
 const BUBBLE_CORNER_RADIUS: int = 18
 const SAVE_PATH: String = "user://save_data.json"
 const SAVE_INTERVAL: float = 30.0
-## 好感度：品质 log 为主（高权重），陪伴时长最多贡献 15%，跑路中等扣分。
-const AFFINITY_QUALITY_K: float = 12.0
+## 好感度：品质 log 为主（高权重），陪伴时长最多 15%，满值时间是旧 48h 的 260%。
+const AFFINITY_QUALITY_K: float = 14.0
 const AFFINITY_QUALITY_SHARE: float = 85.0
 const AFFINITY_COMPANION_SHARE: float = 15.0
-const AFFINITY_COMPANION_FULL_SECONDS: float = 172800.0
-const AFFINITY_RUNAWAY_PENALTY: float = 5.0
+const AFFINITY_COMPANION_FULL_SECONDS: float = 449280.0
+const AFFINITY_RUNAWAY_PENALTY: float = 4.0
+const PET_SIZE_SMALL: int = 0
+const PET_SIZE_MEDIUM: int = 1
+const PET_SIZE_LARGE: int = 2
+const PET_SIZE_HUGE: int = 3
+const PET_SIZE_SCALES: Array[float] = [0.70, 1.00, 1.35, 2.00]
+const PET_SIZE_LABELS: PackedStringArray = ["小", "中", "大", "超大"]
 const AFFINITY_QUALITY_VALUE: Dictionary = {
 	Quality.ONEOFF: 1.0,
 	Quality.POLYESTER: 2.0,
@@ -267,11 +275,15 @@ var companion_seconds: float = 0.0
 var runaway_count: int = 0
 var affinity_quality_sum: float = 0.0
 var always_on_top_pref: bool = ALWAYS_ON_TOP_DEFAULT
+var pet_size_tier: int = PET_SIZE_MEDIUM
 var _save_accum: float = 0.0
+var _companion_saved: float = 0.0
+var _companion_anchor_unix: float = 0.0
 
 
 func _ready() -> void:
 	_rng.randomize()
+	_companion_anchor_unix = Time.get_unix_time_from_system()
 	for q: int in Quality.values():
 		codex_counts[q] = 0
 	load_game()
@@ -487,11 +499,17 @@ func record_runaway() -> void:
 	save_game()
 
 
+func companion_elapsed() -> float:
+	if _companion_anchor_unix <= 0.0:
+		_companion_anchor_unix = Time.get_unix_time_from_system()
+	var live: float = Time.get_unix_time_from_system() - _companion_anchor_unix
+	return maxf(_companion_saved + live, 0.0)
+
+
 func tick_companion(delta: float) -> void:
-	if delta <= 0.0:
-		return
-	companion_seconds += delta
-	_save_accum += delta
+	companion_seconds = companion_elapsed()
+	if delta > 0.0:
+		_save_accum += delta
 	if _save_accum >= SAVE_INTERVAL:
 		_save_accum = 0.0
 		save_game()
@@ -502,19 +520,42 @@ func affinity_score() -> float:
 	if affinity_quality_sum > 0.0:
 		quality_term = affinity_quality_sum / (affinity_quality_sum + AFFINITY_QUALITY_K)
 	var quality_points: float = quality_term * AFFINITY_QUALITY_SHARE
-	var companion_ratio: float = clampf(companion_seconds / AFFINITY_COMPANION_FULL_SECONDS, 0.0, 1.0)
+	var lived: float = companion_elapsed()
+	var companion_ratio: float = 0.0
+	if AFFINITY_COMPANION_FULL_SECONDS > 1.0:
+		companion_ratio = log(1.0 + lived) / log(1.0 + AFFINITY_COMPANION_FULL_SECONDS)
+	companion_ratio = clampf(companion_ratio, 0.0, 1.0)
 	var companion_points: float = companion_ratio * AFFINITY_COMPANION_SHARE
 	var penalty: float = float(runaway_count) * AFFINITY_RUNAWAY_PENALTY
 	return clampf(quality_points + companion_points - penalty, 0.0, 100.0)
 
 
 func format_companion_clock() -> String:
-	var total: int = maxi(int(companion_seconds), 0)
+	var total: int = maxi(int(floor(companion_elapsed())), 0)
 	var hours: int = int(total / 3600)
 	var minutes: int = int((total % 3600) / 60)
+	var seconds: int = total % 60
 	if hours >= 100:
 		return "%d小时" % hours
-	return "%d：%02d" % [hours, minutes]
+	return "%d：%02d：%02d" % [hours, minutes, seconds]
+
+
+func pet_size_scale() -> float:
+	var idx: int = clampi(pet_size_tier, PET_SIZE_SMALL, PET_SIZE_HUGE)
+	return float(PET_SIZE_SCALES[idx])
+
+
+func pet_window_size() -> Vector2i:
+	var s: float = pet_size_scale()
+	return Vector2i(
+		maxi(int(round(float(WINDOW_WIDTH) * s)), 160),
+		maxi(int(round(float(WINDOW_HEIGHT) * s)), 220)
+	)
+
+
+func pet_layout_area() -> Rect2:
+	var s: float = pet_size_scale()
+	return Rect2(PET_AREA.position * s, PET_AREA.size * s)
 
 
 func context_menu_window_size() -> Vector2i:
@@ -542,10 +583,11 @@ func to_save_dict() -> Dictionary:
 		"codex_counts": codex_counts.duplicate(true),
 		"next_item_id": _next_item_id,
 		"underwear_total": underwear_total,
-		"companion_seconds": companion_seconds,
+		"companion_seconds": companion_elapsed(),
 		"runaway_count": runaway_count,
 		"affinity_quality_sum": affinity_quality_sum,
 		"always_on_top_pref": always_on_top_pref,
+		"pet_size_tier": pet_size_tier,
 	}
 
 
@@ -562,9 +604,12 @@ func load_from_dict(data: Dictionary) -> void:
 		dry_collection.append(_normalize_item(entry))
 	underwear_total = int(data.get("underwear_total", 0))
 	companion_seconds = float(data.get("companion_seconds", 0.0))
+	_companion_saved = companion_seconds
+	_companion_anchor_unix = Time.get_unix_time_from_system()
 	runaway_count = int(data.get("runaway_count", 0))
 	affinity_quality_sum = float(data.get("affinity_quality_sum", 0.0))
 	always_on_top_pref = bool(data.get("always_on_top_pref", ALWAYS_ON_TOP_DEFAULT))
+	pet_size_tier = clampi(int(data.get("pet_size_tier", PET_SIZE_MEDIUM)), PET_SIZE_SMALL, PET_SIZE_HUGE)
 	if underwear_total <= 0:
 		var derived: int = 0
 		for q: Variant in codex_counts.keys():
@@ -582,6 +627,9 @@ func load_from_dict(data: Dictionary) -> void:
 
 
 func save_game() -> void:
+	companion_seconds = companion_elapsed()
+	_companion_saved = companion_seconds
+	_companion_anchor_unix = Time.get_unix_time_from_system()
 	var file: FileAccess = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file == null:
 		return

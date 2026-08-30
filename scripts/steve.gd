@@ -63,8 +63,14 @@ var _pet_video: VideoStreamPlayer
 @onready var _exit_popup: PanelContainer = %ExitPopup
 @onready var _dryer_icon: TextureRect = %DryerIcon
 @onready var _drawer_icon: TextureRect = %DrawerIcon
-@onready var _dryer_slot: Control = %DryerSlot
-@onready var _drawer_slot: Control = %DrawerSlot
+@onready var _dryer_icon_clip: Control = %DryerIconClip
+@onready var _drawer_icon_clip: Control = %DrawerIconClip
+@onready var _dryer_slot: Button = %DryerSlot
+@onready var _drawer_slot: Button = %DrawerSlot
+@onready var _size_small_button: Button = %SizeSmallButton
+@onready var _size_medium_button: Button = %SizeMediumButton
+@onready var _size_large_button: Button = %SizeLargeButton
+@onready var _size_huge_button: Button = %SizeHugeButton
 @onready var _pressure_button: Button = %PressureWashButton
 @onready var _pin_top_button: Button = %PinTopButton
 @onready var _quit_app_button: Button = %QuitAppButton
@@ -133,6 +139,7 @@ func _ready() -> void:
 	_apply_mouse_filters()
 	_apply_ui_font()
 	_apply_window_setup()
+	_apply_pet_size()
 	_ingest_user_images()
 	_apply_round_chrome()
 	_apply_video_key()
@@ -328,7 +335,20 @@ func _connect_exit_popup() -> void:
 		if is_instance_valid(_settings_panel):
 			_settings_panel.visible = not _settings_panel.visible
 	)
+	_size_small_button.pressed.connect(func() -> void:
+		_set_pet_size_tier(GameData.PET_SIZE_SMALL)
+	)
+	_size_medium_button.pressed.connect(func() -> void:
+		_set_pet_size_tier(GameData.PET_SIZE_MEDIUM)
+	)
+	_size_large_button.pressed.connect(func() -> void:
+		_set_pet_size_tier(GameData.PET_SIZE_LARGE)
+	)
+	_size_huge_button.pressed.connect(func() -> void:
+		_set_pet_size_tier(GameData.PET_SIZE_HUGE)
+	)
 	_refresh_pin_button()
+	_refresh_size_buttons()
 	_inventory_close_button.pressed.connect(func() -> void:
 		_close_inventory()
 	)
@@ -348,17 +368,12 @@ func _connect_exit_popup() -> void:
 	)
 
 
-func _wire_menu_icon(slot: Control, kind: String) -> void:
+func _wire_menu_icon(slot: Button, kind: String) -> void:
 	if not is_instance_valid(slot):
 		return
-	slot.gui_input.connect(func(event: InputEvent) -> void:
-		if event is InputEventMouseButton:
-			var mb: InputEventMouseButton = event
-			if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
-				_open_inventory(kind)
-				slot.accept_event()
+	slot.pressed.connect(func() -> void:
+		_open_inventory(kind)
 	)
-	slot.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -1572,9 +1587,7 @@ func _apply_round_chrome() -> void:
 	if is_instance_valid(_inventory_chrome):
 		_inventory_chrome.add_theme_stylebox_override("panel", inv_box)
 	if is_instance_valid(_inventory_mask):
-		var mask_box: StyleBoxFlat = inv_box.duplicate() as StyleBoxFlat
-		mask_box.bg_color = Color(0.0, 0.0, 0.0, 0.45)
-		_inventory_mask.add_theme_stylebox_override("panel", mask_box)
+		_inventory_mask.visible = false
 	_style_stat_bubbles()
 
 
@@ -1607,11 +1620,80 @@ func _apply_menu_icons() -> void:
 
 
 func _layout_menu_icons() -> void:
-	var icon_size: Vector2 = GameData.MENU_ICON_SIZE
-	if is_instance_valid(_dryer_icon):
-		_dryer_icon.custom_minimum_size = icon_size
-	if is_instance_valid(_drawer_icon):
-		_drawer_icon.custom_minimum_size = icon_size
+	_fit_menu_icon(_dryer_icon_clip, _dryer_icon, GameData.DRYER_ICON_ZOOM)
+	_fit_menu_icon(_drawer_icon_clip, _drawer_icon, 1.0)
+
+
+func _fit_menu_icon(clip: Control, icon: TextureRect, zoom: float) -> void:
+	var box: Vector2 = GameData.MENU_ICON_SIZE
+	if is_instance_valid(clip):
+		clip.custom_minimum_size = box
+		clip.clip_contents = true
+	if not is_instance_valid(icon):
+		return
+	var drawn: Vector2 = box * maxf(zoom, 1.0)
+	icon.position = (box - drawn) * 0.5
+	icon.size = drawn
+
+
+func _set_pet_size_tier(tier: int) -> void:
+	GameData.pet_size_tier = clampi(tier, GameData.PET_SIZE_SMALL, GameData.PET_SIZE_HUGE)
+	_apply_pet_size()
+	GameData.save_game()
+
+
+func _apply_pet_size() -> void:
+	_layout_area = GameData.pet_layout_area()
+	_sync_pet_visual_rects()
+	var win: Vector2i = GameData.pet_window_size()
+	if not _overlay_window_open:
+		_base_window_size = win
+		if _can_move_window():
+			_place_pet_window(win)
+	else:
+		_base_window_size = win
+	_video_fitted = false
+	_refresh_size_buttons()
+
+
+func _sync_pet_visual_rects() -> void:
+	var area: Rect2 = _layout_area
+	if is_instance_valid(_pet_video):
+		_pet_video.position = area.position
+		_pet_video.size = area.size
+	if is_instance_valid(_pet_frame):
+		_pet_frame.position = area.position
+		_pet_frame.size = area.size
+	if is_instance_valid(_basin_frame):
+		_basin_frame.position = area.position
+		_basin_frame.size = area.size
+
+
+func _place_pet_window(new_size: Vector2i) -> void:
+	var old_size: Vector2i = DisplayServer.window_get_size()
+	var old_pos: Vector2i = DisplayServer.window_get_position()
+	var usable: Rect2i = DisplayServer.screen_get_usable_rect()
+	var pos: Vector2i = old_pos + (old_size - new_size)
+	var min_x: int = usable.position.x
+	var min_y: int = usable.position.y
+	var max_x: int = usable.position.x + usable.size.x - new_size.x
+	var max_y: int = usable.position.y + usable.size.y - new_size.y
+	pos.x = clampi(pos.x, min_x, maxi(min_x, max_x))
+	pos.y = clampi(pos.y, min_y, maxi(min_y, max_y))
+	DisplayServer.window_set_size(new_size)
+	DisplayServer.window_set_position(pos)
+
+
+func _refresh_size_buttons() -> void:
+	var tier: int = GameData.pet_size_tier
+	if is_instance_valid(_size_small_button):
+		_size_small_button.disabled = tier == GameData.PET_SIZE_SMALL
+	if is_instance_valid(_size_medium_button):
+		_size_medium_button.disabled = tier == GameData.PET_SIZE_MEDIUM
+	if is_instance_valid(_size_large_button):
+		_size_large_button.disabled = tier == GameData.PET_SIZE_LARGE
+	if is_instance_valid(_size_huge_button):
+		_size_huge_button.disabled = tier == GameData.PET_SIZE_HUGE
 
 
 func _refresh_stat_bubbles() -> void:

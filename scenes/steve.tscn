@@ -255,55 +255,6 @@ size_flags_horizontal = 8
 theme_type_variation = &"CloseButton"
 text = "×"
 
-[node name="MenuIcons" type="HBoxContainer" parent="ExitPopup/ExitInner"]
-layout_mode = 2
-theme_override_constants/separation = 40
-alignment = 1
-
-[node name="DryerSlot" type="VBoxContainer" parent="ExitPopup/ExitInner/MenuIcons"]
-unique_name_in_owner = true
-layout_mode = 2
-mouse_filter = 0
-theme_override_constants/separation = 8
-
-[node name="DryerIcon" type="TextureRect" parent="ExitPopup/ExitInner/MenuIcons/DryerSlot"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(168, 168)
-layout_mode = 2
-mouse_filter = 2
-texture = ExtResource("5_dryer")
-expand_mode = 1
-stretch_mode = 5
-material = SubResource("ShaderMaterial_invkey")
-
-[node name="DryerCaption" type="Label" parent="ExitPopup/ExitInner/MenuIcons/DryerSlot"]
-layout_mode = 2
-mouse_filter = 2
-text = "烘干机"
-horizontal_alignment = 1
-
-[node name="DrawerSlot" type="VBoxContainer" parent="ExitPopup/ExitInner/MenuIcons"]
-unique_name_in_owner = true
-layout_mode = 2
-mouse_filter = 0
-theme_override_constants/separation = 8
-
-[node name="DrawerIcon" type="TextureRect" parent="ExitPopup/ExitInner/MenuIcons/DrawerSlot"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(168, 168)
-layout_mode = 2
-mouse_filter = 2
-texture = ExtResource("6_drawer")
-expand_mode = 1
-stretch_mode = 5
-material = SubResource("ShaderMaterial_invkey")
-
-[node name="DrawerCaption" type="Label" parent="ExitPopup/ExitInner/MenuIcons/DrawerSlot"]
-layout_mode = 2
-mouse_filter = 2
-text = "抽屉"
-horizontal_alignment = 1
-
 [node name="StatBubbles" type="GridContainer" parent="ExitPopup/ExitInner"]
 layout_mode = 2
 theme_override_constants/h_separation = 12
@@ -350,6 +301,107 @@ layout_mode = 2
 text = "跑路次数  0"
 horizontal_alignment = 1
 
+[node name="MenuIcons" type="HBoxContainer" parent="ExitPopup/ExitInner"]
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="DryerSlot" type="Button" parent="ExitPopup/ExitInner/MenuIcons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(168, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"CodexButton"
+text = ""
+
+[node name="DryerRow" type="HBoxContainer" parent="ExitPopup/ExitInner/MenuIcons/DryerSlot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 6.0
+offset_right = -8.0
+offset_bottom = -6.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="DryerIconClip" type="Control" parent="ExitPopup/ExitInner/MenuIcons/DryerSlot/DryerRow"]
+unique_name_in_owner = true
+clip_contents = true
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="DryerIcon" type="TextureRect" parent="ExitPopup/ExitInner/MenuIcons/DryerSlot/DryerRow/DryerIconClip"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 50.0
+offset_bottom = 50.0
+mouse_filter = 2
+texture = ExtResource("5_dryer")
+expand_mode = 1
+stretch_mode = 6
+material = SubResource("ShaderMaterial_invkey")
+
+[node name="DryerCaption" type="Label" parent="ExitPopup/ExitInner/MenuIcons/DryerSlot/DryerRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+text = "烘干机"
+vertical_alignment = 1
+
+[node name="DrawerSlot" type="Button" parent="ExitPopup/ExitInner/MenuIcons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(168, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"CoinButton"
+text = ""
+
+[node name="DrawerRow" type="HBoxContainer" parent="ExitPopup/ExitInner/MenuIcons/DrawerSlot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 6.0
+offset_right = -8.0
+offset_bottom = -6.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="DrawerIconClip" type="Control" parent="ExitPopup/ExitInner/MenuIcons/DrawerSlot/DrawerRow"]
+unique_name_in_owner = true
+clip_contents = true
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="DrawerIcon" type="TextureRect" parent="ExitPopup/ExitInner/MenuIcons/DrawerSlot/DrawerRow/DrawerIconClip"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 50.0
+offset_bottom = 50.0
+mouse_filter = 2
+texture = ExtResource("6_drawer")
+expand_mode = 1
+stretch_mode = 6
+material = SubResource("ShaderMaterial_invkey")
+
+[node name="DrawerCaption" type="Label" parent="ExitPopup/ExitInner/MenuIcons/DrawerSlot/DrawerRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+text = "抽屉"
+vertical_alignment = 1
+
 [node name="PressureWashButton" type="Button" parent="ExitPopup/ExitInner"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 40)
@@ -387,6 +439,43 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"EquipButton"
 text = "固定上层：开"
+
+[node name="SizeLabel" type="Label" parent="ExitPopup/ExitInner/SettingsPanel"]
+layout_mode = 2
+text = "Steve体型"
+horizontal_alignment = 1
+
+[node name="SizeRow" type="HBoxContainer" parent="ExitPopup/ExitInner/SettingsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SizeSmallButton" type="Button" parent="ExitPopup/ExitInner/SettingsPanel/SizeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"CodexButton"
+text = "小"
+
+[node name="SizeMediumButton" type="Button" parent="ExitPopup/ExitInner/SettingsPanel/SizeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"CoinButton"
+text = "中"
+
+[node name="SizeLargeButton" type="Button" parent="ExitPopup/ExitInner/SettingsPanel/SizeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"RiskButton"
+text = "大"
+
+[node name="SizeHugeButton" type="Button" parent="ExitPopup/ExitInner/SettingsPanel/SizeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"EquipButton"
+text = "超大"
 
 [node name="RunawayBanner" type="PanelContainer" parent="."]
 unique_name_in_owner = true
@@ -464,6 +553,7 @@ stretch_mode = 6
 
 [node name="InventoryMask" type="Panel" parent="InventoryPopup"]
 unique_name_in_owner = true
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0

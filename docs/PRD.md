@@ -49,6 +49,10 @@
 | `DRY_DURATION_PER_QUALITY` | `10.0` 秒 | 品质每高一级增加的烘干时间（与磨损无关） |
 | `WASH_BAR_SHIFT_Y` | `9` | 水洗进度条默认再下移 9 格 |
 | `CONTEXT_MENU_SCALE` | `4.0` | 右键菜单相对旧面板边长 ×4，窗口按屏幕可用区夹紧并适配位置 |
+| `MENU_ICON_SIZE` | `50×50` | 烘干机/抽屉图标为旧 168 的 30% |
+| `DRYER_ICON_ZOOM` | `1.85` | 烘干机图标再中心放大 85% |
+| `AFFINITY_COMPANION_FULL_SECONDS` | `449280` | 陪伴对好感度贡献拉满所需秒数（旧 48h ×260%） |
+| `PET_SIZE_SCALES` | `0.70 / 1.00 / 1.35 / 2.00` | 设置里 Steve 体型：小 / 中 / 大 / 超大 |
 | `HOVER_SHOW_DELAY` | `1.5` 秒 | 鼠标在立绘上停留后显示洗涤水条 |
 | `WAREHOUSE_CAPACITY` | `10` | 未晾干仓库容量上限，满即暂停洗涤 |
 | `RUNAWAY_BASE_COOLDOWN` | `120.0` 秒 | 跑路后回归的基础冷却（品质/收藏会再缩减） |
