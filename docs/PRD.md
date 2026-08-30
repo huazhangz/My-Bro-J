@@ -57,7 +57,8 @@
 | `UI_FONT_COLOR` | 纯白 | 全部文字白色加粗（YuanRou-P-Bold） |
 | `IMAGE_SCALE` | `1.2` | 立绘 / 库存图等比放大 |
 | `PET_SHIFT_X` | `5` | Steve 默认再向右偏 5 格 |
-| `PRESSURE_RUNAWAY_CHANCE` | `0.155` | 每次点击压力按钮的跑路概率 |
+| `PRESSURE_RUNAWAY_PERMILLE` | `155` | 每次点击「能不能给我洗快点」的跑路概率（155/1000，与扣时是否洗完无关） |
+| `PRESSURE_BUTTON_TEXT` | `能不能给我洗快点` | 催洗按钮默认文案 |
 | `PAID_SPEEDUP_ENABLED` | `false` | 付费加速已下线 |
 | `CODEX_ENABLED` | `false` | 图鉴 / 换装 UI 已下线 |
 | `INVENTORY_SCALE` | `2.5` | 烘干机 / 抽屉弹层相对立绘区域的放大倍数 |
