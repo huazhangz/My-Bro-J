@@ -2,7 +2,7 @@
 
 > Steam Project · 单机基础版
 > 引擎：Godot Engine **4.7.2 stable** · 语言：GDScript (Godot 4.x 语法)
-> 最后更新：2026-08-29
+> 最后更新：2026-08-30
 
 ---
 
@@ -27,7 +27,7 @@
 | 3 | 仓库存储上限 | 未晾干内裤进仓库，容量 **10**，满后暂停洗涤，有空位自动恢复 | ✅ 已实现 |
 | 4 | 品质、磨损与收藏 | 一次性 / 涤纶 / 纯棉 / 真丝 / 奢华 / 火星科技 + 8 档磨损前缀 | ✅ 数据层 + 烘干机 / 抽屉网格 |
 | 5 | 付费加速 | 已下线（`PAID_SPEEDUP_ENABLED = false`） | ⬜ 已禁用 |
-| 6 | 压力Steve快点洗 | 右键菜单按钮：随机扣 1 秒~12 小时洗涤时间，冷却 15 分钟 | ✅ 已实现 |
+| 6 | 能不能给我洗快点 | 右键菜单按钮：随机扣 1 秒~12 小时洗涤时间，冷却 15 分钟；15.5% 跑路（与扣时完成独立） | ✅ 已实现 |
 | 7 | 跑路与空盆 | 每次压力点击 15.5% 跑路：立绘换成抠绿幕空盆 + 红色「已跑路...」 | ✅ 已实现 |
 | 8 | 换装与展示 | 图鉴 / 换装 UI 已下线（`CODEX_ENABLED = false`） | ⬜ 已禁用 |
 | 11 | 动态立绘 | `VideoStreamPlayer` 循环播放 Steve 视频，跑路时隐藏并暂停 | ✅ 已实现（需自备 `.ogv` 素材） |
@@ -164,7 +164,7 @@ GameData.get_calculated_cooldown(base_seconds := 120.0, quality := 当前穿戴)
         └────────────  PAUSED_FULL          RUNAWAY
                                           (空盆 + 「已跑路...」+ 回归 CD)
                                                ▲
-                              「压力Steve快点洗」每次点击 15.5%
+                              「能不能给我洗快点」每次点击 15.5%（千分位掷骰，与扣时完成独立）
 ```
 
 - 每条内裤持有**独立的 one-shot `Timer`**（时长 `dry_duration_for(quality)`），
@@ -242,11 +242,11 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 - **ExitPopup**（根节点下，默认隐藏）：在立绘上 **右键** 弹出居中菜单
   - `烘干机`：隐藏立绘，打开库存弹层（`dryer.jpg` 抠绿幕）
   - `抽屉`：隐藏立绘，打开库存弹层（`drawer.jpg` 抠绿幕）
-  - `压力Steve快点洗`：随机扣洗涤时间（1s~12h）；冷却时按钮变灰，文案为剩余「MM：SS后再压力他」，随 `_process` 每秒读秒
+  - `能不能给我洗快点`：随机扣洗涤时间（1s~12h）；冷却时按钮变灰，文案为剩余「MM：SS后再压力他」，随 `_process` 每秒读秒
   - `固定上层`：切换窗口置顶
   - `晚点再洗`：退出进程
-  - 右上角悬浮 `×`：关闭菜单
-  - 跑路时立绘换成 `container.jpg` 抠绿幕空盆，并弹出红色半透明「已跑路...」
+  - 右上角独立一行 `×`：关闭菜单（不与「烘干机」重叠）
+  - 跑路时立绘换成按比例内接的 `container.jpg` 空盆；「已跑路...」居中贴在画面顶部，z 低于菜单
   - 点弹窗外 / `ESC` / `×`：关闭菜单
 - **InventoryPopup**（全屏，默认隐藏）：背景随种类换 `dryer.jpg` / `drawer.jpg`，外加半透明黑遮罩
   - 窗口临时放大为立绘区域的 **2.5 倍**（`INVENTORY_SCALE`，保持宽高比）
@@ -414,10 +414,10 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 │   └── PlaceholderVisual (Control)
 │       └── Head / EyeLeft / EyeRight / Body / Basin
 ├── ExitPopup (PanelContainer, 默认隐藏)
-│   └── ExitBody
-│       ├── MenuCloseButton（右上角悬浮 ×）
-│       └── Rows：烘干机 / 抽屉 / 压力Steve快点洗 / 固定上层 / 晚点再洗
-├── RunawayBanner（红色半透明「已跑路...」）
+│   └── ExitInner
+│       ├── MenuHeader（右对齐 ×）
+│       └── Rows：烘干机 / 抽屉 / 能不能给我洗快点 / 固定上层 / 晚点再洗
+├── RunawayBanner（贴在空盆画面顶部正中，「已跑路...」）
 └── InventoryPopup (Control, 默认隐藏, 全屏)
     ├── InventoryBg (TextureRect = dryer.jpg)
     ├── InventoryMask (ColorRect 0,0,0,0.6)
@@ -435,7 +435,7 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 |------|------|
 | 在桌宠/空白处按住左键拖动 | 移动桌宠窗口 |
 | 鼠标在立绘上停留 1.5 秒 | 头顶显示洗涤水条与 `洗涤进度（n/100）` |
-| 在立绘上右键 | 打开菜单：烘干机 / 抽屉 / 压力Steve快点洗 / 固定上层 / 晚点再洗；右上角 × 关闭 |
+| 在立绘上右键 | 打开菜单：烘干机 / 抽屉 / 能不能给我洗快点 / 固定上层 / 晚点再洗；右上角 × 关闭 |
 | 点「烘干机」 | 2.5× 弹层，5 列网格展示未晾干仓库 |
 | 点「抽屉」 | 2.5× 弹层，5 列网格展示已晾干收藏 |
 | 点「固定上层」 | 开/关窗口置顶 |
@@ -468,7 +468,7 @@ Steve (Control, 铺满窗口, theme = steve_theme)
   - [x] 引擎实跑验证：45s 出货、90s+品质烘干、容量上限 10、CD 缩减数值全部正确
 - [x] **Day 3**：右键菜单 + 库存网格（常驻 HUD / 图鉴 / 加速按钮已拆除）
   - [x] 唯一中文字体 YuanRou-P-Bold + `steve_theme.tres`
-  - [x] 右键 `ExitPopup`：烘干机 / 抽屉 / 压力Steve快点洗 / 固定上层 / 晚点再洗
+  - [x] 右键 `ExitPopup`：烘干机 / 抽屉 / 能不能给我洗快点 / 固定上层 / 晚点再洗
   - [x] 压力按钮：`randf_range(1s, 12h)` 扣洗涤时间；冷却灰显剩余「MM：SS后再压力他」并每秒刷新
   - [x] 右键菜单右上角悬浮 `×` 关闭；全界面白字加粗、字号统一 16
   - [x] 每次压力点击 15.5% 跑路：空盆 `container.jpg` 抠绿幕 + 红色「已跑路...」

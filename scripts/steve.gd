@@ -450,6 +450,8 @@ func _process(delta: float) -> void:
 	_tick_hover_hud(delta)
 	_refresh_wash_progress()
 	_tick_pressure_cooldown(delta)
+	if _state == State.RUNAWAY:
+		_layout_runaway_banner()
 
 
 func _start_wash_cycle() -> void:
@@ -526,7 +528,10 @@ func _on_pressure_wash_pressed() -> void:
 			_finish_wash()
 	else:
 		print("%s pressure cut=%.1fs (not washing, skipped)" % [VIDEO_LOG_PREFIX, cut])
-	if GameData.roll_pressure_runaway():
+	## 扣时完成 ≠ 跑路。跑路只走独立的 15.5% 千分位掷骰。
+	var runaway: bool = GameData.roll_pressure_runaway()
+	print("%s pressure runaway=%s (15.5%%)" % [VIDEO_LOG_PREFIX, str(runaway)])
+	if runaway:
 		_trigger_runaway()
 
 
@@ -542,9 +547,12 @@ func _refresh_pressure_button() -> void:
 		return
 	var cooling: bool = _pressure_cd > 0.0
 	_pressure_button.disabled = cooling
-	var next_text: String = "压力Steve快点洗"
+	var next_text: String = GameData.PRESSURE_BUTTON_TEXT
 	if cooling:
-		next_text = "%s后再压力他" % GameData.format_pressure_countdown(_pressure_cd)
+		next_text = "%s%s" % [
+			GameData.format_pressure_countdown(_pressure_cd),
+			GameData.PRESSURE_COOLDOWN_SUFFIX,
+		]
 	if next_text == _pressure_cd_text and _pressure_button.text == next_text:
 		return
 	_pressure_cd_text = next_text
@@ -586,8 +594,7 @@ func _show_runaway_basin(active: bool) -> void:
 		if is_instance_valid(_basin_frame):
 			if _container_texture != null:
 				_basin_frame.texture = _container_texture
-			_basin_frame.position = _layout_area.position
-			_basin_frame.size = _layout_area.size
+			_fit_rect_to_area(_basin_frame, _container_texture, _pet_area())
 			_basin_frame.visible = true
 			_apply_chroma_material(
 				_basin_frame,
@@ -598,7 +605,12 @@ func _show_runaway_basin(active: bool) -> void:
 		if is_instance_valid(_pet_visual):
 			_pet_visual.visible = true
 		if is_instance_valid(_runaway_banner):
+			if _runaway_banner.get_child_count() > 0:
+				var banner_label: Label = _runaway_banner.get_child(0) as Label
+				if banner_label != null:
+					banner_label.text = GameData.RUNAWAY_BANNER_TEXT
 			_runaway_banner.visible = true
+			_layout_runaway_banner()
 	else:
 		if is_instance_valid(_basin_frame):
 			_basin_frame.visible = false
@@ -1140,6 +1152,37 @@ func _capture_layout_area() -> void:
 		chroma_key_smoothness,
 		chroma_spill_suppression,
 	])
+
+
+func _fit_rect_to_area(rect: TextureRect, texture: Texture2D, area: Rect2) -> Rect2:
+	if not is_instance_valid(rect):
+		return area
+	var fitted: Vector2 = area.size
+	if texture != null:
+		var source: Vector2 = texture.get_size()
+		if source.x > 0.0 and source.y > 0.0:
+			var ratio: float = minf(area.size.x / source.x, area.size.y / source.y)
+			fitted = source * ratio
+	rect.position = area.position + (area.size - fitted) * 0.5
+	rect.size = fitted
+	return Rect2(rect.position, rect.size)
+
+
+func _layout_runaway_banner() -> void:
+	if not is_instance_valid(_runaway_banner) or not _runaway_banner.visible:
+		return
+	var image_rect: Rect2 = _current_pet_rect()
+	var width: float = clampf(
+		image_rect.size.x * GameData.RUNAWAY_BANNER_WIDTH_RATIO,
+		96.0,
+		image_rect.size.x
+	)
+	var height: float = GameData.RUNAWAY_BANNER_HEIGHT
+	var x: float = image_rect.position.x + (image_rect.size.x - width) * 0.5
+	var y: float = image_rect.position.y + GameData.RUNAWAY_BANNER_TOP_INSET
+	_runaway_banner.position = Vector2(x, y)
+	_runaway_banner.size = Vector2(width, height)
+	_runaway_banner.z_index = 12
 
 
 func _layout_hover_hud() -> void:

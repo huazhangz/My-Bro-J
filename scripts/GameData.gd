@@ -105,6 +105,14 @@ const RES_UI_FONT_PATH: String = "res://assets/fonts/YuanRou-P-Bold.ttf"
 ## 全界面统一字号；字体本身为 Bold。业务脚本不得另写字号。
 const UI_FONT_SIZE: int = 16
 const UI_FONT_COLOR: Color = Color(1.0, 1.0, 1.0, 1.0)
+const MENU_CLOSE_BUTTON_SIZE: Vector2 = Vector2(28.0, 28.0)
+const RUNAWAY_BANNER_TEXT: String = "已跑路..."
+## 相对立绘 / 空盆实际画面宽度。
+const RUNAWAY_BANNER_WIDTH_RATIO: float = 0.72
+const RUNAWAY_BANNER_HEIGHT: float = 30.0
+const RUNAWAY_BANNER_TOP_INSET: float = 8.0
+const PRESSURE_BUTTON_TEXT: String = "能不能给我洗快点"
+const PRESSURE_COOLDOWN_SUFFIX: String = "后再压力他"
 ## 必须用字面量数组。PackedStringArray(...) 构造不是常量表达式（Godot 报错 98）。
 const USER_UI_FONT_ALIASES: PackedStringArray = [
 	"YuanRou-P-Bold.ttf",
@@ -155,7 +163,9 @@ const WASH_PROGRESS_MAX: int = 100
 
 ## 跑路冷却基础秒数（未穿戴任何内裤时的冷却）。
 const RUNAWAY_BASE_COOLDOWN: float = 120.0
-## 「压力Steve快点洗」每次点击的跑路判定概率。
+## 「能不能给我洗快点」每次点击的跑路判定：155/1000 = 15.5%。
+## 用千分位整数比较，避免 float 比较或未播种 RNG 造成「每次都跑路」。
+const PRESSURE_RUNAWAY_PERMILLE: int = 155
 const PRESSURE_RUNAWAY_CHANCE: float = 0.155
 ## 压力按钮每次随机扣减的洗涤秒数区间（1 秒 ~ 12 小时）。
 const PRESSURE_WASH_REDUCTION_MIN: float = 1.0
@@ -216,9 +226,11 @@ var equipped_quality: int = -1
 var codex_counts: Dictionary = {}
 
 var _next_item_id: int = 1
+var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 
 func _ready() -> void:
+	_rng.randomize()
 	for q: int in Quality.values():
 		codex_counts[q] = 0
 
@@ -403,11 +415,11 @@ func get_calculated_cooldown(base_seconds: float = RUNAWAY_BASE_COOLDOWN, qualit
 
 
 func roll_pressure_wash_cut() -> float:
-	return randf_range(PRESSURE_WASH_REDUCTION_MIN, PRESSURE_WASH_REDUCTION_MAX)
+	return _rng.randf_range(PRESSURE_WASH_REDUCTION_MIN, PRESSURE_WASH_REDUCTION_MAX)
 
 
 func roll_pressure_runaway() -> bool:
-	return randf() < PRESSURE_RUNAWAY_CHANCE
+	return _rng.randi_range(1, 1000) <= PRESSURE_RUNAWAY_PERMILLE
 
 
 ## 压力冷却剩余时间，按整秒向上取整，格式 MM：SS（随 _process 每秒变化）。
