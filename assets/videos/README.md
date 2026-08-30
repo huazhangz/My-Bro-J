@@ -32,7 +32,7 @@ ffmpeg -y -i "steve3.mp4" -vf "fps=24,scale=460:-2" -c:v libtheora -q:v 8 -an "a
 
 `scenes/steve.tscn` 里 `PetVideo.stream` 指向 `res://assets/videos/steve.ogv`。
 绿幕抠像默认打开：`chroma_key_enabled = true`，`key_color = #00FF00`，
-`similarity = 0.40`，`smoothness = 0.10`，`spill_suppression = 0.30`。
+`similarity = 0.81`，`smoothness = 0.15`，`spill_suppression = 0.30`。
 着色器：`res://assets/shaders/chroma_key.gdshader`，挂在 `PetFrame` 与 `InventoryBg`。
 请在场景根节点 Steve 上调导出参数，不要只改材质检查器。
 

@@ -127,9 +127,17 @@ const ALWAYS_ON_TOP_DEFAULT: bool = true
 const PET_AREA: Rect2 = Rect2(10.0, 5.0, 288.0, 408.0)
 const CHROMA_KEY_ENABLED: bool = true
 const CHROMA_KEY_COLOR: Color = Color(0.0, 1.0, 0.0, 1.0)
-const CHROMA_KEY_SIMILARITY: float = 0.40
-const CHROMA_KEY_SMOOTHNESS: float = 0.10
+const CHROMA_KEY_SIMILARITY: float = 0.81
+const CHROMA_KEY_SMOOTHNESS: float = 0.15
 const CHROMA_SPILL_SUPPRESSION: float = 0.30
+## 库存标题条：与右键菜单「烘干机」(CodexButton) / 「抽屉」(CoinButton) 底色一致。
+const DRYER_HEADLINE_COLOR: Color = Color(0.38, 0.29, 0.68, 0.94)
+const DRAWER_HEADLINE_COLOR: Color = Color(0.85, 0.65, 0.16, 0.94)
+const INVENTORY_HEADLINE_HEIGHT: float = 36.0
+const INVENTORY_HEADLINE_PAD_X: float = 14.0
+const INVENTORY_CLOSE_BUTTON_WIDTH: float = 72.0
+## 仅烘干机页：背景图从中心放大，裁掉边缘。
+const DRYER_BG_ZOOM: float = 1.36
 const USER_ASSET_DIRS: PackedStringArray = [
 	USER_PROJECT_DIR,
 	USER_PROJECT_DIR_WSL,

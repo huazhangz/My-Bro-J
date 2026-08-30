@@ -66,8 +66,11 @@
 | `ITEM_CARD_SIZE` | `120 × 142` | 库存卡片最小尺寸（已 ×1.2） |
 | `PET_AREA` | `Rect2(10, 5, 288, 408)` | Steve 默认框：原 240×340 ×1.2，再右移 5 格 |
 | `CHROMA_KEY_COLOR` | `#00FF00` | 当前扣色默认 |
-| `CHROMA_KEY_SIMILARITY` | `0.40` | 当前扣色容差 |
-| `CHROMA_KEY_SMOOTHNESS` | `0.10` | 当前边缘羽化 |
+| `CHROMA_KEY_SIMILARITY` | `0.81` | 当前扣色容差 |
+| `CHROMA_KEY_SMOOTHNESS` | `0.15` | 当前边缘羽化 |
+| `DRYER_BG_ZOOM` | `1.36` | 仅烘干机页背景从中心放大（裁边） |
+| `DRYER_HEADLINE_COLOR` | CodexButton 紫 | 烘干机标题条底色 |
+| `DRAWER_HEADLINE_COLOR` | CoinButton 金 | 抽屉标题条底色 |
 | `CHROMA_SPILL_SUPPRESSION` | `0.30` | 当前溢色抑制 |
 
 ### 3.2 品质表 `enum Quality`
@@ -251,6 +254,9 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
   - 点弹窗外 / `ESC` / `×`：关闭菜单
 - **InventoryPopup**（全屏，默认隐藏）：背景随种类换 `dryer.jpg` / `drawer.jpg`，外加半透明黑遮罩
   - 窗口临时放大为立绘区域的 **2.5 倍**（`INVENTORY_SCALE`，保持宽高比）
+  - 左上角标题带 headline 色条（烘干机紫 / 抽屉金，与右键按钮底色一致），高度不超过第一件库存
+  - 右上角「关闭」与标题条同高；中间弹性留白
+  - 烘干机背景 `dryer.jpg` 从中心 ×1.36 并裁边；抽屉背景 1:1
   - `ScrollContainer` + `GridContainer.columns = 5`，条目从左到右、满行向下，超出可竖向滚动
   - 卡片为紫色描边占位框，显示磨损前缀 + 品质中文名（尚无内裤贴图）
   - `关闭` / `ESC` / 再右键：还原窗口尺寸并关闭弹层
@@ -359,8 +365,8 @@ Theora **没有 Alpha 通道**，视频必然是一块不透明矩形。项目�
 |------|------|------|
 | `chroma_key_enabled` | `true` | 默认开启绿幕抠像 |
 | `chroma_key_color` / `key_color` | `#00FF00` | 绿幕 |
-| `chroma_key_similarity` | `0.40` | 容差，越大抠得越多 |
-| `chroma_key_smoothness` | `0.10` | 边缘羽化 |
+| `chroma_key_similarity` | `0.81` | 容差，越大抠得越多 |
+| `chroma_key_smoothness` | `0.15` | 边缘羽化 |
 | `chroma_spill_suppression` | `0.30` | 去掉人物边缘残留绿边 |
 
 运行时：`set_chroma_key_enabled(bool)`、`apply_chroma_key(color, similarity, smoothness, spill)`。
@@ -420,10 +426,10 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 │       └── Rows：烘干机 / 抽屉 / 能不能给我洗快点 / 固定上层 / 晚点再洗
 ├── RunawayBanner（贴在空盆画面顶部正中，「已跑路...」）
 └── InventoryPopup (Control, 默认隐藏, 全屏)
-    ├── InventoryBg (TextureRect = dryer.jpg)
+    ├── InventoryBgClip → InventoryBg（烘干机中心 ×1.36）
     ├── InventoryMask (ColorRect 0,0,0,0.6)
     └── InventoryBody
-        ├── InventoryHeader（标题 + 关闭）
+        ├── InventoryHeader（左标题色条 + 右关闭，同高）
         ├── InventoryScroll → InventoryGrid (columns = 5)
         └── InventoryEmpty
 ```

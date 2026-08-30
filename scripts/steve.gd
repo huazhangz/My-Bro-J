@@ -39,12 +39,12 @@ const CHROMA_SHADER_PATH: String = "res://assets/shaders/chroma_key.gdshader"
 		chroma_key_color = value
 		if is_node_ready():
 			_apply_video_key()
-@export_range(0.0, 1.0, 0.01) var chroma_key_similarity: float = 0.40:
+@export_range(0.0, 1.0, 0.01) var chroma_key_similarity: float = 0.81:
 	set(value):
 		chroma_key_similarity = value
 		if is_node_ready():
 			_apply_video_key()
-@export_range(0.0, 1.0, 0.01) var chroma_key_smoothness: float = 0.10:
+@export_range(0.0, 1.0, 0.01) var chroma_key_smoothness: float = 0.15:
 	set(value):
 		chroma_key_smoothness = value
 		if is_node_ready():
@@ -70,6 +70,7 @@ var _pet_video: VideoStreamPlayer
 @onready var _basin_frame: TextureRect = %BasinFrame
 @onready var _runaway_banner: PanelContainer = %RunawayBanner
 @onready var _inventory_popup: Control = %InventoryPopup
+@onready var _inventory_headline: PanelContainer = %InventoryHeadline
 @onready var _inventory_title: Label = %InventoryTitle
 @onready var _inventory_close_button: Button = %InventoryCloseButton
 @onready var _inventory_grid: GridContainer = %InventoryGrid
@@ -316,6 +317,10 @@ func _connect_exit_popup() -> void:
 	)
 	_inventory_popup.gui_input.connect(func(event: InputEvent) -> void:
 		_process_drag_input(event)
+	)
+	_inventory_popup.resized.connect(func() -> void:
+		if _inventory_popup.visible:
+			_layout_inventory_bg()
 	)
 
 
@@ -1284,6 +1289,50 @@ func _apply_inventory_background(kind: String) -> void:
 	if is_instance_valid(_inventory_bg) and tex != null:
 		_inventory_bg.texture = tex
 	_apply_video_key()
+	_layout_inventory_bg()
+
+
+func _layout_inventory_bg() -> void:
+	if not is_instance_valid(_inventory_bg):
+		return
+	var host: Control = _inventory_bg.get_parent() as Control
+	var area: Vector2 = host.size if is_instance_valid(host) else _inventory_popup.size
+	if area.x < 2.0 or area.y < 2.0:
+		area = Vector2(DisplayServer.window_get_size())
+	var zoom: float = GameData.DRYER_BG_ZOOM if _inventory_kind == "dryer" else 1.0
+	var fitted: Vector2 = area * zoom
+	_inventory_bg.anchor_left = 0.5
+	_inventory_bg.anchor_top = 0.5
+	_inventory_bg.anchor_right = 0.5
+	_inventory_bg.anchor_bottom = 0.5
+	_inventory_bg.offset_left = -fitted.x * 0.5
+	_inventory_bg.offset_top = -fitted.y * 0.5
+	_inventory_bg.offset_right = fitted.x * 0.5
+	_inventory_bg.offset_bottom = fitted.y * 0.5
+
+
+func _apply_inventory_headline(kind: String) -> void:
+	if not is_instance_valid(_inventory_headline) or not is_instance_valid(_inventory_title):
+		return
+	_inventory_title.text = "烘干机" if kind == "dryer" else "抽屉"
+	var box: StyleBoxFlat = StyleBoxFlat.new()
+	box.bg_color = (
+		GameData.DRYER_HEADLINE_COLOR if kind == "dryer" else GameData.DRAWER_HEADLINE_COLOR
+	)
+	box.set_corner_radius_all(8)
+	box.set_border_width_all(2)
+	box.border_color = Color(1.0, 1.0, 1.0, 0.92)
+	box.content_margin_left = GameData.INVENTORY_HEADLINE_PAD_X
+	box.content_margin_right = GameData.INVENTORY_HEADLINE_PAD_X
+	box.content_margin_top = 6.0
+	box.content_margin_bottom = 6.0
+	_inventory_headline.add_theme_stylebox_override("panel", box)
+	_inventory_headline.custom_minimum_size.y = GameData.INVENTORY_HEADLINE_HEIGHT
+	if is_instance_valid(_inventory_close_button):
+		_inventory_close_button.custom_minimum_size = Vector2(
+			GameData.INVENTORY_CLOSE_BUTTON_WIDTH,
+			GameData.INVENTORY_HEADLINE_HEIGHT
+		)
 
 
 func _open_inventory(kind: String) -> void:
@@ -1292,12 +1341,13 @@ func _open_inventory(kind: String) -> void:
 	_inventory_kind = kind
 	_close_exit_popup()
 	_set_pet_layer_visible(false)
-	_apply_inventory_background(kind)
 	_expand_inventory_window()
-	_inventory_title.text = "烘干机" if kind == "dryer" else "抽屉"
+	_apply_inventory_background(kind)
+	_apply_inventory_headline(kind)
 	_inventory_grid.columns = GameData.GRID_COLUMNS
 	_inventory_popup.visible = true
 	_fill_inventory_grid()
+	call_deferred("_layout_inventory_bg")
 
 
 func _close_inventory() -> void:
