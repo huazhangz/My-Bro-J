@@ -72,6 +72,9 @@ var _pet_video: VideoStreamPlayer
 @onready var _size_large_button: Button = %SizeLargeButton
 @onready var _size_huge_button: Button = %SizeHugeButton
 @onready var _pressure_button: Button = %PressureWashButton
+@onready var _movie_button: Button = %MovieButton
+@onready var _dinner_button: Button = %DinnerButton
+@onready var _chat_button: Button = %ChatButton
 @onready var _pin_top_button: Button = %PinTopButton
 @onready var _quit_app_button: Button = %QuitAppButton
 @onready var _menu_close_button: Button = %MenuCloseButton
@@ -362,6 +365,15 @@ func _apply_menu_control_heights() -> void:
 		_drawer_slot.custom_minimum_size.y = GameData.MENU_SLOT_HEIGHT
 	if is_instance_valid(_pressure_button):
 		_pressure_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
+	if is_instance_valid(_movie_button):
+		_movie_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
+		_movie_button.text = GameData.MOVIE_BUTTON_TEXT
+	if is_instance_valid(_dinner_button):
+		_dinner_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
+		_dinner_button.text = GameData.DINNER_BUTTON_TEXT
+	if is_instance_valid(_chat_button):
+		_chat_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
+		_chat_button.text = GameData.CHAT_BUTTON_TEXT
 	if is_instance_valid(_settings_button):
 		_settings_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
 	if is_instance_valid(_quit_app_button):
@@ -389,6 +401,15 @@ func _connect_exit_popup() -> void:
 	)
 	_pressure_button.pressed.connect(func() -> void:
 		_on_pressure_wash_pressed()
+	)
+	_movie_button.pressed.connect(func() -> void:
+		_on_demo_feature_pressed("movie")
+	)
+	_dinner_button.pressed.connect(func() -> void:
+		_on_demo_feature_pressed("dinner")
+	)
+	_chat_button.pressed.connect(func() -> void:
+		_on_demo_feature_pressed("chat")
 	)
 	_quit_app_button.pressed.connect(func() -> void:
 		GameData.save_game()
@@ -508,7 +529,8 @@ func _is_click_on_blocking_ui(global_pos: Vector2) -> bool:
 
 func _is_point_on_menu_button(global_pos: Vector2) -> bool:
 	var buttons: Array[Button] = [
-		_dryer_slot, _drawer_slot, _pressure_button, _settings_button,
+		_dryer_slot, _drawer_slot, _pressure_button, _movie_button,
+		_dinner_button, _chat_button, _settings_button,
 		_quit_app_button, _menu_close_button, _pin_top_button,
 		_size_small_button, _size_medium_button, _size_large_button, _size_huge_button,
 	]
@@ -724,6 +746,10 @@ func _refresh_pressure_button() -> void:
 		return
 	_pressure_cd_text = next_text
 	_pressure_button.text = next_text
+
+
+func _on_demo_feature_pressed(feature_id: String) -> void:
+	print("%s demo feature=%s (placeholder)" % [VIDEO_LOG_PREFIX, feature_id])
 
 
 func _trigger_runaway() -> void:
@@ -1816,17 +1842,40 @@ func _build_tidy_filters() -> void:
 		button.toggle_mode = true
 		button.text = GameData.quality_display_name(quality)
 		button.set_meta("quality", quality)
-		button.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
-		button.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+		_style_tidy_toggle(button)
 		_tidy_quality_box.add_child(button)
 	for wear: String in GameData.WEAR_PREFIXES:
 		var button: Button = Button.new()
 		button.toggle_mode = true
 		button.text = wear
 		button.set_meta("wear", wear)
-		button.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
-		button.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+		_style_tidy_toggle(button)
 		_tidy_wear_box.add_child(button)
+
+
+func _style_tidy_toggle(button: Button) -> void:
+	button.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
+	button.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+	button.add_theme_color_override("font_hover_color", GameData.UI_FONT_COLOR)
+	button.add_theme_color_override("font_pressed_color", GameData.UI_FONT_COLOR)
+	button.add_theme_color_override("font_focus_color", GameData.UI_FONT_COLOR)
+	_apply_tidy_toggle_style(button, button.button_pressed)
+	button.toggled.connect(func(pressed: bool) -> void:
+		_apply_tidy_toggle_style(button, pressed)
+	)
+
+
+func _apply_tidy_toggle_style(button: Button, selected: bool) -> void:
+	if not is_instance_valid(button):
+		return
+	var box: StyleBoxFlat = StyleBoxFlat.new()
+	box.bg_color = GameData.TIDY_SELECTED_COLOR if selected else GameData.TIDY_IDLE_COLOR
+	box.set_corner_radius_all(8)
+	box.set_content_margin_all(8.0)
+	box.set_border_width_all(2)
+	box.border_color = Color(1.0, 1.0, 1.0, 0.85 if selected else 0.35)
+	for slot: String in ["normal", "hover", "pressed", "focus", "disabled"]:
+		button.add_theme_stylebox_override(slot, box)
 
 
 func _toggle_tidy_panel() -> void:
@@ -1875,7 +1924,9 @@ func _refresh_stat_bubbles() -> void:
 	if is_instance_valid(_bubble_affinity):
 		_bubble_affinity.text = "❤  好感度  %d" % int(round(GameData.affinity_score()))
 	if is_instance_valid(_bubble_underwear):
-		_bubble_underwear.text = "洗了 %d 条 内裤" % GameData.underwear_total
+		_bubble_underwear.text = "%s  洗了 %d 条 内裤" % [
+			GameData.UNDERWEAR_EMOJI, GameData.underwear_total,
+		]
 	if is_instance_valid(_bubble_companion):
 		_bubble_companion.text = "⏰  陪伴时长  %s" % GameData.format_companion_clock()
 	if is_instance_valid(_bubble_runaway):

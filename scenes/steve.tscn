@@ -280,7 +280,7 @@ size_flags_horizontal = 3
 [node name="BubbleUnderwear" type="Label" parent="ExitPopup/ExitInner/StatBubbles/UnderwearBubble"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "洗了 0 条 内裤"
+text = "🩲  洗了 0 条 内裤"
 horizontal_alignment = 1
 
 [node name="CompanionBubble" type="PanelContainer" parent="ExitPopup/ExitInner/StatBubbles"]
@@ -413,6 +413,27 @@ layout_mode = 2
 theme_type_variation = &"RiskButton"
 text = "能不能给我洗快点"
 autowrap_mode = 3
+
+[node name="MovieButton" type="Button" parent="ExitPopup/ExitInner"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 66)
+layout_mode = 2
+theme_type_variation = &"CodexButton"
+text = "看电影"
+
+[node name="DinnerButton" type="Button" parent="ExitPopup/ExitInner"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 66)
+layout_mode = 2
+theme_type_variation = &"CoinButton"
+text = "约个饭"
+
+[node name="ChatButton" type="Button" parent="ExitPopup/ExitInner"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 66)
+layout_mode = 2
+theme_type_variation = &"EquipButton"
+text = "聊聊天"
 
 [node name="MenuFooter" type="HBoxContainer" parent="ExitPopup/ExitInner"]
 layout_mode = 2

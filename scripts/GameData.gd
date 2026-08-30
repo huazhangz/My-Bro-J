@@ -79,8 +79,12 @@ const WEAR_PREFIXES: PackedStringArray = [
 	"臭的",
 ]
 
-## 烘干机 / 抽屉弹层相对立绘的放大倍数。
+## 烘干机 / 抽屉弹层相对立绘的放大倍数，再乘 INVENTORY_SIZE_FACTOR。
 const INVENTORY_SCALE: float = 2.5
+## 相对上一版库存窗边长的缩放（75%），窗口宽:高 = 4:3。
+const INVENTORY_SIZE_FACTOR: float = 0.75
+const INVENTORY_ASPECT_W: float = 4.0
+const INVENTORY_ASPECT_H: float = 3.0
 const GRID_COLUMNS: int = 5
 const ITEM_CARD_SIZE: Vector2 = Vector2(120.0, 142.0)
 ## 立绘 / 库存图等比放大。
@@ -123,6 +127,12 @@ const RUNAWAY_BANNER_HEIGHT: float = 30.0
 const RUNAWAY_BANNER_TOP_INSET: float = 8.0
 const PRESSURE_BUTTON_TEXT: String = "能不能给我洗快点"
 const PRESSURE_COOLDOWN_SUFFIX: String = "后再压力他"
+const MOVIE_BUTTON_TEXT: String = "看电影"
+const DINNER_BUTTON_TEXT: String = "约个饭"
+const CHAT_BUTTON_TEXT: String = "聊聊天"
+const UNDERWEAR_EMOJI: String = "🩲"
+const TIDY_SELECTED_COLOR: Color = Color(0.86, 0.16, 0.18, 0.96)
+const TIDY_IDLE_COLOR: Color = Color(0.22, 0.24, 0.30, 0.94)
 ## 必须用字面量数组。PackedStringArray(...) 构造不是常量表达式（Godot 报错 98）。
 const USER_UI_FONT_ALIASES: PackedStringArray = [
 	"YuanRou-P-Bold.ttf",
@@ -182,7 +192,7 @@ const WASH_PROGRESS_MAX: int = 100
 const WASH_BAR_SHIFT_Y: float = 9.0
 ## 右键菜单相对旧 244×336 面板的边长倍数（面积约 16 倍，窗口按屏幕可用区夹紧）。
 const CONTEXT_MENU_SCALE: float = 4.0
-const CONTEXT_MENU_BASE_SIZE: Vector2i = Vector2i(244, 336)
+const CONTEXT_MENU_BASE_SIZE: Vector2i = Vector2i(244, 400)
 const CONTEXT_MENU_MARGIN: int = 16
 ## 菜单图标相对旧 168 的 30%；烘干机再从中心放大 85%（×1.85）裁边。
 const MENU_ICON_SIZE: Vector2 = Vector2(50.0, 50.0)
@@ -203,10 +213,10 @@ const PET_SIZE_LARGE: int = 2
 const PET_SIZE_HUGE: int = 3
 const PET_SIZE_SCALES: Array[float] = [0.70, 1.00, 1.35, 2.00]
 const PET_SIZE_LABELS: PackedStringArray = ["小", "中", "大", "超大"]
-## 超大体型时 Steve 再向右偏的格数。
-const PET_SIZE_HUGE_SHIFT_X: float = 3.0
-const DRYER_ICON_NUDGE_Y: float = 1.0
-const DRAWER_ICON_NUDGE_Y: float = 4.0
+## 超大体型时 Steve 再向右偏的格数（上次 3 + 本次 3）。
+const PET_SIZE_HUGE_SHIFT_X: float = 6.0
+const DRYER_ICON_NUDGE_Y: float = 2.0
+const DRAWER_ICON_NUDGE_Y: float = 3.0
 const AFFINITY_QUALITY_VALUE: Dictionary = {
 	Quality.ONEOFF: 1.0,
 	Quality.POLYESTER: 2.0,
@@ -382,7 +392,7 @@ func add_wet_item(quality: int = -1) -> Dictionary:
 	return item
 
 
-## 抽屉收拾：勾选的品质或磨损词条命中即删除（OR）。
+## 抽屉收拾：品质集合与磨损集合取交集。不减 underwear_total（生涯已洗条数）。
 func delete_dry_matching(qualities: Array[int], wears: PackedStringArray) -> int:
 	if qualities.is_empty() and wears.is_empty():
 		return 0
@@ -391,12 +401,9 @@ func delete_dry_matching(qualities: Array[int], wears: PackedStringArray) -> int
 	for item: Dictionary in dry_collection:
 		var quality: int = int(item.get("quality", 0))
 		var wear: String = String(item.get("wear", item.get("wear_modifier", "")))
-		var hit: bool = false
-		if not qualities.is_empty() and qualities.has(quality):
-			hit = true
-		if not wears.is_empty() and wears.has(wear):
-			hit = true
-		if hit:
+		var quality_ok: bool = qualities.is_empty() or qualities.has(quality)
+		var wear_ok: bool = wears.is_empty() or wears.has(wear)
+		if quality_ok and wear_ok:
 			removed += 1
 		else:
 			kept.append(item)
@@ -404,7 +411,6 @@ func delete_dry_matching(qualities: Array[int], wears: PackedStringArray) -> int
 		return 0
 	dry_collection = kept
 	collection_changed.emit(dry_collection.size())
-	stats_changed.emit()
 	save_game()
 	return removed
 
@@ -602,10 +608,14 @@ func pet_layout_area() -> Rect2:
 
 
 func inventory_window_size() -> Vector2i:
-	return Vector2i(
-		maxi(int(PET_AREA.size.x * INVENTORY_SCALE), 400),
-		maxi(int(PET_AREA.size.y * INVENTORY_SCALE), 500)
-	)
+	var box_w: float = PET_AREA.size.x * INVENTORY_SCALE * INVENTORY_SIZE_FACTOR
+	var box_h: float = PET_AREA.size.y * INVENTORY_SCALE * INVENTORY_SIZE_FACTOR
+	var width: float = box_w
+	var height: float = width * INVENTORY_ASPECT_H / INVENTORY_ASPECT_W
+	if height > box_h:
+		height = box_h
+		width = height * INVENTORY_ASPECT_W / INVENTORY_ASPECT_H
+	return Vector2i(maxi(int(round(width)), 400), maxi(int(round(height)), 300))
 
 
 func context_menu_window_size() -> Vector2i:
