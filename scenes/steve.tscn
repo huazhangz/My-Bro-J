@@ -213,9 +213,8 @@ unique_name_in_owner = true
 layout_mode = 0
 offset_top = 16.0
 offset_right = 200.0
-offset_bottom = 36.0
+offset_bottom = 42.0
 mouse_filter = 2
-theme_type_variation = &"SmallLabel"
 text = "洗涤进度（1/100）"
 horizontal_alignment = 2
 
@@ -230,30 +229,60 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -122.0
-offset_top = -154.0
+offset_top = -168.0
 offset_right = 122.0
-offset_bottom = 154.0
+offset_bottom = 168.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_type_variation = &"SolidPanel"
 
-[node name="Rows" type="VBoxContainer" parent="ExitPopup"]
+[node name="ExitBody" type="Control" parent="ExitPopup"]
+custom_minimum_size = Vector2(220, 300)
 layout_mode = 2
+mouse_filter = 1
+
+[node name="Rows" type="VBoxContainer" parent="ExitPopup/ExitBody"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = 32.0
+offset_right = -4.0
+offset_bottom = -4.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/separation = 8
 
-[node name="DryerButton" type="Button" parent="ExitPopup/Rows"]
+[node name="MenuCloseButton" type="Button" parent="ExitPopup/ExitBody"]
+unique_name_in_owner = true
+z_index = 2
+custom_minimum_size = Vector2(28, 28)
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -30.0
+offset_top = 2.0
+offset_right = -2.0
+offset_bottom = 30.0
+grow_horizontal = 0
+theme_type_variation = &"CloseButton"
+text = "×"
+
+[node name="DryerButton" type="Button" parent="ExitPopup/ExitBody/Rows"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"CodexButton"
 text = "烘干机"
 
-[node name="DrawerButton" type="Button" parent="ExitPopup/Rows"]
+[node name="DrawerButton" type="Button" parent="ExitPopup/ExitBody/Rows"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"CoinButton"
 text = "抽屉"
 
-[node name="PressureWashButton" type="Button" parent="ExitPopup/Rows"]
+[node name="PressureWashButton" type="Button" parent="ExitPopup/ExitBody/Rows"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 36)
 layout_mode = 2
@@ -261,13 +290,13 @@ theme_type_variation = &"RiskButton"
 text = "压力Steve快点洗"
 autowrap_mode = 3
 
-[node name="PinTopButton" type="Button" parent="ExitPopup/Rows"]
+[node name="PinTopButton" type="Button" parent="ExitPopup/ExitBody/Rows"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"EquipButton"
 text = "固定上层：开"
 
-[node name="QuitAppButton" type="Button" parent="ExitPopup/Rows"]
+[node name="QuitAppButton" type="Button" parent="ExitPopup/ExitBody/Rows"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"CloseButton"
@@ -295,8 +324,6 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_runaway")
 [node name="RunawayLabel" type="Label" parent="RunawayBanner"]
 layout_mode = 2
 mouse_filter = 2
-theme_type_variation = &"TitleLabel"
-theme_override_colors/font_color = Color(1, 0.92, 0.9, 1)
 text = "已跑路..."
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -358,7 +385,6 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
-theme_type_variation = &"TitleLabel"
 text = "烘干机"
 vertical_alignment = 1
 
@@ -389,6 +415,5 @@ unique_name_in_owner = true
 visible = false
 layout_mode = 2
 mouse_filter = 2
-theme_type_variation = &"SmallLabel"
 text = "空空如也"
 horizontal_alignment = 1

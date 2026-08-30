@@ -102,6 +102,9 @@ const USER_CONTAINER_FILE: String = "container.jpg"
 const USER_UI_FONT_FILE: String = "YuanRou-P-Bold.ttf"
 const USER_UI_FONT_ZIP: String = "YuanRou-P-Bold.zip"
 const RES_UI_FONT_PATH: String = "res://assets/fonts/YuanRou-P-Bold.ttf"
+## 全界面统一字号；字体本身为 Bold。业务脚本不得另写字号。
+const UI_FONT_SIZE: int = 16
+const UI_FONT_COLOR: Color = Color(1.0, 1.0, 1.0, 1.0)
 ## 必须用字面量数组。PackedStringArray(...) 构造不是常量表达式（Godot 报错 98）。
 const USER_UI_FONT_ALIASES: PackedStringArray = [
 	"YuanRou-P-Bold.ttf",
@@ -407,14 +410,12 @@ func roll_pressure_runaway() -> bool:
 	return randf() < PRESSURE_RUNAWAY_CHANCE
 
 
-func format_pressure_ready_clock(remaining_seconds: float) -> String:
-	var now: Dictionary = Time.get_datetime_dict_from_system()
-	var total: int = int(now["hour"]) * 3600 + int(now["minute"]) * 60 + int(now["second"])
-	total += maxi(int(ceili(remaining_seconds)), 0)
-	total = total % 86400
-	var hour: int = int(total / 3600)
-	var minute: int = int((total % 3600) / 60)
-	return "%d：%02d" % [hour, minute]
+## 压力冷却剩余时间，按整秒向上取整，格式 MM：SS（随 _process 每秒变化）。
+func format_pressure_countdown(remaining_seconds: float) -> String:
+	var total: int = maxi(int(ceili(remaining_seconds)), 0)
+	var minutes: int = int(total / 60)
+	var seconds: int = total % 60
+	return "%d：%02d" % [minutes, seconds]
 
 
 # --- 存档（Day 5 预留） ---------------------------------------------------

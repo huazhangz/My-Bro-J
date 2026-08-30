@@ -66,6 +66,7 @@ var _pet_video: VideoStreamPlayer
 @onready var _pressure_button: Button = %PressureWashButton
 @onready var _pin_top_button: Button = %PinTopButton
 @onready var _quit_app_button: Button = %QuitAppButton
+@onready var _menu_close_button: Button = %MenuCloseButton
 @onready var _basin_frame: TextureRect = %BasinFrame
 @onready var _runaway_banner: PanelContainer = %RunawayBanner
 @onready var _inventory_popup: Control = %InventoryPopup
@@ -106,6 +107,7 @@ var _drawer_texture: Texture2D
 var _container_texture: Texture2D
 var _layout_area: Rect2 = GameData.PET_AREA
 var _pressure_cd: float = 0.0
+var _pressure_cd_text: String = ""
 
 
 func _ready() -> void:
@@ -234,8 +236,59 @@ func _apply_ui_font() -> void:
 		font.data = bytes
 	var next_theme: Theme = theme.duplicate() if theme != null else Theme.new()
 	next_theme.default_font = font
+	next_theme.default_font_size = GameData.UI_FONT_SIZE
+	_unify_theme_text(next_theme, font)
 	theme = next_theme
-	print("%s UI font <- %s" % [VIDEO_LOG_PREFIX, path])
+	_unify_control_text(self, font)
+	print("%s UI font <- %s size=%d" % [VIDEO_LOG_PREFIX, path, GameData.UI_FONT_SIZE])
+
+
+func _unify_theme_text(target: Theme, font: FontFile) -> void:
+	var types: PackedStringArray = [
+		"Label",
+		"Button",
+		"ProgressBar",
+		"TitleLabel",
+		"SmallLabel",
+		"CoinLabel",
+		"FloatLabel",
+		"TooltipLabel",
+		"CloseButton",
+		"CodexButton",
+		"CoinButton",
+		"EquipButton",
+		"RiskButton",
+	]
+	var white: Color = GameData.UI_FONT_COLOR
+	var size: int = GameData.UI_FONT_SIZE
+	for type_name: String in types:
+		target.set_font("font", type_name, font)
+		target.set_font_size("font_size", type_name, size)
+		target.set_color("font_color", type_name, white)
+		target.set_color("font_shadow_color", type_name, Color(0, 0, 0, 0.85))
+		if type_name.ends_with("Button") or type_name == "Button":
+			target.set_color("font_disabled_color", type_name, white)
+			target.set_color("font_focus_color", type_name, white)
+			target.set_color("font_hover_color", type_name, white)
+			target.set_color("font_pressed_color", type_name, white)
+			target.set_color("font_hover_pressed_color", type_name, white)
+
+
+func _unify_control_text(node: Node, font: FontFile) -> void:
+	if node is Control:
+		var control: Control = node as Control
+		if control is Label or control is Button or control is ProgressBar:
+			control.add_theme_font_override("font", font)
+			control.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
+			control.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+			if control is Button:
+				var button: Button = control as Button
+				button.add_theme_color_override("font_disabled_color", GameData.UI_FONT_COLOR)
+				button.add_theme_color_override("font_focus_color", GameData.UI_FONT_COLOR)
+				button.add_theme_color_override("font_hover_color", GameData.UI_FONT_COLOR)
+				button.add_theme_color_override("font_pressed_color", GameData.UI_FONT_COLOR)
+	for child: Node in node.get_children():
+		_unify_control_text(child, font)
 
 
 func _connect_exit_popup() -> void:
@@ -253,6 +306,9 @@ func _connect_exit_popup() -> void:
 	)
 	_quit_app_button.pressed.connect(func() -> void:
 		get_tree().quit()
+	)
+	_menu_close_button.pressed.connect(func() -> void:
+		_close_exit_popup()
 	)
 	_refresh_pin_button()
 	_inventory_close_button.pressed.connect(func() -> void:
@@ -486,10 +542,13 @@ func _refresh_pressure_button() -> void:
 		return
 	var cooling: bool = _pressure_cd > 0.0
 	_pressure_button.disabled = cooling
+	var next_text: String = "压力Steve快点洗"
 	if cooling:
-		_pressure_button.text = "%s后再压力他" % GameData.format_pressure_ready_clock(_pressure_cd)
-	else:
-		_pressure_button.text = "压力Steve快点洗"
+		next_text = "%s后再压力他" % GameData.format_pressure_countdown(_pressure_cd)
+	if next_text == _pressure_cd_text and _pressure_button.text == next_text:
+		return
+	_pressure_cd_text = next_text
+	_pressure_button.text = next_text
 
 
 func _trigger_runaway() -> void:
@@ -1098,7 +1157,7 @@ func _layout_hover_hud() -> void:
 	_water_bar.position = Vector2.ZERO
 	_water_bar.size = Vector2(bar_w, HOVER_BAR_HEIGHT)
 	_wash_label.position = Vector2(0.0, HOVER_BAR_HEIGHT + 2.0)
-	_wash_label.size = Vector2(bar_w, 20.0)
+	_wash_label.size = Vector2(bar_w, 24.0)
 	_wash_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 
 
@@ -1303,14 +1362,16 @@ func _make_item_card(item: Dictionary) -> Control:
 	wear_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	wear_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	wear_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wear_label.theme_type_variation = &"SmallLabel"
+	wear_label.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
+	wear_label.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
 	col.add_child(wear_label)
 
 	var quality_label: Label = Label.new()
 	quality_label.text = quality_name
 	quality_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	quality_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	quality_label.add_theme_color_override("font_color", accent)
+	quality_label.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
+	quality_label.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
 	col.add_child(quality_label)
 	return card
 

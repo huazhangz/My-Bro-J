@@ -52,7 +52,9 @@
 | `RUNAWAY_BASE_COOLDOWN` | `120.0` 秒 | 跑路后回归的基础冷却（品质/收藏会再缩减） |
 | `PRESSURE_WASH_REDUCTION_MIN` | `1.0` 秒 | 压力按钮随机扣时下限 |
 | `PRESSURE_WASH_REDUCTION_MAX` | `43200` 秒 | 压力按钮随机扣时上限（12 小时） |
-| `PRESSURE_BUTTON_COOLDOWN` | `900` 秒 | 压力按钮冷却 15 分钟；灰显并写「HH：MM后再压力他」 |
+| `PRESSURE_BUTTON_COOLDOWN` | `900` 秒 | 压力按钮冷却 15 分钟；灰显并写剩余「MM：SS后再压力他」（每秒刷新） |
+| `UI_FONT_SIZE` | `16` | 全部 Label / Button 统一字号 |
+| `UI_FONT_COLOR` | 纯白 | 全部文字白色加粗（YuanRou-P-Bold） |
 | `IMAGE_SCALE` | `1.2` | 立绘 / 库存图等比放大 |
 | `PET_SHIFT_X` | `5` | Steve 默认再向右偏 5 格 |
 | `PRESSURE_RUNAWAY_CHANCE` | `0.155` | 每次点击压力按钮的跑路概率 |
@@ -223,13 +225,14 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 |----|------|
 | 字体 | `assets/fonts/YuanRou-P-Bold.ttf`（源柔ゴシック P Bold / GenJyuuGothic-P-Bold，OFL 1.1） |
 | 本机包 | `C:\Users\ASUS\My-Bro-J\YuanRou-P-Bold.zip`（gitignore 忽略 zip；运行时解包写入上述 TTF） |
-| 主题 | `assets/fonts/steve_theme.tres`，`default_font` 指向该 TTF，`default_font_size = 16` |
+| 主题 | `assets/fonts/steve_theme.tres`，`default_font` 指向该 TTF，全部类型变体 `font_size = 16`、`font_color` 纯白 |
 | 挂载 | `project.godot` → `gui/theme/custom` + `gui/theme/custom_font` + `steve.tscn` 根节点 `theme` |
 
 因此**新增任何 Label / Button 都自动是中文字体**，不需要逐节点 `theme_override_fonts/font`。
 主题内还定义了一组类型变体（`TitleLabel` / `SmallLabel` / `CoinLabel` / `FloatLabel` /
 `SolidPanel` / `ChipPanel` / `RiskButton` / `CoinButton` / `CodexButton` / `EquipButton` /
-`CloseButton`），差异化配色靠 `theme_type_variation` 取用，不散写 StyleBox。
+`CloseButton`），按钮底色可不同，**文字一律白色加粗、字号一律 16**。
+`steve.gd` 的 `_apply_ui_font()` 会再覆盖一遍，避免变体残留旧字号/旧颜色。
 字体来源与 OFL 许可见 `assets/fonts/README.md`。仓库内不再保留第二套默认字体。
 
 ### 5.2 UI 结构
@@ -239,11 +242,12 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 - **ExitPopup**（根节点下，默认隐藏）：在立绘上 **右键** 弹出居中菜单
   - `烘干机`：隐藏立绘，打开库存弹层（`dryer.jpg` 抠绿幕）
   - `抽屉`：隐藏立绘，打开库存弹层（`drawer.jpg` 抠绿幕）
-  - `压力Steve快点洗`：随机扣洗涤时间（1s~12h）；冷却时按钮变灰，文案为「HH：MM后再压力他」
+  - `压力Steve快点洗`：随机扣洗涤时间（1s~12h）；冷却时按钮变灰，文案为剩余「MM：SS后再压力他」，随 `_process` 每秒读秒
   - `固定上层`：切换窗口置顶
   - `晚点再洗`：退出进程
+  - 右上角悬浮 `×`：关闭菜单
   - 跑路时立绘换成 `container.jpg` 抠绿幕空盆，并弹出红色半透明「已跑路...」
-  - 点弹窗外 / `ESC`：关闭菜单
+  - 点弹窗外 / `ESC` / `×`：关闭菜单
 - **InventoryPopup**（全屏，默认隐藏）：背景随种类换 `dryer.jpg` / `drawer.jpg`，外加半透明黑遮罩
   - 窗口临时放大为立绘区域的 **2.5 倍**（`INVENTORY_SCALE`，保持宽高比）
   - `ScrollContainer` + `GridContainer.columns = 5`，条目从左到右、满行向下，超出可竖向滚动
@@ -410,7 +414,9 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 │   └── PlaceholderVisual (Control)
 │       └── Head / EyeLeft / EyeRight / Body / Basin
 ├── ExitPopup (PanelContainer, 默认隐藏)
-│   └── 烘干机 / 抽屉 / 压力Steve快点洗 / 固定上层 / 晚点再洗
+│   └── ExitBody
+│       ├── MenuCloseButton（右上角悬浮 ×）
+│       └── Rows：烘干机 / 抽屉 / 压力Steve快点洗 / 固定上层 / 晚点再洗
 ├── RunawayBanner（红色半透明「已跑路...」）
 └── InventoryPopup (Control, 默认隐藏, 全屏)
     ├── InventoryBg (TextureRect = dryer.jpg)
@@ -429,7 +435,7 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 |------|------|
 | 在桌宠/空白处按住左键拖动 | 移动桌宠窗口 |
 | 鼠标在立绘上停留 1.5 秒 | 头顶显示洗涤水条与 `洗涤进度（n/100）` |
-| 在立绘上右键 | 打开菜单：烘干机 / 抽屉 / 固定上层 / 晚点再洗 |
+| 在立绘上右键 | 打开菜单：烘干机 / 抽屉 / 压力Steve快点洗 / 固定上层 / 晚点再洗；右上角 × 关闭 |
 | 点「烘干机」 | 2.5× 弹层，5 列网格展示未晾干仓库 |
 | 点「抽屉」 | 2.5× 弹层，5 列网格展示已晾干收藏 |
 | 点「固定上层」 | 开/关窗口置顶 |
@@ -463,7 +469,8 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 - [x] **Day 3**：右键菜单 + 库存网格（常驻 HUD / 图鉴 / 加速按钮已拆除）
   - [x] 唯一中文字体 YuanRou-P-Bold + `steve_theme.tres`
   - [x] 右键 `ExitPopup`：烘干机 / 抽屉 / 压力Steve快点洗 / 固定上层 / 晚点再洗
-  - [x] 压力按钮：`randf_range(1s, 12h)` 扣洗涤时间；冷却灰显「HH：MM后再压力他」
+  - [x] 压力按钮：`randf_range(1s, 12h)` 扣洗涤时间；冷却灰显剩余「MM：SS后再压力他」并每秒刷新
+  - [x] 右键菜单右上角悬浮 `×` 关闭；全界面白字加粗、字号统一 16
   - [x] 每次压力点击 15.5% 跑路：空盆 `container.jpg` 抠绿幕 + 红色「已跑路...」
   - [x] `InventoryPopup`：dryer/drawer 绿幕背景 + 5 列滚动网格
   - [x] 悬停 1.5s 头顶洗涤水条
