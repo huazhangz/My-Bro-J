@@ -89,6 +89,12 @@ var _pet_video: VideoStreamPlayer
 @onready var _inventory_headline: PanelContainer = %InventoryHeadline
 @onready var _inventory_title: Label = %InventoryTitle
 @onready var _inventory_close_button: Button = %InventoryCloseButton
+@onready var _tidy_button: Button = %TidyButton
+@onready var _tidy_panel: Control = %TidyPanel
+@onready var _tidy_quality_box: Container = %TidyQualityBox
+@onready var _tidy_wear_box: Container = %TidyWearBox
+@onready var _tidy_delete_button: Button = %TidyDeleteButton
+@onready var _tidy_cancel_button: Button = %TidyCancelButton
 @onready var _inventory_grid: GridContainer = %InventoryGrid
 @onready var _inventory_empty: Label = %InventoryEmpty
 @onready var _inventory_bg: TextureRect = %InventoryBg
@@ -412,6 +418,16 @@ func _connect_exit_popup() -> void:
 	_inventory_close_button.pressed.connect(func() -> void:
 		_close_inventory()
 	)
+	_tidy_button.pressed.connect(func() -> void:
+		_toggle_tidy_panel()
+	)
+	_tidy_delete_button.pressed.connect(func() -> void:
+		_confirm_tidy_delete()
+	)
+	_tidy_cancel_button.pressed.connect(func() -> void:
+		_set_tidy_panel_visible(false)
+	)
+	_build_tidy_filters()
 	_inventory_popup.gui_input.connect(func(event: InputEvent) -> void:
 		_process_drag_input(event)
 	)
@@ -1497,6 +1513,10 @@ func _apply_inventory_headline(kind: String) -> void:
 			GameData.INVENTORY_CLOSE_BUTTON_WIDTH,
 			GameData.INVENTORY_HEADLINE_HEIGHT
 		)
+	if is_instance_valid(_tidy_button):
+		_tidy_button.visible = kind == "drawer"
+		_tidy_button.custom_minimum_size.y = GameData.INVENTORY_HEADLINE_HEIGHT
+	_set_tidy_panel_visible(false)
 
 
 func _open_inventory(kind: String) -> void:
@@ -1521,17 +1541,14 @@ func _close_inventory() -> void:
 	if is_instance_valid(_inventory_popup):
 		_inventory_popup.visible = false
 	_inventory_kind = ""
+	_set_tidy_panel_visible(false)
 	_restore_overlay_window_if_idle()
 	if not _exit_popup.visible and _state != State.RUNAWAY:
 		_set_pet_layer_visible(true)
 
 
 func _inventory_window_size() -> Vector2i:
-	var pet: Rect2 = _current_pet_rect()
-	return Vector2i(
-		maxi(int(pet.size.x * GameData.INVENTORY_SCALE), 400),
-		maxi(int(pet.size.y * GameData.INVENTORY_SCALE), 500)
-	)
+	return GameData.inventory_window_size()
 
 
 func _expand_overlay_window(new_size: Vector2i) -> void:
@@ -1713,11 +1730,11 @@ func _apply_menu_icons() -> void:
 
 
 func _layout_menu_icons() -> void:
-	_fit_menu_icon(_dryer_icon_clip, _dryer_icon, GameData.DRYER_ICON_ZOOM)
-	_fit_menu_icon(_drawer_icon_clip, _drawer_icon, 1.0)
+	_fit_menu_icon(_dryer_icon_clip, _dryer_icon, GameData.DRYER_ICON_ZOOM, GameData.DRYER_ICON_NUDGE_Y)
+	_fit_menu_icon(_drawer_icon_clip, _drawer_icon, 1.0, GameData.DRAWER_ICON_NUDGE_Y)
 
 
-func _fit_menu_icon(clip: Control, icon: TextureRect, zoom: float) -> void:
+func _fit_menu_icon(clip: Control, icon: TextureRect, zoom: float, nudge_y: float) -> void:
 	var box: Vector2 = GameData.MENU_ICON_SIZE
 	if is_instance_valid(clip):
 		clip.custom_minimum_size = box
@@ -1725,7 +1742,7 @@ func _fit_menu_icon(clip: Control, icon: TextureRect, zoom: float) -> void:
 	if not is_instance_valid(icon):
 		return
 	var drawn: Vector2 = box * maxf(zoom, 1.0)
-	icon.position = (box - drawn) * 0.5
+	icon.position = Vector2((box.x - drawn.x) * 0.5, (box.y - drawn.y) * 0.5 + nudge_y)
 	icon.size = drawn
 
 
@@ -1789,11 +1806,76 @@ func _refresh_size_buttons() -> void:
 		_size_huge_button.disabled = tier == GameData.PET_SIZE_HUGE
 
 
+func _build_tidy_filters() -> void:
+	if not is_instance_valid(_tidy_quality_box) or not is_instance_valid(_tidy_wear_box):
+		return
+	if _tidy_quality_box.get_child_count() > 0:
+		return
+	for quality: int in GameData.Quality.values():
+		var button: Button = Button.new()
+		button.toggle_mode = true
+		button.text = GameData.quality_display_name(quality)
+		button.set_meta("quality", quality)
+		button.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
+		button.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+		_tidy_quality_box.add_child(button)
+	for wear: String in GameData.WEAR_PREFIXES:
+		var button: Button = Button.new()
+		button.toggle_mode = true
+		button.text = wear
+		button.set_meta("wear", wear)
+		button.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
+		button.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+		_tidy_wear_box.add_child(button)
+
+
+func _toggle_tidy_panel() -> void:
+	if _inventory_kind != "drawer" or not is_instance_valid(_tidy_panel):
+		return
+	_set_tidy_panel_visible(not _tidy_panel.visible)
+
+
+func _set_tidy_panel_visible(shown: bool) -> void:
+	if is_instance_valid(_tidy_panel):
+		_tidy_panel.visible = shown
+	if not shown:
+		_clear_tidy_toggles()
+
+
+func _clear_tidy_toggles() -> void:
+	for box: Container in [_tidy_quality_box, _tidy_wear_box]:
+		if not is_instance_valid(box):
+			continue
+		for child: Node in box.get_children():
+			var button: Button = child as Button
+			if button != null:
+				button.button_pressed = false
+
+
+func _confirm_tidy_delete() -> void:
+	var qualities: Array[int] = []
+	var wears: PackedStringArray = PackedStringArray()
+	if is_instance_valid(_tidy_quality_box):
+		for child: Node in _tidy_quality_box.get_children():
+			var button: Button = child as Button
+			if button != null and button.button_pressed:
+				qualities.append(int(button.get_meta("quality", 0)))
+	if is_instance_valid(_tidy_wear_box):
+		for child: Node in _tidy_wear_box.get_children():
+			var button: Button = child as Button
+			if button != null and button.button_pressed:
+				wears.append(String(button.get_meta("wear", "")))
+	var removed: int = GameData.delete_dry_matching(qualities, wears)
+	print("%s tidy removed=%d" % [VIDEO_LOG_PREFIX, removed])
+	_fill_inventory_grid()
+	_set_tidy_panel_visible(false)
+
+
 func _refresh_stat_bubbles() -> void:
 	if is_instance_valid(_bubble_affinity):
 		_bubble_affinity.text = "❤  好感度  %d" % int(round(GameData.affinity_score()))
 	if is_instance_valid(_bubble_underwear):
-		_bubble_underwear.text = "🩲  内裤总计  %d条" % GameData.underwear_total
+		_bubble_underwear.text = "洗了 %d 条 内裤" % GameData.underwear_total
 	if is_instance_valid(_bubble_companion):
 		_bubble_companion.text = "⏰  陪伴时长  %s" % GameData.format_companion_clock()
 	if is_instance_valid(_bubble_runaway):

@@ -280,7 +280,7 @@ size_flags_horizontal = 3
 [node name="BubbleUnderwear" type="Label" parent="ExitPopup/ExitInner/StatBubbles/UnderwearBubble"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "内裤总计  0条"
+text = "洗了 0 条 内裤"
 horizontal_alignment = 1
 
 [node name="CompanionBubble" type="PanelContainer" parent="ExitPopup/ExitInner/StatBubbles"]
@@ -610,6 +610,15 @@ layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
+[node name="TidyButton" type="Button" parent="InventoryPopup/InventoryBody/InventoryHeader"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(96, 36)
+layout_mode = 2
+size_flags_vertical = 0
+theme_type_variation = &"EquipButton"
+text = "收拾一下"
+
 [node name="InventoryCloseButton" type="Button" parent="InventoryPopup/InventoryBody/InventoryHeader"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(72, 36)
@@ -617,6 +626,48 @@ layout_mode = 2
 size_flags_vertical = 0
 theme_type_variation = &"CloseButton"
 text = "关闭"
+
+[node name="TidyPanel" type="VBoxContainer" parent="InventoryPopup/InventoryBody"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TidyHint" type="Label" parent="InventoryPopup/InventoryBody/TidyPanel"]
+layout_mode = 2
+mouse_filter = 2
+text = "勾选要丢掉的品质或随机词条"
+autowrap_mode = 3
+
+[node name="TidyQualityBox" type="HFlowContainer" parent="InventoryPopup/InventoryBody/TidyPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 6
+
+[node name="TidyWearBox" type="HFlowContainer" parent="InventoryPopup/InventoryBody/TidyPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 6
+
+[node name="TidyActions" type="HBoxContainer" parent="InventoryPopup/InventoryBody/TidyPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TidyDeleteButton" type="Button" parent="InventoryPopup/InventoryBody/TidyPanel/TidyActions"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"RiskButton"
+text = "删除勾选"
+
+[node name="TidyCancelButton" type="Button" parent="InventoryPopup/InventoryBody/TidyPanel/TidyActions"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"CloseButton"
+text = "取消"
 
 [node name="InventoryScroll" type="ScrollContainer" parent="InventoryPopup/InventoryBody"]
 unique_name_in_owner = true

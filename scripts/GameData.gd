@@ -203,6 +203,10 @@ const PET_SIZE_LARGE: int = 2
 const PET_SIZE_HUGE: int = 3
 const PET_SIZE_SCALES: Array[float] = [0.70, 1.00, 1.35, 2.00]
 const PET_SIZE_LABELS: PackedStringArray = ["小", "中", "大", "超大"]
+## 超大体型时 Steve 再向右偏的格数。
+const PET_SIZE_HUGE_SHIFT_X: float = 3.0
+const DRYER_ICON_NUDGE_Y: float = 1.0
+const DRAWER_ICON_NUDGE_Y: float = 4.0
 const AFFINITY_QUALITY_VALUE: Dictionary = {
 	Quality.ONEOFF: 1.0,
 	Quality.POLYESTER: 2.0,
@@ -378,7 +382,33 @@ func add_wet_item(quality: int = -1) -> Dictionary:
 	return item
 
 
-## 把一条内裤从未晾干仓库移入已晾干收藏，并结算代币。
+## 抽屉收拾：勾选的品质或磨损词条命中即删除（OR）。
+func delete_dry_matching(qualities: Array[int], wears: PackedStringArray) -> int:
+	if qualities.is_empty() and wears.is_empty():
+		return 0
+	var kept: Array[Dictionary] = []
+	var removed: int = 0
+	for item: Dictionary in dry_collection:
+		var quality: int = int(item.get("quality", 0))
+		var wear: String = String(item.get("wear", item.get("wear_modifier", "")))
+		var hit: bool = false
+		if not qualities.is_empty() and qualities.has(quality):
+			hit = true
+		if not wears.is_empty() and wears.has(wear):
+			hit = true
+		if hit:
+			removed += 1
+		else:
+			kept.append(item)
+	if removed <= 0:
+		return 0
+	dry_collection = kept
+	collection_changed.emit(dry_collection.size())
+	stats_changed.emit()
+	save_game()
+	return removed
+
+
 func dry_item(item_id: int) -> bool:
 	var index: int = -1
 	for i: int in wet_warehouse.size():
@@ -565,7 +595,17 @@ func pet_window_size() -> Vector2i:
 
 func pet_layout_area() -> Rect2:
 	var s: float = pet_size_scale()
-	return Rect2(PET_AREA.position * s, PET_AREA.size * s)
+	var area: Rect2 = Rect2(PET_AREA.position * s, PET_AREA.size * s)
+	if pet_size_tier == PET_SIZE_HUGE:
+		area.position.x += PET_SIZE_HUGE_SHIFT_X
+	return area
+
+
+func inventory_window_size() -> Vector2i:
+	return Vector2i(
+		maxi(int(PET_AREA.size.x * INVENTORY_SCALE), 400),
+		maxi(int(PET_AREA.size.y * INVENTORY_SCALE), 500)
+	)
 
 
 func context_menu_window_size() -> Vector2i:
