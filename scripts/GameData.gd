@@ -97,6 +97,8 @@ const USER_DESKTOP_DIR: String = "C:/Users/ASUS/Desktop"
 const USER_VIDEO_FILE: String = "steve3.mp4"
 const USER_DRYER_FILE: String = "dryer.jpg"
 const USER_DRAWER_FILE: String = "drawer.jpg"
+const USER_DRAWER_ICON_FILE: String = "drawer1.jpg"
+const RES_DRAWER_ICON_PATH: String = "res://assets/images/drawer1.jpg"
 const USER_STEVE2_FILE: String = "Steve2.jpg"
 const USER_CONTAINER_FILE: String = "container.jpg"
 const USER_UI_FONT_FILE: String = "YuanRou-P-Bold.ttf"
@@ -105,6 +107,14 @@ const RES_UI_FONT_PATH: String = "res://assets/fonts/YuanRou-P-Bold.ttf"
 ## 全界面统一字号；字体本身为 Bold。业务脚本不得另写字号。
 const UI_FONT_SIZE: int = 16
 const UI_FONT_COLOR: Color = Color(1.0, 1.0, 1.0, 1.0)
+## 仅右键菜单：字号 19，行距为字号 ×0.3。
+const MENU_UI_FONT_SIZE: int = 19
+const MENU_LINE_SPACING: int = 6
+const MENU_BUBBLE_HEIGHT_SCALE: float = 1.65
+const MENU_ICON_BUTTON_HEIGHT_SCALE: float = 1.35
+const MENU_SLOT_HEIGHT: float = 76.0
+const MENU_BUBBLE_HEIGHT: float = 72.0
+const MENU_ACTION_HEIGHT: float = 66.0
 const MENU_CLOSE_BUTTON_SIZE: Vector2 = Vector2(28.0, 28.0)
 const RUNAWAY_BANNER_TEXT: String = "已跑路..."
 ## 相对立绘 / 空盆实际画面宽度。

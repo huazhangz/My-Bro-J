@@ -262,6 +262,7 @@ theme_override_constants/v_separation = 12
 columns = 2
 
 [node name="AffinityBubble" type="PanelContainer" parent="ExitPopup/ExitInner/StatBubbles"]
+custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 size_flags_horizontal = 3
 
@@ -272,6 +273,7 @@ text = "❤  好感度  0"
 horizontal_alignment = 1
 
 [node name="UnderwearBubble" type="PanelContainer" parent="ExitPopup/ExitInner/StatBubbles"]
+custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 size_flags_horizontal = 3
 
@@ -282,6 +284,7 @@ text = "内裤总计  0条"
 horizontal_alignment = 1
 
 [node name="CompanionBubble" type="PanelContainer" parent="ExitPopup/ExitInner/StatBubbles"]
+custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 size_flags_horizontal = 3
 
@@ -292,6 +295,7 @@ text = "陪伴时长  0：00"
 horizontal_alignment = 1
 
 [node name="RunawayBubble" type="PanelContainer" parent="ExitPopup/ExitInner/StatBubbles"]
+custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 size_flags_horizontal = 3
 
@@ -308,7 +312,7 @@ alignment = 1
 
 [node name="DryerSlot" type="Button" parent="ExitPopup/ExitInner/MenuIcons"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(168, 56)
+custom_minimum_size = Vector2(168, 76)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"CodexButton"
@@ -356,7 +360,7 @@ vertical_alignment = 1
 
 [node name="DrawerSlot" type="Button" parent="ExitPopup/ExitInner/MenuIcons"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(168, 56)
+custom_minimum_size = Vector2(168, 76)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"CoinButton"
@@ -404,7 +408,7 @@ vertical_alignment = 1
 
 [node name="PressureWashButton" type="Button" parent="ExitPopup/ExitInner"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 40)
+custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
 theme_type_variation = &"RiskButton"
 text = "能不能给我洗快点"
@@ -416,6 +420,7 @@ theme_override_constants/separation = 10
 
 [node name="SettingsButton" type="Button" parent="ExitPopup/ExitInner/MenuFooter"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"EquipButton"
@@ -423,6 +428,7 @@ text = "设置"
 
 [node name="QuitAppButton" type="Button" parent="ExitPopup/ExitInner/MenuFooter"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"CloseButton"

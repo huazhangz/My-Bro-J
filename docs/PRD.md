@@ -59,7 +59,8 @@
 | `PRESSURE_WASH_REDUCTION_MIN` | `1.0` 秒 | 压力按钮随机扣时下限 |
 | `PRESSURE_WASH_REDUCTION_MAX` | `43200` 秒 | 压力按钮随机扣时上限（12 小时） |
 | `PRESSURE_BUTTON_COOLDOWN` | `900` 秒 | 压力按钮冷却 15 分钟；灰显并写剩余「MM：SS后再压力他」（每秒刷新） |
-| `UI_FONT_SIZE` | `16` | 全部 Label / Button 统一字号 |
+| `UI_FONT_SIZE` | `16` | 库存等非菜单界面字号 |
+| `MENU_UI_FONT_SIZE` | `19` | 仅右键菜单字号；行距为字号 ×0.3 |
 | `UI_FONT_COLOR` | 纯白 | 全部文字白色加粗（YuanRou-P-Bold） |
 | `IMAGE_SCALE` | `1.2` | 立绘 / 库存图等比放大 |
 | `PET_SHIFT_X` | `5` | Steve 默认再向右偏 5 格 |
@@ -243,6 +244,7 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 `SolidPanel` / `ChipPanel` / `RiskButton` / `CoinButton` / `CodexButton` / `EquipButton` /
 `CloseButton`），按钮底色可不同，**文字一律白色加粗、字号一律 16**。
 `steve.gd` 的 `_apply_ui_font()` 会再覆盖一遍，避免变体残留旧字号/旧颜色。
+右键菜单单独使用 `MENU_UI_FONT_SIZE = 19` 与 `line_spacing = 字号×0.3`。
 字体来源与 OFL 许可见 `assets/fonts/README.md`。仓库内不再保留第二套默认字体。
 
 ### 5.2 UI 结构
@@ -250,8 +252,9 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 默认**不显示任何 HUD / CanvasLayer**。画面只有 `PetVisual`（视频或几何占位）。
 
 - **ExitPopup**（根节点下，默认隐藏）：在立绘上 **右键** 弹出 **4 倍**圆角菜单，窗口放大并按屏幕位置夹紧
-  - 顶部气泡：❤好感度 / 内裤总计 / ⏰陪伴时长（HH：MM：SS 墙钟累计） / 🏃跑路次数
-  - 其下烘干机 / 抽屉：**图标在左、文字在右**，整块是 Button；图标为旧尺寸 30%，烘干机再中心 ×1.85
+  - 菜单窗口可左键拖动（点在空白/气泡上拖；点按钮不拖、不关菜单）
+  - 顶部气泡：❤好感度 / 内裤总计 / ⏰陪伴时长（HH：MM：SS 墙钟累计） / 🏃跑路次数（高度 +65%）
+  - 其下烘干机 / 抽屉：左图标右文字的 Button（高度 +35%）；抽屉图标用 `drawer1.jpg` 抠绿，库存背景仍用 `drawer.jpg`
   - 好感度：品质 log 高权重 + 陪伴 log（满值时间 ×260%）最多 15% − 跑路中等扣分
   - `能不能给我洗快点`：随机扣洗涤时间（1s~12h）；冷却灰显读秒
   - `设置`：固定上层 + Steve 体型（小 70% / 中 / 大 135% / 超大 200%）
@@ -401,6 +404,7 @@ My-Bro-J/
 │   ├── images/
 │   │   ├── dryer.jpg       # 烘干机弹层背景
 │   │   ├── drawer.jpg      # 抽屉弹层背景
+│   │   ├── drawer1.jpg     # 仅菜单抽屉图标（绿幕）
 │   │   ├── container.jpg   # 跑路空盆（绿幕，用当前扣色）
 │   │   └── steve2.jpg      # 无可用视频时的静帧回落
 │   ├── fonts/

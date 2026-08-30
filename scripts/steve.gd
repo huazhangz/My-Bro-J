@@ -121,6 +121,7 @@ var _hover_tween: Tween
 var _always_on_top: bool = true
 var _dryer_texture: Texture2D
 var _drawer_texture: Texture2D
+var _drawer_icon_texture: Texture2D
 var _container_texture: Texture2D
 var _layout_area: Rect2 = GameData.PET_AREA
 var _pressure_cd: float = 0.0
@@ -219,10 +220,18 @@ func _ingest_user_images() -> void:
 	if _dryer_texture == null and is_instance_valid(_inventory_bg):
 		_dryer_texture = _inventory_bg.texture
 	_drawer_texture = GameData.load_image_texture(GameData.USER_DRAWER_FILE)
+	var drawer_icon_path: String = GameData.first_existing_file(GameData.USER_DRAWER_ICON_FILE)
+	if not drawer_icon_path.is_empty() and not drawer_icon_path.begins_with("res://assets/images/"):
+		GameData.copy_file(drawer_icon_path, GameData.RES_DRAWER_ICON_PATH)
+	_drawer_icon_texture = GameData.load_image_texture(GameData.USER_DRAWER_ICON_FILE)
+	if _drawer_icon_texture == null:
+		_drawer_icon_texture = _drawer_texture
 	if _dryer_texture != null:
 		print("%s dryer bg <- %s" % [VIDEO_LOG_PREFIX, GameData.first_existing_file(GameData.USER_DRYER_FILE)])
 	if _drawer_texture != null:
 		print("%s drawer bg <- %s" % [VIDEO_LOG_PREFIX, GameData.first_existing_file(GameData.USER_DRAWER_FILE)])
+	if _drawer_icon_texture != null:
+		print("%s drawer icon <- %s" % [VIDEO_LOG_PREFIX, drawer_icon_path])
 	var container_path: String = GameData.first_existing_file(GameData.USER_CONTAINER_FILE)
 	if not container_path.is_empty() and not container_path.begins_with("res://assets/images/"):
 		GameData.copy_file(container_path, "res://assets/images/container.jpg")
@@ -264,6 +273,7 @@ func _apply_ui_font() -> void:
 	_unify_theme_text(next_theme, font)
 	theme = next_theme
 	_unify_control_text(self, font)
+	_apply_menu_text_style(font)
 	print("%s UI font <- %s size=%d" % [VIDEO_LOG_PREFIX, path, GameData.UI_FONT_SIZE])
 
 
@@ -315,6 +325,56 @@ func _unify_control_text(node: Node, font: FontFile) -> void:
 		_unify_control_text(child, font)
 
 
+func _apply_menu_text_style(font: FontFile) -> void:
+	if not is_instance_valid(_exit_popup):
+		return
+	_style_menu_text_tree(_exit_popup, font)
+	_apply_menu_control_heights()
+
+
+func _style_menu_text_tree(node: Node, font: FontFile) -> void:
+	if node is Label or node is Button:
+		var control: Control = node as Control
+		control.add_theme_font_override("font", font)
+		control.add_theme_font_size_override("font_size", GameData.MENU_UI_FONT_SIZE)
+		control.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+		control.add_theme_constant_override("line_spacing", GameData.MENU_LINE_SPACING)
+		if control is Button:
+			var button: Button = control as Button
+			button.add_theme_color_override("font_disabled_color", GameData.UI_FONT_COLOR)
+			button.add_theme_color_override("font_focus_color", GameData.UI_FONT_COLOR)
+			button.add_theme_color_override("font_hover_color", GameData.UI_FONT_COLOR)
+			button.add_theme_color_override("font_pressed_color", GameData.UI_FONT_COLOR)
+	for child: Node in node.get_children():
+		_style_menu_text_tree(child, font)
+
+
+func _apply_menu_control_heights() -> void:
+	if is_instance_valid(_dryer_slot):
+		_dryer_slot.custom_minimum_size.y = GameData.MENU_SLOT_HEIGHT
+	if is_instance_valid(_drawer_slot):
+		_drawer_slot.custom_minimum_size.y = GameData.MENU_SLOT_HEIGHT
+	if is_instance_valid(_pressure_button):
+		_pressure_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
+	if is_instance_valid(_settings_button):
+		_settings_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
+	if is_instance_valid(_quit_app_button):
+		_quit_app_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
+	if is_instance_valid(_pin_top_button):
+		_pin_top_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
+	if is_instance_valid(_menu_close_button):
+		_menu_close_button.custom_minimum_size = Vector2(
+			GameData.MENU_CLOSE_BUTTON_SIZE.x * GameData.MENU_BUBBLE_HEIGHT_SCALE,
+			GameData.MENU_CLOSE_BUTTON_SIZE.y * GameData.MENU_BUBBLE_HEIGHT_SCALE
+		)
+	var size_buttons: Array[Button] = [
+		_size_small_button, _size_medium_button, _size_large_button, _size_huge_button,
+	]
+	for size_button: Button in size_buttons:
+		if is_instance_valid(size_button):
+			size_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
+
+
 func _connect_exit_popup() -> void:
 	_wire_menu_icon(_dryer_slot, "dryer")
 	_wire_menu_icon(_drawer_slot, "drawer")
@@ -353,6 +413,9 @@ func _connect_exit_popup() -> void:
 		_close_inventory()
 	)
 	_inventory_popup.gui_input.connect(func(event: InputEvent) -> void:
+		_process_drag_input(event)
+	)
+	_exit_popup.gui_input.connect(func(event: InputEvent) -> void:
 		_process_drag_input(event)
 	)
 	_inventory_popup.resized.connect(func() -> void:
@@ -419,10 +482,32 @@ func _placeholder_from_still(texture: Texture2D) -> void:
 
 
 func _is_click_on_blocking_ui(global_pos: Vector2) -> bool:
-	if _exit_popup.visible and _exit_popup.get_global_rect().has_point(global_pos):
-		return true
-	if _inventory_popup.visible and _inventory_close_button.get_global_rect().has_point(global_pos):
-		return true
+	if _inventory_popup.visible and is_instance_valid(_inventory_close_button):
+		if _inventory_close_button.get_global_rect().has_point(global_pos):
+			return true
+	if _exit_popup.visible:
+		return _is_point_on_menu_button(global_pos)
+	return false
+
+
+func _is_point_on_menu_button(global_pos: Vector2) -> bool:
+	var buttons: Array[Button] = [
+		_dryer_slot, _drawer_slot, _pressure_button, _settings_button,
+		_quit_app_button, _menu_close_button, _pin_top_button,
+		_size_small_button, _size_medium_button, _size_large_button, _size_huge_button,
+	]
+	for button: Button in buttons:
+		if not is_instance_valid(button) or not button.visible:
+			continue
+		var parent_vis: bool = true
+		var walk: Node = button.get_parent()
+		while walk != null and walk != _exit_popup:
+			if walk is CanvasItem and not (walk as CanvasItem).visible:
+				parent_vis = false
+				break
+			walk = walk.get_parent()
+		if parent_vis and button.get_global_rect().has_point(global_pos):
+			return true
 	return false
 
 
@@ -434,8 +519,10 @@ func _process_drag_input(event: InputEvent) -> void:
 		if mb.pressed:
 			if _is_click_on_blocking_ui(mb.global_position):
 				return
-			if _exit_popup.visible:
-				_close_exit_popup()
+			if _inventory_popup.visible:
+				pass
+			elif _exit_popup.visible:
+				pass
 			if not _can_move_window():
 				return
 			_dragging = true
@@ -1460,8 +1547,8 @@ func _expand_overlay_window(new_size: Vector2i) -> void:
 
 func _adaptive_inventory_position(new_size: Vector2i) -> Vector2i:
 	var usable: Rect2i = DisplayServer.screen_get_usable_rect()
-	var cur_pos: Vector2i = _base_window_pos
-	var cur_size: Vector2i = _base_window_size
+	var cur_pos: Vector2i = DisplayServer.window_get_position() if _overlay_window_open else _base_window_pos
+	var cur_size: Vector2i = DisplayServer.window_get_size() if _overlay_window_open else _base_window_size
 	var center: Vector2i = cur_pos + cur_size / 2
 	var rel_x: float = 0.5
 	var rel_y: float = 0.5
@@ -1491,8 +1578,12 @@ func _restore_overlay_window_if_idle() -> void:
 	if not _overlay_window_open:
 		return
 	if _can_move_window():
+		var cur_pos: Vector2i = DisplayServer.window_get_position()
+		var cur_size: Vector2i = DisplayServer.window_get_size()
+		var center: Vector2i = cur_pos + cur_size / 2
+		var pos: Vector2i = center - _base_window_size / 2
 		DisplayServer.window_set_size(_base_window_size)
-		DisplayServer.window_set_position(_base_window_pos)
+		DisplayServer.window_set_position(_clamp_to_screen(pos))
 	_overlay_window_open = false
 
 
@@ -1588,6 +1679,7 @@ func _apply_round_chrome() -> void:
 		_inventory_chrome.add_theme_stylebox_override("panel", inv_box)
 	if is_instance_valid(_inventory_mask):
 		_inventory_mask.visible = false
+	_apply_menu_control_heights()
 	_style_stat_bubbles()
 
 
@@ -1604,17 +1696,18 @@ func _style_stat_bubbles() -> void:
 		var box: StyleBoxFlat = StyleBoxFlat.new()
 		box.bg_color = Color(0.14, 0.16, 0.22, 0.92)
 		box.set_corner_radius_all(GameData.BUBBLE_CORNER_RADIUS)
-		box.set_content_margin_all(12.0)
+		box.set_content_margin_all(14.0)
 		box.set_border_width_all(2)
 		box.border_color = Color(1.0, 1.0, 1.0, 0.5)
 		panel.add_theme_stylebox_override("panel", box)
+		panel.custom_minimum_size.y = GameData.MENU_BUBBLE_HEIGHT
 
 
 func _apply_menu_icons() -> void:
 	if is_instance_valid(_dryer_icon) and _dryer_texture != null:
 		_dryer_icon.texture = _dryer_texture
-	if is_instance_valid(_drawer_icon) and _drawer_texture != null:
-		_drawer_icon.texture = _drawer_texture
+	if is_instance_valid(_drawer_icon) and _drawer_icon_texture != null:
+		_drawer_icon.texture = _drawer_icon_texture
 	_apply_video_key()
 	_layout_menu_icons()
 
