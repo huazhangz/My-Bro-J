@@ -168,6 +168,31 @@ const HOVER_SHOW_DELAY: float = 1.5
 ## 进度条淡入 / 淡出时长。
 const HOVER_FADE_SECONDS: float = 0.35
 const WASH_PROGRESS_MAX: int = 100
+## 水洗进度条相对原默认位置再下移的格数（1 格 = 1 逻辑像素）。
+const WASH_BAR_SHIFT_Y: float = 9.0
+## 右键菜单相对旧 244×336 面板的边长倍数（面积约 16 倍，窗口按屏幕可用区夹紧）。
+const CONTEXT_MENU_SCALE: float = 4.0
+const CONTEXT_MENU_BASE_SIZE: Vector2i = Vector2i(244, 336)
+const CONTEXT_MENU_MARGIN: int = 16
+const MENU_ICON_SIZE: Vector2 = Vector2(168.0, 168.0)
+const POPUP_CORNER_RADIUS: int = 28
+const BUBBLE_CORNER_RADIUS: int = 18
+const SAVE_PATH: String = "user://save_data.json"
+const SAVE_INTERVAL: float = 30.0
+## 好感度：品质 log 为主（高权重），陪伴时长最多贡献 15%，跑路中等扣分。
+const AFFINITY_QUALITY_K: float = 12.0
+const AFFINITY_QUALITY_SHARE: float = 85.0
+const AFFINITY_COMPANION_SHARE: float = 15.0
+const AFFINITY_COMPANION_FULL_SECONDS: float = 172800.0
+const AFFINITY_RUNAWAY_PENALTY: float = 5.0
+const AFFINITY_QUALITY_VALUE: Dictionary = {
+	Quality.ONEOFF: 1.0,
+	Quality.POLYESTER: 2.0,
+	Quality.COTTON: 4.0,
+	Quality.SILK: 8.0,
+	Quality.LUXURY: 16.0,
+	Quality.MARTIAN: 32.0,
+}
 
 ## 跑路冷却基础秒数（未穿戴任何内裤时的冷却）。
 const RUNAWAY_BASE_COOLDOWN: float = 120.0
@@ -213,6 +238,7 @@ signal coins_changed(coins: int)
 signal item_washed(item: Dictionary)
 signal item_dried(item: Dictionary)
 signal equipped_changed(quality: int)
+signal stats_changed()
 
 # --- 运行时数据 -----------------------------------------------------------
 
@@ -235,12 +261,20 @@ var codex_counts: Dictionary = {}
 
 var _next_item_id: int = 1
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
+## 生涯统计（退出后仍保留）。
+var underwear_total: int = 0
+var companion_seconds: float = 0.0
+var runaway_count: int = 0
+var affinity_quality_sum: float = 0.0
+var always_on_top_pref: bool = ALWAYS_ON_TOP_DEFAULT
+var _save_accum: float = 0.0
 
 
 func _ready() -> void:
 	_rng.randomize()
 	for q: int in Quality.values():
 		codex_counts[q] = 0
+	load_game()
 
 
 # --- 仓库操作 -------------------------------------------------------------
@@ -314,8 +348,11 @@ func add_wet_item(quality: int = -1) -> Dictionary:
 	_next_item_id += 1
 	wet_warehouse.append(item)
 	codex_counts[q] = int(codex_counts.get(q, 0)) + 1
+	_register_washed_quality(q)
 	item_washed.emit(item)
 	warehouse_changed.emit(wet_warehouse.size(), WAREHOUSE_CAPACITY)
+	stats_changed.emit()
+	save_game()
 	return item
 
 
@@ -438,7 +475,63 @@ func format_pressure_countdown(remaining_seconds: float) -> String:
 	return "%d：%02d" % [minutes, seconds]
 
 
-# --- 存档（Day 5 预留） ---------------------------------------------------
+func _register_washed_quality(quality: int) -> void:
+	underwear_total += 1
+	var worth: float = float(AFFINITY_QUALITY_VALUE.get(quality, 1.0))
+	affinity_quality_sum += log(1.0 + worth)
+
+
+func record_runaway() -> void:
+	runaway_count += 1
+	stats_changed.emit()
+	save_game()
+
+
+func tick_companion(delta: float) -> void:
+	if delta <= 0.0:
+		return
+	companion_seconds += delta
+	_save_accum += delta
+	if _save_accum >= SAVE_INTERVAL:
+		_save_accum = 0.0
+		save_game()
+
+
+func affinity_score() -> float:
+	var quality_term: float = 0.0
+	if affinity_quality_sum > 0.0:
+		quality_term = affinity_quality_sum / (affinity_quality_sum + AFFINITY_QUALITY_K)
+	var quality_points: float = quality_term * AFFINITY_QUALITY_SHARE
+	var companion_ratio: float = clampf(companion_seconds / AFFINITY_COMPANION_FULL_SECONDS, 0.0, 1.0)
+	var companion_points: float = companion_ratio * AFFINITY_COMPANION_SHARE
+	var penalty: float = float(runaway_count) * AFFINITY_RUNAWAY_PENALTY
+	return clampf(quality_points + companion_points - penalty, 0.0, 100.0)
+
+
+func format_companion_clock() -> String:
+	var total: int = maxi(int(companion_seconds), 0)
+	var hours: int = int(total / 3600)
+	var minutes: int = int((total % 3600) / 60)
+	if hours >= 100:
+		return "%d小时" % hours
+	return "%d：%02d" % [hours, minutes]
+
+
+func context_menu_window_size() -> Vector2i:
+	var scaled: Vector2i = Vector2i(
+		int(float(CONTEXT_MENU_BASE_SIZE.x) * CONTEXT_MENU_SCALE),
+		int(float(CONTEXT_MENU_BASE_SIZE.y) * CONTEXT_MENU_SCALE)
+	)
+	var usable: Rect2i = DisplayServer.screen_get_usable_rect()
+	var pad: int = 48
+	if usable.size.x > pad:
+		scaled.x = clampi(scaled.x, 480, usable.size.x - pad)
+	if usable.size.y > pad:
+		scaled.y = clampi(scaled.y, 520, usable.size.y - pad)
+	return scaled
+
+
+# --- 存档 ---------------------------------------------------------------
 
 func to_save_dict() -> Dictionary:
 	return {
@@ -448,6 +541,11 @@ func to_save_dict() -> Dictionary:
 		"equipped_quality": equipped_quality,
 		"codex_counts": codex_counts.duplicate(true),
 		"next_item_id": _next_item_id,
+		"underwear_total": underwear_total,
+		"companion_seconds": companion_seconds,
+		"runaway_count": runaway_count,
+		"affinity_quality_sum": affinity_quality_sum,
+		"always_on_top_pref": always_on_top_pref,
 	}
 
 
@@ -462,10 +560,46 @@ func load_from_dict(data: Dictionary) -> void:
 	dry_collection.clear()
 	for entry: Dictionary in data.get("dry_collection", []):
 		dry_collection.append(_normalize_item(entry))
+	underwear_total = int(data.get("underwear_total", 0))
+	companion_seconds = float(data.get("companion_seconds", 0.0))
+	runaway_count = int(data.get("runaway_count", 0))
+	affinity_quality_sum = float(data.get("affinity_quality_sum", 0.0))
+	always_on_top_pref = bool(data.get("always_on_top_pref", ALWAYS_ON_TOP_DEFAULT))
+	if underwear_total <= 0:
+		var derived: int = 0
+		for q: Variant in codex_counts.keys():
+			derived += int(codex_counts[q])
+		underwear_total = derived
+	if affinity_quality_sum <= 0.0 and underwear_total > 0:
+		for q: Variant in codex_counts.keys():
+			var worth: float = float(AFFINITY_QUALITY_VALUE.get(int(q), 1.0))
+			affinity_quality_sum += log(1.0 + worth) * float(codex_counts[q])
 	warehouse_changed.emit(wet_warehouse.size(), WAREHOUSE_CAPACITY)
 	collection_changed.emit(dry_collection.size())
 	coins_changed.emit(coins)
 	equipped_changed.emit(equipped_quality)
+	stats_changed.emit()
+
+
+func save_game() -> void:
+	var file: FileAccess = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if file == null:
+		return
+	file.store_string(JSON.stringify(to_save_dict(), "\t"))
+	file.close()
+
+
+func load_game() -> void:
+	if not FileAccess.file_exists(SAVE_PATH):
+		return
+	var file: FileAccess = FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if file == null:
+		return
+	var text: String = file.get_as_text()
+	file.close()
+	var parsed: Variant = JSON.parse_string(text)
+	if parsed is Dictionary:
+		load_from_dict(parsed as Dictionary)
 
 
 ## 按「仓库根目录 → res:// → assets → 桌面兜底」查找用户拖进来的文件。

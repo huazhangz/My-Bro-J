@@ -47,6 +47,8 @@
 | `WASH_DURATION` | `45.0` 秒 | 洗完一条内裤的正常耗时 |
 | `DRY_DURATION_BASE` | `90.0` 秒 | 烘干基础时长（一次性） |
 | `DRY_DURATION_PER_QUALITY` | `10.0` 秒 | 品质每高一级增加的烘干时间（与磨损无关） |
+| `WASH_BAR_SHIFT_Y` | `9` | 水洗进度条默认再下移 9 格 |
+| `CONTEXT_MENU_SCALE` | `4.0` | 右键菜单相对旧面板边长 ×4，窗口按屏幕可用区夹紧并适配位置 |
 | `HOVER_SHOW_DELAY` | `1.5` 秒 | 鼠标在立绘上停留后显示洗涤水条 |
 | `WAREHOUSE_CAPACITY` | `10` | 未晾干仓库容量上限，满即暂停洗涤 |
 | `RUNAWAY_BASE_COOLDOWN` | `120.0` 秒 | 跑路后回归的基础冷却（品质/收藏会再缩减） |
@@ -243,13 +245,14 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 
 默认**不显示任何 HUD / CanvasLayer**。画面只有 `PetVisual`（视频或几何占位）。
 
-- **ExitPopup**（根节点下，默认隐藏）：在立绘上 **右键** 弹出居中菜单
-  - `烘干机`：隐藏立绘，打开库存弹层（`dryer.jpg` 抠绿幕）
-  - `抽屉`：隐藏立绘，打开库存弹层（`drawer.jpg` 抠绿幕）
-  - `能不能给我洗快点`：随机扣洗涤时间（1s~12h）；冷却时按钮变灰，文案为剩余「MM：SS后再压力他」，随 `_process` 每秒读秒
-  - `固定上层`：切换窗口置顶
-  - `晚点再洗`：退出进程
-  - 右上角独立一行 `×`：关闭菜单（不与「烘干机」重叠）
+- **ExitPopup**（根节点下，默认隐藏）：在立绘上 **右键** 弹出 **4 倍**圆角菜单，窗口放大并按屏幕位置夹紧
+  - 烘干机 / 抽屉：抠绿幕图标 + 下方文字，**不是 Button**
+  - 气泡：❤好感度 / 内裤总计 / ⏰陪伴时长 / 🏃跑路次数（`user://save_data.json` 持久化）
+  - 好感度：品质 log 高权重 + 陪伴时长最多 15% − 跑路中等扣分
+  - `能不能给我洗快点`：随机扣洗涤时间（1s~12h）；冷却灰显读秒
+  - `设置`：内含「固定上层」
+  - `晚点再洗`：存档后退出
+  - 右上角 `×`：关闭并还原窗口
   - 跑路时立绘换成按比例内接的 `container.jpg` 空盆；「已跑路...」居中贴在画面顶部，z 低于菜单
   - 点弹窗外 / `ESC` / `×`：关闭菜单
 - **InventoryPopup**（全屏，默认隐藏）：背景随种类换 `dryer.jpg` / `drawer.jpg`，外加半透明黑遮罩
@@ -260,7 +263,7 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
   - `ScrollContainer` + `GridContainer.columns = 5`，条目从左到右、满行向下，超出可竖向滚动
   - 卡片为紫色描边占位框，显示磨损前缀 + 品质中文名（尚无内裤贴图）
   - `关闭` / `ESC` / 再右键：还原窗口尺寸并关闭弹层
-- 鼠标在立绘上停留 **1.5 秒**后，头顶淡入水色进度条与右对齐文案 `洗涤进度（n/100）`
+- 鼠标在立绘上停留 **1.5 秒**后，头顶淡入水色进度条（默认再下移 9 格）与右对齐文案 `洗涤进度（n/100）`
 - 左键拖拽仍走根 `Control` + `DisplayServer`，与右键互不抢事件
 - 洗涤 / 仓库 / 跑路在后台继续跑，不再有常驻 HUD
 
@@ -420,10 +423,14 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 │   ├── BasinFrame (TextureRect, 跑路空盆)
 │   └── PlaceholderVisual (Control)
 │       └── Head / EyeLeft / EyeRight / Body / Basin
-├── ExitPopup (PanelContainer, 默认隐藏)
+├── ExitPopup (圆角 PanelContainer, 默认隐藏, 铺满放大窗口)
 │   └── ExitInner
-│       ├── MenuHeader（右对齐 ×）
-│       └── Rows：烘干机 / 抽屉 / 能不能给我洗快点 / 固定上层 / 晚点再洗
+│       ├── MenuHeader（×）
+│       ├── MenuIcons（抠绿图标 + 文字，非 Button）
+│       ├── StatBubbles（好感 / 内裤 / 陪伴 / 跑路）
+│       ├── 能不能给我洗快点
+│       ├── 设置 / 晚点再洗
+│       └── SettingsPanel（固定上层）
 ├── RunawayBanner（贴在空盆画面顶部正中，「已跑路...」）
 └── InventoryPopup (Control, 默认隐藏, 全屏)
     ├── InventoryBgClip → InventoryBg（烘干机中心 ×1.36）
@@ -442,7 +449,7 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 |------|------|
 | 在桌宠/空白处按住左键拖动 | 移动桌宠窗口 |
 | 鼠标在立绘上停留 1.5 秒 | 头顶显示洗涤水条与 `洗涤进度（n/100）` |
-| 在立绘上右键 | 打开菜单：烘干机 / 抽屉 / 能不能给我洗快点 / 固定上层 / 晚点再洗；右上角 × 关闭 |
+| 在立绘上右键 | 打开 4 倍圆角菜单（图标打开烘干机/抽屉；气泡统计；设置里固定上层） |
 | 点「烘干机」 | 2.5× 弹层，5 列网格展示未晾干仓库 |
 | 点「抽屉」 | 2.5× 弹层，5 列网格展示已晾干收藏 |
 | 点「固定上层」 | 开/关窗口置顶 |
@@ -475,7 +482,7 @@ Steve (Control, 铺满窗口, theme = steve_theme)
   - [x] 引擎实跑验证：45s 出货、90s+品质烘干、容量上限 10、CD 缩减数值全部正确
 - [x] **Day 3**：右键菜单 + 库存网格（常驻 HUD / 图鉴 / 加速按钮已拆除）
   - [x] 唯一中文字体 YuanRou-P-Bold + `steve_theme.tres`
-  - [x] 右键 `ExitPopup`：烘干机 / 抽屉 / 能不能给我洗快点 / 固定上层 / 晚点再洗
+  - [x] 右键 `ExitPopup`：4 倍窗口 + 抠绿图标 + 统计气泡 + 设置（固定上层）
   - [x] 压力按钮：`randf_range(1s, 12h)` 扣洗涤时间；冷却灰显剩余「MM：SS后再压力他」并每秒刷新
   - [x] 右键菜单右上角悬浮 `×` 关闭；全界面白字加粗、字号统一 16
   - [x] 每次压力点击 15.5% 跑路：空盆 `container.jpg` 抠绿幕 + 红色「已跑路...」
@@ -491,7 +498,7 @@ Steve (Control, 铺满窗口, theme = steve_theme)
   - [ ] 大红品质特效
   - [ ] 跑路期间的冷却倒计时可视化
 - [ ] **Day 5**：本地数据持久化保存 (`save_data.json`) + 整体打包测试
-  - [ ] `user://save_data.json` 读写（`GameData.to_save_dict()` / `load_from_dict()` 已就绪）
+  - [x] `user://save_data.json`：内裤总计 / 陪伴时长 / 跑路次数 / 好感度累加 / 置顶偏好 + 仓库收藏
   - [ ] 离线时间结算（用条目里的 `dry_deadline` 时间戳补算晾干）
   - [ ] Windows 导出预设与打包测试
 

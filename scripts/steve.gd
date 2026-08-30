@@ -61,12 +61,22 @@ var _pet_video: VideoStreamPlayer
 @onready var _pet_frame: TextureRect = %PetFrame
 @onready var _placeholder_visual: Control = %PlaceholderVisual
 @onready var _exit_popup: PanelContainer = %ExitPopup
-@onready var _dryer_button: Button = %DryerButton
-@onready var _drawer_button: Button = %DrawerButton
+@onready var _dryer_icon: TextureRect = %DryerIcon
+@onready var _drawer_icon: TextureRect = %DrawerIcon
+@onready var _dryer_slot: Control = %DryerSlot
+@onready var _drawer_slot: Control = %DrawerSlot
 @onready var _pressure_button: Button = %PressureWashButton
 @onready var _pin_top_button: Button = %PinTopButton
 @onready var _quit_app_button: Button = %QuitAppButton
 @onready var _menu_close_button: Button = %MenuCloseButton
+@onready var _settings_button: Button = %SettingsButton
+@onready var _settings_panel: Control = %SettingsPanel
+@onready var _bubble_affinity: Label = %BubbleAffinity
+@onready var _bubble_underwear: Label = %BubbleUnderwear
+@onready var _bubble_companion: Label = %BubbleCompanion
+@onready var _bubble_runaway: Label = %BubbleRunaway
+@onready var _inventory_chrome: Panel = %InventoryChrome
+@onready var _inventory_mask: Panel = %InventoryMask
 @onready var _basin_frame: TextureRect = %BasinFrame
 @onready var _runaway_banner: PanelContainer = %RunawayBanner
 @onready var _inventory_popup: Control = %InventoryPopup
@@ -96,7 +106,7 @@ var _video_confirmed: bool = false
 var _video_probe_left: int = 0
 var _video_fitted: bool = false
 var _inventory_kind: String = ""
-var _inventory_window_open: bool = false
+var _overlay_window_open: bool = false
 var _base_window_size: Vector2i = Vector2i.ZERO
 var _base_window_pos: Vector2i = Vector2i.ZERO
 var _hover_time: float = 0.0
@@ -114,22 +124,27 @@ var _pressure_cd_text: String = ""
 func _ready() -> void:
 	get_tree().root.gui_embed_subwindows = false
 	_debug_log = OS.get_cmdline_user_args().has("--petlog")
-	print("%s build=qualities-wear-dryer-drawer  scene=%s  menu=烘干机/抽屉/固定上层/晚点再洗" % [
+	print("%s build=qualities-wear-dryer-drawer  scene=%s  menu=4x icons+stats" % [
 		VIDEO_LOG_PREFIX, scene_file_path,
 	])
 	_ensure_pet_video_node()
 	_capture_layout_area()
-	_always_on_top = GameData.ALWAYS_ON_TOP_DEFAULT
+	_always_on_top = GameData.always_on_top_pref
 	_apply_mouse_filters()
 	_apply_ui_font()
 	_apply_window_setup()
 	_ingest_user_images()
+	_apply_round_chrome()
 	_apply_video_key()
+	_apply_menu_icons()
 	_connect_exit_popup()
 	_refresh_pressure_button()
+	_refresh_stat_bubbles()
 	_setup_pet_video()
 	_connect_game_data()
+	_resume_saved_dry_timers()
 	_start_wash_cycle()
+	get_tree().auto_accept_quit = false
 
 
 func _is_embedded_in_editor() -> bool:
@@ -154,6 +169,7 @@ func _apply_mouse_filters() -> void:
 	var ignore_nodes: Array[Control] = [
 		_pet_visual, _pet_video, _pet_frame, _placeholder_visual,
 		_inventory_bg, _inventory_title, _inventory_empty,
+		_inventory_chrome, _inventory_mask,
 		_hover_hud, _water_bar, _wash_label,
 	]
 	for node: Control in ignore_nodes:
@@ -293,12 +309,8 @@ func _unify_control_text(node: Node, font: FontFile) -> void:
 
 
 func _connect_exit_popup() -> void:
-	_dryer_button.pressed.connect(func() -> void:
-		_open_inventory("dryer")
-	)
-	_drawer_button.pressed.connect(func() -> void:
-		_open_inventory("drawer")
-	)
+	_wire_menu_icon(_dryer_slot, "dryer")
+	_wire_menu_icon(_drawer_slot, "drawer")
 	_pin_top_button.pressed.connect(func() -> void:
 		_toggle_always_on_top()
 	)
@@ -306,10 +318,15 @@ func _connect_exit_popup() -> void:
 		_on_pressure_wash_pressed()
 	)
 	_quit_app_button.pressed.connect(func() -> void:
+		GameData.save_game()
 		get_tree().quit()
 	)
 	_menu_close_button.pressed.connect(func() -> void:
 		_close_exit_popup()
+	)
+	_settings_button.pressed.connect(func() -> void:
+		if is_instance_valid(_settings_panel):
+			_settings_panel.visible = not _settings_panel.visible
 	)
 	_refresh_pin_button()
 	_inventory_close_button.pressed.connect(func() -> void:
@@ -322,6 +339,26 @@ func _connect_exit_popup() -> void:
 		if _inventory_popup.visible:
 			_layout_inventory_bg()
 	)
+	_exit_popup.resized.connect(func() -> void:
+		if _exit_popup.visible:
+			_layout_menu_icons()
+	)
+	GameData.stats_changed.connect(func() -> void:
+		_refresh_stat_bubbles()
+	)
+
+
+func _wire_menu_icon(slot: Control, kind: String) -> void:
+	if not is_instance_valid(slot):
+		return
+	slot.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton:
+			var mb: InputEventMouseButton = event
+			if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+				_open_inventory(kind)
+				slot.accept_event()
+	)
+	slot.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -353,6 +390,7 @@ func _input(event: InputEvent) -> void:
 			elif _exit_popup.visible:
 				_close_exit_popup()
 			else:
+				GameData.save_game()
 				get_tree().quit()
 
 
@@ -455,6 +493,9 @@ func _process(delta: float) -> void:
 	_tick_hover_hud(delta)
 	_refresh_wash_progress()
 	_tick_pressure_cooldown(delta)
+	GameData.tick_companion(delta)
+	if _exit_popup.visible:
+		_refresh_stat_bubbles()
 	if _state == State.RUNAWAY:
 		_layout_runaway_banner()
 
@@ -489,6 +530,9 @@ func _start_dry_timer(item_id: int) -> void:
 	var dry_seconds: float = GameData.DRY_DURATION_BASE
 	if not item.is_empty():
 		dry_seconds = float(item.get("dry_seconds", GameData.dry_duration_for(int(item.get("quality", 0)))))
+		var deadline: float = float(item.get("dry_deadline", 0.0))
+		if deadline > 0.0:
+			dry_seconds = maxf(deadline - Time.get_unix_time_from_system(), 0.2)
 	var timer: Timer = Timer.new()
 	timer.one_shot = true
 	timer.wait_time = dry_seconds
@@ -568,6 +612,7 @@ func _trigger_runaway() -> void:
 	_state = State.RUNAWAY
 	_cooldown_remaining = GameData.get_calculated_cooldown()
 	_dragging = false
+	GameData.record_runaway()
 	_close_exit_popup()
 	_close_inventory()
 	_show_runaway_basin(true)
@@ -1075,6 +1120,8 @@ func _apply_video_key() -> void:
 		return
 	_apply_chroma_material(_pet_frame, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
 	_apply_chroma_material(_inventory_bg, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
+	_apply_chroma_material(_dryer_icon, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
+	_apply_chroma_material(_drawer_icon, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
 	if is_instance_valid(_basin_frame) and _basin_frame.visible:
 		_apply_chroma_material(_basin_frame, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
 
@@ -1200,6 +1247,7 @@ func _layout_hover_hud() -> void:
 	var y: float = pet.position.y - hud_h - HOVER_GAP
 	if y < 2.0:
 		y = pet.position.y + HOVER_GAP
+	y += GameData.WASH_BAR_SHIFT_Y
 	_hover_hud.position = Vector2(x, y)
 	_hover_hud.size = Vector2(bar_w, hud_h)
 	_water_bar.position = Vector2.ZERO
@@ -1249,17 +1297,31 @@ func _is_pointer_on_pet(local_pos: Vector2) -> bool:
 
 func _open_exit_popup() -> void:
 	_refresh_pressure_button()
+	_refresh_stat_bubbles()
+	if is_instance_valid(_settings_panel):
+		_settings_panel.visible = false
+	_set_pet_layer_visible(false)
+	_expand_overlay_window(GameData.context_menu_window_size())
 	_exit_popup.visible = true
+	_apply_menu_icons()
+	call_deferred("_layout_menu_icons")
 	print_verbose("%s context menu open" % VIDEO_LOG_PREFIX)
 
 
 func _close_exit_popup() -> void:
 	if is_instance_valid(_exit_popup):
 		_exit_popup.visible = false
+	if is_instance_valid(_settings_panel):
+		_settings_panel.visible = false
+	_restore_overlay_window_if_idle()
+	if not _inventory_popup.visible and _state != State.RUNAWAY:
+		_set_pet_layer_visible(true)
 
 
 func _toggle_always_on_top() -> void:
 	_always_on_top = not _always_on_top
+	GameData.always_on_top_pref = _always_on_top
+	GameData.save_game()
 	if _can_move_window():
 		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, _always_on_top, 0)
 	_refresh_pin_button()
@@ -1339,9 +1401,12 @@ func _open_inventory(kind: String) -> void:
 	if _state == State.RUNAWAY:
 		return
 	_inventory_kind = kind
-	_close_exit_popup()
+	if is_instance_valid(_exit_popup):
+		_exit_popup.visible = false
+	if is_instance_valid(_settings_panel):
+		_settings_panel.visible = false
 	_set_pet_layer_visible(false)
-	_expand_inventory_window()
+	_expand_overlay_window(_inventory_window_size())
 	_apply_inventory_background(kind)
 	_apply_inventory_headline(kind)
 	_inventory_grid.columns = GameData.GRID_COLUMNS
@@ -1354,24 +1419,28 @@ func _close_inventory() -> void:
 	if is_instance_valid(_inventory_popup):
 		_inventory_popup.visible = false
 	_inventory_kind = ""
-	_restore_inventory_window()
-	if _state != State.RUNAWAY:
+	_restore_overlay_window_if_idle()
+	if not _exit_popup.visible and _state != State.RUNAWAY:
 		_set_pet_layer_visible(true)
 
 
-func _expand_inventory_window() -> void:
-	if _inventory_window_open or not _can_move_window():
-		return
-	_base_window_size = DisplayServer.window_get_size()
-	_base_window_pos = DisplayServer.window_get_position()
+func _inventory_window_size() -> Vector2i:
 	var pet: Rect2 = _current_pet_rect()
-	var scaled: Vector2i = Vector2i(
+	return Vector2i(
 		maxi(int(pet.size.x * GameData.INVENTORY_SCALE), 400),
 		maxi(int(pet.size.y * GameData.INVENTORY_SCALE), 500)
 	)
-	DisplayServer.window_set_size(scaled)
-	DisplayServer.window_set_position(_adaptive_inventory_position(scaled))
-	_inventory_window_open = true
+
+
+func _expand_overlay_window(new_size: Vector2i) -> void:
+	if not _can_move_window():
+		return
+	if not _overlay_window_open:
+		_base_window_size = DisplayServer.window_get_size()
+		_base_window_pos = DisplayServer.window_get_position()
+		_overlay_window_open = true
+	DisplayServer.window_set_size(new_size)
+	DisplayServer.window_set_position(_adaptive_inventory_position(new_size))
 
 
 func _adaptive_inventory_position(new_size: Vector2i) -> Vector2i:
@@ -1401,13 +1470,15 @@ func _adaptive_inventory_position(new_size: Vector2i) -> Vector2i:
 	return Vector2i(clampi(pos.x, min_x, maxi(min_x, max_x)), clampi(pos.y, min_y, maxi(min_y, max_y)))
 
 
-func _restore_inventory_window() -> void:
-	if not _inventory_window_open:
+func _restore_overlay_window_if_idle() -> void:
+	if _inventory_popup.visible or _exit_popup.visible:
+		return
+	if not _overlay_window_open:
 		return
 	if _can_move_window():
 		DisplayServer.window_set_size(_base_window_size)
 		DisplayServer.window_set_position(_base_window_pos)
-	_inventory_window_open = false
+	_overlay_window_open = false
 
 
 func _fill_inventory_grid() -> void:
@@ -1467,6 +1538,91 @@ func _make_item_card(item: Dictionary) -> Control:
 	quality_label.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
 	col.add_child(quality_label)
 	return card
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		GameData.save_game()
+		get_tree().quit()
+
+
+func _resume_saved_dry_timers() -> void:
+	for item: Dictionary in GameData.wet_warehouse:
+		var item_id: int = int(item.get("id", 0))
+		if item_id <= 0 or _dry_timers.has(item_id):
+			continue
+		_start_dry_timer(item_id)
+
+
+func _apply_round_chrome() -> void:
+	var radius: int = GameData.POPUP_CORNER_RADIUS
+	if is_instance_valid(_exit_popup):
+		var menu_box: StyleBoxFlat = StyleBoxFlat.new()
+		menu_box.bg_color = Color(0.05, 0.06, 0.1, 0.96)
+		menu_box.set_corner_radius_all(radius)
+		menu_box.set_border_width_all(3)
+		menu_box.border_color = Color(1.0, 0.85, 0.42, 0.94)
+		menu_box.set_content_margin_all(18.0)
+		_exit_popup.add_theme_stylebox_override("panel", menu_box)
+	var inv_box: StyleBoxFlat = StyleBoxFlat.new()
+	inv_box.bg_color = Color(0.0, 0.0, 0.0, 0.22)
+	inv_box.set_corner_radius_all(radius)
+	inv_box.set_border_width_all(3)
+	inv_box.border_color = Color(1.0, 1.0, 1.0, 0.55)
+	if is_instance_valid(_inventory_chrome):
+		_inventory_chrome.add_theme_stylebox_override("panel", inv_box)
+	if is_instance_valid(_inventory_mask):
+		var mask_box: StyleBoxFlat = inv_box.duplicate() as StyleBoxFlat
+		mask_box.bg_color = Color(0.0, 0.0, 0.0, 0.45)
+		_inventory_mask.add_theme_stylebox_override("panel", mask_box)
+	_style_stat_bubbles()
+
+
+func _style_stat_bubbles() -> void:
+	var labels: Array[Label] = [
+		_bubble_affinity, _bubble_underwear, _bubble_companion, _bubble_runaway,
+	]
+	for label: Label in labels:
+		if not is_instance_valid(label):
+			continue
+		var panel: PanelContainer = label.get_parent() as PanelContainer
+		if panel == null:
+			continue
+		var box: StyleBoxFlat = StyleBoxFlat.new()
+		box.bg_color = Color(0.14, 0.16, 0.22, 0.92)
+		box.set_corner_radius_all(GameData.BUBBLE_CORNER_RADIUS)
+		box.set_content_margin_all(12.0)
+		box.set_border_width_all(2)
+		box.border_color = Color(1.0, 1.0, 1.0, 0.5)
+		panel.add_theme_stylebox_override("panel", box)
+
+
+func _apply_menu_icons() -> void:
+	if is_instance_valid(_dryer_icon) and _dryer_texture != null:
+		_dryer_icon.texture = _dryer_texture
+	if is_instance_valid(_drawer_icon) and _drawer_texture != null:
+		_drawer_icon.texture = _drawer_texture
+	_apply_video_key()
+	_layout_menu_icons()
+
+
+func _layout_menu_icons() -> void:
+	var icon_size: Vector2 = GameData.MENU_ICON_SIZE
+	if is_instance_valid(_dryer_icon):
+		_dryer_icon.custom_minimum_size = icon_size
+	if is_instance_valid(_drawer_icon):
+		_drawer_icon.custom_minimum_size = icon_size
+
+
+func _refresh_stat_bubbles() -> void:
+	if is_instance_valid(_bubble_affinity):
+		_bubble_affinity.text = "❤  好感度  %d" % int(round(GameData.affinity_score()))
+	if is_instance_valid(_bubble_underwear):
+		_bubble_underwear.text = "🩲  内裤总计  %d条" % GameData.underwear_total
+	if is_instance_valid(_bubble_companion):
+		_bubble_companion.text = "⏰  陪伴时长  %s" % GameData.format_companion_clock()
+	if is_instance_valid(_bubble_runaway):
+		_bubble_runaway.text = "🏃  跑路次数  %d" % GameData.runaway_count
 
 
 func _log(message: String) -> void:
