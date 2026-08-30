@@ -75,6 +75,7 @@ var _pet_video: VideoStreamPlayer
 @onready var _movie_button: Button = %MovieButton
 @onready var _dinner_button: Button = %DinnerButton
 @onready var _chat_button: Button = %ChatButton
+@onready var _recharge_button: Button = %RechargeButton
 @onready var _pin_top_button: Button = %PinTopButton
 @onready var _quit_app_button: Button = %QuitAppButton
 @onready var _menu_close_button: Button = %MenuCloseButton
@@ -105,10 +106,22 @@ var _pet_video: VideoStreamPlayer
 @onready var _hover_hud: Control = %HoverHud
 @onready var _water_bar: ProgressBar = %WaterBar
 @onready var _wash_label: Label = %WashLabel
+@onready var _chat_popup: Control = %ChatPopup
+@onready var _chat_chrome: Panel = %ChatChrome
+@onready var _chat_headline: PanelContainer = %ChatHeadline
+@onready var _chat_title: Label = %ChatTitle
+@onready var _chat_close_button: Button = %ChatCloseButton
+@onready var _chat_scroll: ScrollContainer = %ChatScroll
+@onready var _chat_list: VBoxContainer = %ChatList
+@onready var _chat_input: LineEdit = %ChatInput
+@onready var _chat_send_button: Button = %ChatSendButton
 
 var _state: int = State.WASHING
 var _wash_remaining: float = 0.0
 var _cooldown_remaining: float = 0.0
+var _tap_speedup_cd: float = 0.0
+var _chat_send_cd: float = 0.0
+var _chat_client: HTTPRequest
 
 var _dragging: bool = false
 var _drag_offset: Vector2i = Vector2i.ZERO
@@ -155,6 +168,7 @@ func _ready() -> void:
 	_apply_round_chrome()
 	_apply_video_key()
 	_apply_menu_icons()
+	_setup_chat_client()
 	_connect_exit_popup()
 	_refresh_pressure_button()
 	_refresh_stat_bubbles()
@@ -375,6 +389,9 @@ func _apply_menu_control_heights() -> void:
 	if is_instance_valid(_chat_button):
 		_chat_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
 		_chat_button.text = GameData.CHAT_BUTTON_TEXT
+	if is_instance_valid(_recharge_button):
+		_recharge_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
+		_recharge_button.text = GameData.RECHARGE_BUTTON_TEXT
 	if is_instance_valid(_settings_button):
 		_settings_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
 	if is_instance_valid(_quit_app_button):
@@ -410,7 +427,10 @@ func _connect_exit_popup() -> void:
 		_on_demo_feature_pressed("dinner")
 	)
 	_chat_button.pressed.connect(func() -> void:
-		_on_demo_feature_pressed("chat")
+		_open_chat()
+	)
+	_recharge_button.pressed.connect(func() -> void:
+		_on_demo_feature_pressed("recharge")
 	)
 	_quit_app_button.pressed.connect(func() -> void:
 		GameData.save_game()
@@ -450,7 +470,19 @@ func _connect_exit_popup() -> void:
 		_set_tidy_panel_visible(false)
 	)
 	_build_tidy_filters()
+	_chat_close_button.pressed.connect(func() -> void:
+		_close_chat()
+	)
+	_chat_send_button.pressed.connect(func() -> void:
+		_submit_chat()
+	)
+	_chat_input.text_submitted.connect(func(_text: String) -> void:
+		_submit_chat()
+	)
 	_inventory_popup.gui_input.connect(func(event: InputEvent) -> void:
+		_process_drag_input(event)
+	)
+	_chat_popup.gui_input.connect(func(event: InputEvent) -> void:
 		_process_drag_input(event)
 	)
 	_exit_popup.gui_input.connect(func(event: InputEvent) -> void:
@@ -480,9 +512,23 @@ func _wire_menu_icon(slot: Button, kind: String) -> void:
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event
+		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed and mb.double_click:
+			if (
+				not _inventory_popup.visible
+				and not _exit_popup.visible
+				and not _chat_popup.visible
+				and _is_pointer_on_pet(mb.position)
+			):
+				_try_tap_speedup()
+				accept_event()
+				return
 		if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
 			if _inventory_popup.visible:
 				_close_inventory()
+				accept_event()
+				return
+			if _chat_popup.visible:
+				_close_chat()
 				accept_event()
 				return
 			if _is_pointer_on_pet(mb.position):
@@ -503,6 +549,8 @@ func _input(event: InputEvent) -> void:
 		if key.keycode == KEY_ESCAPE:
 			if _inventory_popup.visible:
 				_close_inventory()
+			elif _chat_popup.visible:
+				_close_chat()
 			elif _exit_popup.visible:
 				_close_exit_popup()
 			else:
@@ -523,6 +571,10 @@ func _is_click_on_blocking_ui(global_pos: Vector2) -> bool:
 	if _inventory_popup.visible and is_instance_valid(_inventory_close_button):
 		if _inventory_close_button.get_global_rect().has_point(global_pos):
 			return true
+	if _chat_popup.visible:
+		for control: Control in [_chat_close_button, _chat_send_button, _chat_input]:
+			if is_instance_valid(control) and control.get_global_rect().has_point(global_pos):
+				return true
 	if _exit_popup.visible:
 		return _is_point_on_menu_button(global_pos)
 	return false
@@ -531,7 +583,7 @@ func _is_click_on_blocking_ui(global_pos: Vector2) -> bool:
 func _is_point_on_menu_button(global_pos: Vector2) -> bool:
 	var buttons: Array[Button] = [
 		_dryer_slot, _drawer_slot, _pressure_button, _movie_button,
-		_dinner_button, _chat_button, _settings_button,
+		_dinner_button, _chat_button, _recharge_button, _settings_button,
 		_quit_app_button, _menu_close_button, _pin_top_button,
 		_size_small_button, _size_medium_button, _size_large_button, _size_huge_button,
 	]
@@ -634,6 +686,9 @@ func _process(delta: float) -> void:
 	_tick_hover_hud(delta)
 	_refresh_wash_progress()
 	_tick_pressure_cooldown(delta)
+	_tick_tap_speedup_cooldown(delta)
+	if _chat_send_cd > 0.0:
+		_chat_send_cd = maxf(_chat_send_cd - delta, 0.0)
 	GameData.tick_companion(delta)
 	if _exit_popup.visible:
 		_refresh_stat_bubbles()
@@ -761,6 +816,177 @@ func _refresh_pressure_button() -> void:
 
 func _on_demo_feature_pressed(feature_id: String) -> void:
 	print("%s demo feature=%s (placeholder)" % [VIDEO_LOG_PREFIX, feature_id])
+
+
+func _try_tap_speedup() -> void:
+	if _tap_speedup_cd > 0.0:
+		return
+	_tap_speedup_cd = GameData.TAP_SPEEDUP_COOLDOWN
+	if _state != State.WASHING:
+		return
+	_wash_remaining = maxf(_wash_remaining - GameData.TAP_SPEEDUP_SECONDS, 0.0)
+
+
+func _tick_tap_speedup_cooldown(delta: float) -> void:
+	if _tap_speedup_cd <= 0.0:
+		return
+	_tap_speedup_cd = maxf(_tap_speedup_cd - delta, 0.0)
+
+
+func _setup_chat_client() -> void:
+	_chat_client = preload("res://scripts/chat_client.gd").new()
+	add_child(_chat_client)
+	_chat_client.chat_replied.connect(func(text: String) -> void:
+		_on_chat_replied(text)
+	)
+	_chat_client.chat_failed.connect(func(_reason: String) -> void:
+		_on_chat_replied(GameData.CHAT_FAIL_TEXT)
+	)
+
+
+func _open_chat() -> void:
+	if _state == State.RUNAWAY:
+		return
+	if is_instance_valid(_exit_popup):
+		_exit_popup.visible = false
+	if is_instance_valid(_settings_panel):
+		_settings_panel.visible = false
+	if is_instance_valid(_inventory_popup):
+		_inventory_popup.visible = false
+	_inventory_kind = ""
+	_set_pet_layer_visible(false)
+	_expand_overlay_window(GameData.CHAT_WINDOW_SIZE)
+	if is_instance_valid(_chat_title):
+		_chat_title.text = GameData.CHAT_TITLE_TEXT
+	if is_instance_valid(_chat_headline):
+		var box: StyleBoxFlat = StyleBoxFlat.new()
+		box.bg_color = GameData.DRYER_HEADLINE_COLOR
+		box.set_corner_radius_all(8)
+		box.set_border_width_all(2)
+		box.border_color = Color(1.0, 1.0, 1.0, 0.92)
+		box.content_margin_left = GameData.INVENTORY_HEADLINE_PAD_X
+		box.content_margin_right = GameData.INVENTORY_HEADLINE_PAD_X
+		box.content_margin_top = 6.0
+		box.content_margin_bottom = 6.0
+		_chat_headline.add_theme_stylebox_override("panel", box)
+	if is_instance_valid(_chat_input):
+		_chat_input.max_length = GameData.CHAT_MAX_INPUT_CHARS
+		_chat_input.placeholder_text = GameData.CHAT_INPUT_HINT
+	if is_instance_valid(_chat_send_button):
+		_chat_send_button.text = GameData.CHAT_SEND_TEXT
+	_chat_popup.visible = true
+	GameData.prune_chat_history()
+	_rebuild_chat_list()
+	_set_chat_composer_enabled(true)
+	if is_instance_valid(_chat_input):
+		_chat_input.grab_focus()
+
+
+func _close_chat() -> void:
+	if is_instance_valid(_chat_popup):
+		_chat_popup.visible = false
+	_restore_overlay_window_if_idle()
+	if not _exit_popup.visible and not _inventory_popup.visible and _state != State.RUNAWAY:
+		_set_pet_layer_visible(true)
+
+
+func _submit_chat() -> void:
+	if _chat_send_cd > 0.0:
+		return
+	if _chat_client != null and _chat_client.has_method("is_busy") and _chat_client.is_busy():
+		return
+	if not is_instance_valid(_chat_input):
+		return
+	var text: String = GameData.sanitize_chat_input(_chat_input.text)
+	if text.is_empty():
+		return
+	_chat_send_cd = GameData.CHAT_SEND_COOLDOWN
+	_chat_input.text = ""
+	GameData.append_chat_message("user", text)
+	_rebuild_chat_list()
+	_set_chat_composer_enabled(false)
+	if _chat_client != null and _chat_client.has_method("send_history"):
+		_chat_client.send_history(GameData.chat_context_for_api())
+	else:
+		_on_chat_replied(GameData.CHAT_OFFLINE_REPLY)
+
+
+func _on_chat_replied(text: String) -> void:
+	var reply: String = GameData.sanitize_chat_output(text)
+	if reply.is_empty():
+		reply = GameData.CHAT_FAIL_TEXT
+	GameData.append_chat_message("assistant", reply)
+	_rebuild_chat_list()
+	_set_chat_composer_enabled(true)
+	if is_instance_valid(_chat_input):
+		_chat_input.grab_focus()
+
+
+func _set_chat_composer_enabled(enabled: bool) -> void:
+	if is_instance_valid(_chat_input):
+		_chat_input.editable = enabled
+		if not enabled:
+			_chat_input.placeholder_text = GameData.CHAT_WAIT_TEXT
+		else:
+			_chat_input.placeholder_text = GameData.CHAT_INPUT_HINT
+	if is_instance_valid(_chat_send_button):
+		_chat_send_button.disabled = not enabled
+
+
+func _rebuild_chat_list() -> void:
+	if not is_instance_valid(_chat_list):
+		return
+	for child: Node in _chat_list.get_children():
+		child.queue_free()
+	for item: Dictionary in GameData.chat_messages:
+		_chat_list.add_child(_make_chat_row(item))
+	call_deferred("_scroll_chat_to_end")
+
+
+func _make_chat_row(item: Dictionary) -> Control:
+	var is_user: bool = String(item.get("role", "")) == "user"
+	var row: HBoxContainer = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var spacer: Control = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var col: VBoxContainer = VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", 2)
+	var name_label: Label = Label.new()
+	name_label.text = GameData.CHAT_USER_NAME if is_user else GameData.CHAT_STEVE_NAME
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if is_user else HORIZONTAL_ALIGNMENT_LEFT
+	name_label.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
+	name_label.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bubble: PanelContainer = PanelContainer.new()
+	var box: StyleBoxFlat = StyleBoxFlat.new()
+	box.bg_color = Color(0.38, 0.29, 0.68, 0.94) if is_user else Color(0.16, 0.18, 0.24, 0.94)
+	box.set_corner_radius_all(12)
+	box.set_content_margin_all(10.0)
+	bubble.add_theme_stylebox_override("panel", box)
+	var body: Label = Label.new()
+	body.text = String(item.get("text", ""))
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
+	body.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bubble.add_child(body)
+	col.add_child(name_label)
+	col.add_child(bubble)
+	if is_user:
+		row.add_child(spacer)
+		row.add_child(col)
+	else:
+		row.add_child(col)
+		row.add_child(spacer)
+	return row
+
+
+func _scroll_chat_to_end() -> void:
+	if not is_instance_valid(_chat_scroll):
+		return
+	_chat_scroll.scroll_vertical = int(_chat_scroll.get_v_scroll_bar().max_value)
 
 
 func _trigger_runaway() -> void:
@@ -1315,7 +1541,7 @@ func apply_chroma_key(
 func _is_hovering_pet() -> bool:
 	if _state == State.RUNAWAY:
 		return false
-	if _inventory_popup.visible:
+	if _inventory_popup.visible or _chat_popup.visible:
 		return false
 	var local_pos: Vector2 = get_local_mouse_position()
 	if not Rect2(Vector2.ZERO, size).has_point(local_pos):
@@ -1469,7 +1695,7 @@ func _close_exit_popup() -> void:
 	if is_instance_valid(_settings_panel):
 		_settings_panel.visible = false
 	_restore_overlay_window_if_idle()
-	if not _inventory_popup.visible and _state != State.RUNAWAY:
+	if not _inventory_popup.visible and not _chat_popup.visible and _state != State.RUNAWAY:
 		_set_pet_layer_visible(true)
 
 
@@ -1499,12 +1725,9 @@ func _set_pet_layer_visible(shown: bool) -> void:
 		_set_hover_hud_visible(false, false)
 
 
-func _apply_inventory_background(kind: String) -> void:
-	var tex: Texture2D = _dryer_texture if kind == "dryer" else _drawer_texture
-	if tex == null:
-		tex = _dryer_texture
-	if is_instance_valid(_inventory_bg) and tex != null:
-		_inventory_bg.texture = tex
+func _apply_inventory_background(_kind: String) -> void:
+	if is_instance_valid(_inventory_bg) and _dryer_texture != null:
+		_inventory_bg.texture = _dryer_texture
 	_apply_video_key()
 	_layout_inventory_bg()
 
@@ -1516,7 +1739,7 @@ func _layout_inventory_bg() -> void:
 	var area: Vector2 = host.size if is_instance_valid(host) else _inventory_popup.size
 	if area.x < 2.0 or area.y < 2.0:
 		area = Vector2(DisplayServer.window_get_size())
-	var zoom: float = GameData.DRYER_BG_ZOOM if _inventory_kind == "dryer" else 1.0
+	var zoom: float = GameData.DRYER_BG_ZOOM
 	var fitted: Vector2 = area * zoom
 	_inventory_bg.anchor_left = 0.5
 	_inventory_bg.anchor_top = 0.5
@@ -1564,6 +1787,8 @@ func _open_inventory(kind: String) -> void:
 		_exit_popup.visible = false
 	if is_instance_valid(_settings_panel):
 		_settings_panel.visible = false
+	if is_instance_valid(_chat_popup):
+		_chat_popup.visible = false
 	_set_pet_layer_visible(false)
 	_expand_overlay_window(_inventory_window_size())
 	_apply_inventory_background(kind)
@@ -1580,7 +1805,7 @@ func _close_inventory() -> void:
 	_inventory_kind = ""
 	_set_tidy_panel_visible(false)
 	_restore_overlay_window_if_idle()
-	if not _exit_popup.visible and _state != State.RUNAWAY:
+	if not _exit_popup.visible and not _chat_popup.visible and _state != State.RUNAWAY:
 		_set_pet_layer_visible(true)
 
 
@@ -1641,7 +1866,7 @@ func _adaptive_inventory_position(new_size: Vector2i) -> Vector2i:
 
 
 func _restore_overlay_window_if_idle() -> void:
-	if _inventory_popup.visible or _exit_popup.visible:
+	if _inventory_popup.visible or _exit_popup.visible or _chat_popup.visible:
 		return
 	if not _overlay_window_open:
 		return
@@ -1750,6 +1975,8 @@ func _apply_round_chrome() -> void:
 	inv_box.border_color = Color(1.0, 1.0, 1.0, 0.55)
 	if is_instance_valid(_inventory_chrome):
 		_inventory_chrome.add_theme_stylebox_override("panel", inv_box)
+	if is_instance_valid(_chat_chrome):
+		_chat_chrome.add_theme_stylebox_override("panel", inv_box)
 	if is_instance_valid(_inventory_mask):
 		_inventory_mask.visible = false
 	_apply_menu_control_heights()

@@ -143,6 +143,32 @@ const PRESSURE_COOLDOWN_SUFFIX: String = "后再压力他"
 const MOVIE_BUTTON_TEXT: String = "看电影"
 const DINNER_BUTTON_TEXT: String = "约个饭"
 const CHAT_BUTTON_TEXT: String = "聊聊天"
+const RECHARGE_BUTTON_TEXT: String = "充值"
+const TAP_SPEEDUP_SECONDS: float = 5.0
+const TAP_SPEEDUP_COOLDOWN: float = 1.0
+## 下一阶段填入外部模型 system prompt；上线后所有设备共用同一套口吻约束。
+const CHAT_SYSTEM_PROMPT: String = ""
+## 留空则不发起网络请求，走本地占位回复。也可设环境变量 STEVE_CHAT_API_URL。
+const CHAT_API_URL: String = ""
+const CHAT_API_KEY_ENV: String = "STEVE_CHAT_API_KEY"
+const CHAT_API_URL_ENV: String = "STEVE_CHAT_API_URL"
+const CHAT_API_KEY_FILE: String = "user://chat_api_key.txt"
+const CHAT_HISTORY_SECONDS: float = 604800.0
+const CHAT_MAX_INPUT_CHARS: int = 400
+const CHAT_MAX_OUTPUT_CHARS: int = 1200
+const CHAT_MAX_STORED: int = 80
+const CHAT_CONTEXT_LIMIT: int = 20
+const CHAT_REQUEST_TIMEOUT: float = 20.0
+const CHAT_SEND_COOLDOWN: float = 1.0
+const CHAT_USER_NAME: String = "你"
+const CHAT_STEVE_NAME: String = "Steve"
+const CHAT_SEND_TEXT: String = "发送"
+const CHAT_TITLE_TEXT: String = "聊聊天"
+const CHAT_INPUT_HINT: String = "跟 Steve 说点什么"
+const CHAT_OFFLINE_REPLY: String = "线路还没接通，下一阶段再认真聊。"
+const CHAT_WAIT_TEXT: String = "Steve 正在打字..."
+const CHAT_FAIL_TEXT: String = "这次没发出去，稍后再试。"
+const CHAT_WINDOW_SIZE: Vector2i = Vector2i(440, 580)
 const UNDERWEAR_EMOJI: String = "🩲"
 const TIDY_SELECTED_COLOR: Color = Color(0.86, 0.16, 0.18, 0.96)
 const TIDY_IDLE_COLOR: Color = Color(0.22, 0.24, 0.30, 0.94)
@@ -206,7 +232,7 @@ const WASH_PROGRESS_MAX: int = 100
 const WASH_BAR_SHIFT_Y: float = 9.0
 ## 右键菜单相对旧 244×336 面板的边长倍数（面积约 16 倍，窗口按屏幕可用区夹紧）。
 const CONTEXT_MENU_SCALE: float = 4.0
-const CONTEXT_MENU_BASE_SIZE: Vector2i = Vector2i(244, 400)
+const CONTEXT_MENU_BASE_SIZE: Vector2i = Vector2i(244, 420)
 const CONTEXT_MENU_MARGIN: int = 16
 ## 菜单图标相对旧 168 的 30%；烘干机再从中心放大 85%（×1.85）裁边。
 const MENU_ICON_SIZE: Vector2 = Vector2(50.0, 50.0)
@@ -314,6 +340,8 @@ var runaway_count: int = 0
 var affinity_quality_sum: float = 0.0
 var always_on_top_pref: bool = ALWAYS_ON_TOP_DEFAULT
 var pet_size_tier: int = PET_SIZE_MEDIUM
+## {role: user|assistant, text, at}
+var chat_messages: Array[Dictionary] = []
 var _save_accum: float = 0.0
 var _companion_saved: float = 0.0
 var _companion_anchor_unix: float = 0.0
@@ -325,6 +353,7 @@ func _ready() -> void:
 	for q: int in Quality.values():
 		codex_counts[q] = 0
 	load_game()
+	prune_chat_history()
 
 
 # --- 仓库操作 -------------------------------------------------------------
@@ -717,6 +746,119 @@ func context_menu_window_size() -> Vector2i:
 	return scaled
 
 
+func sanitize_chat_input(raw: String) -> String:
+	var text: String = raw.replace("\u0000", "").strip_edges()
+	if text.length() > CHAT_MAX_INPUT_CHARS:
+		text = text.substr(0, CHAT_MAX_INPUT_CHARS)
+	return text
+
+
+func sanitize_chat_output(raw: String) -> String:
+	var text: String = raw.replace("\u0000", "").strip_edges()
+	if text.length() > CHAT_MAX_OUTPUT_CHARS:
+		text = text.substr(0, CHAT_MAX_OUTPUT_CHARS)
+	return text
+
+
+func prune_chat_history() -> void:
+	var cutoff: float = Time.get_unix_time_from_system() - CHAT_HISTORY_SECONDS
+	var kept: Array[Dictionary] = []
+	for item: Dictionary in chat_messages:
+		if float(item.get("at", 0.0)) < cutoff:
+			continue
+		kept.append(item)
+	if kept.size() > CHAT_MAX_STORED:
+		var trimmed: Array[Dictionary] = []
+		for i: int in range(kept.size() - CHAT_MAX_STORED, kept.size()):
+			trimmed.append(kept[i])
+		kept = trimmed
+	chat_messages = kept
+
+
+func append_chat_message(role: String, text: String) -> Dictionary:
+	var clean: String = sanitize_chat_output(text) if role == "assistant" else sanitize_chat_input(text)
+	if clean.is_empty():
+		return {}
+	var item: Dictionary = {
+		"role": role,
+		"text": clean,
+		"at": Time.get_unix_time_from_system(),
+	}
+	chat_messages.append(item)
+	prune_chat_history()
+	save_game()
+	return item
+
+
+func chat_context_for_api() -> Array[Dictionary]:
+	prune_chat_history()
+	var start: int = maxi(chat_messages.size() - CHAT_CONTEXT_LIMIT, 0)
+	var out: Array[Dictionary] = []
+	for i: int in range(start, chat_messages.size()):
+		var item: Dictionary = chat_messages[i]
+		out.append({
+			"role": String(item.get("role", "user")),
+			"content": String(item.get("text", "")),
+		})
+	return out
+
+
+func resolved_chat_api_url() -> String:
+	var env_url: String = OS.get_environment(CHAT_API_URL_ENV).strip_edges()
+	if not env_url.is_empty():
+		return env_url
+	return CHAT_API_URL.strip_edges()
+
+
+func resolved_chat_api_key() -> String:
+	var env_key: String = OS.get_environment(CHAT_API_KEY_ENV).strip_edges()
+	if not env_key.is_empty():
+		return env_key
+	if FileAccess.file_exists(CHAT_API_KEY_FILE):
+		var file: FileAccess = FileAccess.open(CHAT_API_KEY_FILE, FileAccess.READ)
+		if file != null:
+			var key: String = file.get_line().strip_edges()
+			file.close()
+			return key
+	return ""
+
+
+func chat_url_is_safe(url: String) -> bool:
+	var lower: String = url.to_lower()
+	if lower.begins_with("https://"):
+		return true
+	if lower.begins_with("http://127.0.0.1") or lower.begins_with("http://localhost"):
+		return true
+	return false
+
+
+func build_chat_payload(history: Array[Dictionary]) -> String:
+	return JSON.stringify({
+		"system": CHAT_SYSTEM_PROMPT,
+		"messages": history,
+	})
+
+
+func parse_chat_reply(body: PackedByteArray) -> String:
+	var parsed: Variant = JSON.parse_string(body.get_string_from_utf8())
+	if parsed is Dictionary:
+		var data: Dictionary = parsed
+		if data.has("choices"):
+			var choices: Array = data.get("choices", [])
+			if not choices.is_empty() and choices[0] is Dictionary:
+				var message: Dictionary = (choices[0] as Dictionary).get("message", {})
+				return sanitize_chat_output(String(message.get("content", "")))
+		if data.has("reply"):
+			return sanitize_chat_output(String(data.get("reply", "")))
+		if data.has("content"):
+			return sanitize_chat_output(String(data.get("content", "")))
+		if data.has("message") and data.get("message") is String:
+			return sanitize_chat_output(String(data.get("message", "")))
+	if parsed is String:
+		return sanitize_chat_output(parsed)
+	return ""
+
+
 # --- 存档 ---------------------------------------------------------------
 
 func to_save_dict() -> Dictionary:
@@ -733,6 +875,7 @@ func to_save_dict() -> Dictionary:
 		"affinity_quality_sum": affinity_quality_sum,
 		"always_on_top_pref": always_on_top_pref,
 		"pet_size_tier": pet_size_tier,
+		"chat_messages": chat_messages.duplicate(true),
 	}
 
 
@@ -755,6 +898,18 @@ func load_from_dict(data: Dictionary) -> void:
 	affinity_quality_sum = float(data.get("affinity_quality_sum", 0.0))
 	always_on_top_pref = bool(data.get("always_on_top_pref", ALWAYS_ON_TOP_DEFAULT))
 	pet_size_tier = clampi(int(data.get("pet_size_tier", PET_SIZE_MEDIUM)), PET_SIZE_SMALL, PET_SIZE_HUGE)
+	chat_messages.clear()
+	for entry: Dictionary in data.get("chat_messages", []):
+		var role: String = String(entry.get("role", ""))
+		var text: String = sanitize_chat_output(String(entry.get("text", "")))
+		if (role != "user" and role != "assistant") or text.is_empty():
+			continue
+		chat_messages.append({
+			"role": role,
+			"text": text,
+			"at": float(entry.get("at", 0.0)),
+		})
+	prune_chat_history()
 	if underwear_total <= 0:
 		var derived: int = 0
 		for q: Variant in codex_counts.keys():

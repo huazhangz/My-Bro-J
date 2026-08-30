@@ -435,6 +435,13 @@ layout_mode = 2
 theme_type_variation = &"EquipButton"
 text = "聊聊天"
 
+[node name="RechargeButton" type="Button" parent="ExitPopup/ExitInner"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 66)
+layout_mode = 2
+theme_type_variation = &"CoinButton"
+text = "充值"
+
 [node name="MenuFooter" type="HBoxContainer" parent="ExitPopup/ExitInner"]
 layout_mode = 2
 theme_override_constants/separation = 10
@@ -713,3 +720,98 @@ layout_mode = 2
 mouse_filter = 2
 text = "空空如也"
 horizontal_alignment = 1
+
+[node name="ChatPopup" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+z_index = 20
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ChatChrome" type="Panel" parent="ChatPopup"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ChatBody" type="VBoxContainer" parent="ChatPopup"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 12.0
+offset_right = -16.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 10
+
+[node name="ChatHeader" type="HBoxContainer" parent="ChatPopup/ChatBody"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ChatHeadline" type="PanelContainer" parent="ChatPopup/ChatBody/ChatHeader"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+
+[node name="ChatTitle" type="Label" parent="ChatPopup/ChatBody/ChatHeader/ChatHeadline"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+text = "聊聊天"
+vertical_alignment = 1
+
+[node name="ChatHeaderSpacer" type="Control" parent="ChatPopup/ChatBody/ChatHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="ChatCloseButton" type="Button" parent="ChatPopup/ChatBody/ChatHeader"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(72, 36)
+layout_mode = 2
+theme_type_variation = &"CloseButton"
+text = "关闭"
+
+[node name="ChatScroll" type="ScrollContainer" parent="ChatPopup/ChatBody"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 2
+
+[node name="ChatList" type="VBoxContainer" parent="ChatPopup/ChatBody/ChatScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="ChatComposer" type="HBoxContainer" parent="ChatPopup/ChatBody"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ChatInput" type="LineEdit" parent="ChatPopup/ChatBody/ChatComposer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+max_length = 400
+placeholder_text = "跟 Steve 说点什么"
+
+[node name="ChatSendButton" type="Button" parent="ChatPopup/ChatBody/ChatComposer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(72, 40)
+layout_mode = 2
+theme_type_variation = &"EquipButton"
+text = "发送"

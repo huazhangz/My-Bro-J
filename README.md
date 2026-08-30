@@ -19,7 +19,7 @@
    ```
    不要执行 `git reset --hard origin/main`。
 2. 用 Godot **4.7.x** 打开本仓库根目录。主场景是 `res://scenes/steve.tscn`。
-3. 把 `steve3.mp4`、`dryer.jpg`、`Steve2.jpg` 放到仓库根目录。UI 字体已在 `assets/fonts/YuanRou-P-Bold.ttf`。本机若只有 `YuanRou-P-Bold.zip`，F5 会自动解包。
+3. 把 `steve3.mp4`、`dryer.jpg`、`Steve2.jpg` 放到仓库根目录。UI 字体已在 `assets/fonts/YuanRou-P-Bold.ttf`。本机若只有 `YuanRou-P-Bold.zip`，F5 会自动解包。抽屉库存不再使用 `drawer.jpg`。
 4. 双击 `convert_video.bat`（需 FFmpeg 在 PATH），把 `steve3.mp4` 转成 `assets/videos/steve.ogv`（必须大于 80KB）。
 5. **F5** 跑 `steve.tscn`。Game 面板关掉 *Embed Game on Play*。仓库自带的 70KB `steve.ogv` 不会当人物动画播放。
 
@@ -52,8 +52,8 @@ My-Bro-J/
 ├── scenes/steve.tscn
 ├── scripts/steve.gd
 ├── scripts/GameData.gd
+├── scripts/chat_client.gd
 ├── assets/images/dryer.jpg
-├── assets/images/drawer.jpg
 ├── assets/images/container.jpg
 ├── assets/images/steve2.jpg
 ├── assets/fonts/YuanRou-P-Bold.ttf

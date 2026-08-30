@@ -79,7 +79,10 @@
 | `CHROMA_KEY_COLOR` | `#00FF00` | 当前扣色默认 |
 | `CHROMA_KEY_SIMILARITY` | `0.81` | 当前扣色容差 |
 | `CHROMA_KEY_SMOOTHNESS` | `0.15` | 当前边缘羽化 |
-| `DRYER_BG_ZOOM` | `1.36` | 仅烘干机页背景从中心放大（裁边） |
+| `DRYER_BG_ZOOM` | `1.36` | 烘干机 / 抽屉库存背景从中心放大（裁边） |
+| `CHAT_SYSTEM_PROMPT` | `""` | 外部模型 system prompt 预留位，下一阶段填入 |
+| `CHAT_HISTORY_SECONDS` | `604800` | 聊聊天历史保留 7 天 |
+| `TAP_SPEEDUP_SECONDS` | `5` | 双击 Steve 扣减的洗涤秒数；冷却 1 秒且不显示 |
 | `DRYER_HEADLINE_COLOR` | CodexButton 紫 | 烘干机标题条底色 |
 | `DRAWER_HEADLINE_COLOR` | CoinButton 金 | 抽屉标题条底色 |
 | `CHROMA_SPILL_SUPPRESSION` | `0.30` | 当前溢色抑制 |
@@ -258,22 +261,25 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 - **ExitPopup**（根节点下，默认隐藏）：在立绘上 **右键** 弹出 **4 倍**圆角菜单，窗口放大并按屏幕位置夹紧
   - 菜单窗口可左键拖动（点在空白/气泡上拖；点按钮不拖、不关菜单）
   - 顶部气泡：❤好感度 / 「🩲  洗了 xx 条 内裤」（生涯计数，收拾删除不减） / ⏰陪伴时长（HH：MM：SS 墙钟累计） / 🏃跑路次数（高度 +65%）
-  - 其下烘干机 / 抽屉：左图标右文字的 Button（高度 +35%）；抽屉图标用 `drawer1.jpg` 抠绿，库存背景仍用 `drawer.jpg`
+  - 其下烘干机 / 抽屉：左图标右文字的 Button（高度 +35%）；抽屉图标用 `drawer1.jpg` 抠绿；库存背景统一用 `dryer.jpg`（抽屉不再使用 drawer 底图）
   - 菜单图标相对按钮框下移：烘干机 `DRYER_ICON_NUDGE_Y=5`、抽屉 `DRAWER_ICON_NUDGE_Y=8`
   - 好感度：品质 log 高权重 + 陪伴 log（满值时间 ×260%）最多 15%；每次跑路 −25，最低 0
   - `能不能给我洗快点`：随机扣洗涤时间（1s~12h）；冷却灰显读秒
-  - Demo（占位，下轮再做）：`看电影` / `约个饭` / `聊聊天`（位于催洗之下、设置之上）
+  - `聊聊天`：对话窗 + 输入/发送（Enter）+ 7 天历史；外部 LLM 接口与 `CHAT_SYSTEM_PROMPT` 已预留
+  - Demo（占位）：`看电影` / `约个饭` / `充值`
   - `设置`：固定上层 + Steve 体型（小 70% / 中 / 大 135% / 超大 200%，超大再右移 6 格）；体型只缩放立绘窗口，烘干机/抽屉交互窗尺寸固定
   - `晚点再洗`：存档后退出
   - 右上角 `×`：关闭并还原窗口
   - 跑路时立绘换成按比例内接的 `container.jpg` 空盆；「已跑路...」居中贴在画面顶部，z 低于菜单
   - 点弹窗外 / `ESC` / `×`：关闭菜单
-- **InventoryPopup**（全屏，默认隐藏）：背景随种类换 `dryer.jpg` / `drawer.jpg`，外加半透明黑遮罩
+- **InventoryPopup**（全屏，默认隐藏）：烘干机 / 抽屉都用 `dryer.jpg` 中心 ×1.36 裁边（抽屉不再铺 drawer 图）
   - 窗口按 **横 5 × 竖 6** 卡片刚好铺满计算（`inventory_window_size()`，不跟 Steve 体型）
   - 左上角标题带 headline 色条（烘干机紫 / 抽屉金，与右键按钮底色一致），高度不超过第一件库存
   - 右上角「关闭」与标题条同高；烘干机 / 抽屉关闭左侧都有「收拾一下」
   - 「收拾一下」：品质从高到低；只勾一组删该组，两边都勾只删同时符合的；勾选变红；不减生涯计数
-  - 烘干机背景 `dryer.jpg` 从中心 ×1.36 并裁边；抽屉背景 1:1
+  - 背景统一 `dryer.jpg` 从中心 ×1.36 并裁边
+- **ChatPopup**：底部输入框 + 发送（设备 Enter / 发送键）；左侧 Steve、右侧「你」；历史 7 天；未配置 API 时本地占位回复
+- 立绘上 **双击** 加速洗涤 5 秒，冷却 1 秒且不显示冷却
   - `ScrollContainer` + `GridContainer`：5 列 × 6 行可见，卡片完整显示；多于 30 件才滚动
   - 卡片为紫色描边占位框，显示磨损前缀 + 品质中文名（尚无内裤贴图）
   - `关闭` / `ESC` / 再右键：还原窗口尺寸并关闭弹层
@@ -405,12 +411,12 @@ My-Bro-J/
 │   └── steve.tscn      # 主场景：根节点 Control，全屏铺满，背景全透明
 ├── scripts/
 │   ├── steve.gd        # 窗口拖拽 + 洗涤/晾干/跑路状态机 + 右键菜单 / 库存网格
+│   ├── chat_client.gd  # 聊聊天 HTTP 接入（无 URL 时本地占位）
 │   └── GameData.gd         # 全局数据单例（常量、仓库、磨损、CD 算法、存档接口）
 ├── assets/
 │   ├── icon.svg            # 应用图标
 │   ├── images/
-│   │   ├── dryer.jpg       # 烘干机弹层背景
-│   │   ├── drawer.jpg      # 抽屉弹层背景
+│   │   ├── dryer.jpg       # 烘干机 / 抽屉库存弹层背景
 │   │   ├── drawer1.jpg     # 仅菜单抽屉图标（绿幕）
 │   │   ├── container.jpg   # 跑路空盆（绿幕，用当前扣色）
 │   │   └── steve2.jpg      # 无可用视频时的静帧回落
@@ -501,9 +507,9 @@ Steve (Control, 铺满窗口, theme = steve_theme)
   - [x] 压力按钮：`randf_range(1s, 12h)` 扣洗涤时间；冷却灰显剩余「MM：SS后再压力他」并每秒刷新
   - [x] 右键菜单右上角悬浮 `×` 关闭；全界面白字加粗、字号统一 16
   - [x] 每次压力点击 15.5% 跑路：空盆 `container.jpg` 抠绿幕 + 红色「已跑路...」
-  - [x] `InventoryPopup`：dryer/drawer 绿幕背景 + 5×6 可见网格；标题色条与菜单按钮同色；烘干机背景中心 ×1.36
+  - [x] `InventoryPopup`：烘干机 / 抽屉统一 `dryer.jpg` ×1.36 + 5×6 可见网格；标题色条与菜单按钮同色
   - [x] 烘干机 / 抽屉「收拾一下」：品质从高到低；单组全删、双组交集；勾选变红；删除不减生涯计数
-  - [x] 跑路好感度 −25 到底；菜单图标下移 5/8；看电影/约个饭/聊聊天 demo 按钮
+  - [x] 聊聊天主界面 + 7 天历史 + 外部 LLM 预留；双击加速 5 秒；充值 demo
   - [x] 悬停 1.5s 头顶洗涤水条
   - [x] 品质重构为一次性 / 涤纶 / 纯棉 / 真丝 / 奢华 / 火星科技，并附加 8 档磨损前缀
 - [ ] **Day 4**：换装展示系统 + 跑路冷却与 CD 缩减算法对接
