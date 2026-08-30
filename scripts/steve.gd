@@ -63,8 +63,12 @@ var _pet_video: VideoStreamPlayer
 @onready var _exit_popup: PanelContainer = %ExitPopup
 @onready var _dryer_button: Button = %DryerButton
 @onready var _drawer_button: Button = %DrawerButton
+@onready var _pressure_button: Button = %PressureWashButton
+@onready var _pressure_cd_bar: ProgressBar = %PressureCooldownBar
 @onready var _pin_top_button: Button = %PinTopButton
 @onready var _quit_app_button: Button = %QuitAppButton
+@onready var _basin_frame: TextureRect = %BasinFrame
+@onready var _runaway_banner: PanelContainer = %RunawayBanner
 @onready var _inventory_popup: Control = %InventoryPopup
 @onready var _inventory_title: Label = %InventoryTitle
 @onready var _inventory_close_button: Button = %InventoryCloseButton
@@ -100,7 +104,9 @@ var _hover_tween: Tween
 var _always_on_top: bool = true
 var _dryer_texture: Texture2D
 var _drawer_texture: Texture2D
+var _container_texture: Texture2D
 var _layout_area: Rect2 = GameData.PET_AREA
+var _pressure_cd: float = 0.0
 
 
 func _ready() -> void:
@@ -118,6 +124,7 @@ func _ready() -> void:
 	_ingest_user_images()
 	_apply_video_key()
 	_connect_exit_popup()
+	_refresh_pressure_button()
 	_setup_pet_video()
 	_connect_game_data()
 	_start_wash_cycle()
@@ -191,6 +198,13 @@ func _ingest_user_images() -> void:
 		print("%s dryer bg <- %s" % [VIDEO_LOG_PREFIX, GameData.first_existing_file(GameData.USER_DRYER_FILE)])
 	if _drawer_texture != null:
 		print("%s drawer bg <- %s" % [VIDEO_LOG_PREFIX, GameData.first_existing_file(GameData.USER_DRAWER_FILE)])
+	var container_path: String = GameData.first_existing_file(GameData.USER_CONTAINER_FILE)
+	if not container_path.is_empty() and not container_path.begins_with("res://assets/images/"):
+		GameData.copy_file(container_path, "res://assets/images/container.jpg")
+	_container_texture = GameData.load_image_texture(GameData.USER_CONTAINER_FILE)
+	if _container_texture != null and is_instance_valid(_basin_frame):
+		_basin_frame.texture = _container_texture
+		print("%s basin <- %s" % [VIDEO_LOG_PREFIX, container_path])
 	var steve2_path: String = GameData.first_existing_file(GameData.USER_STEVE2_FILE)
 	if not steve2_path.is_empty():
 		print("%s Steve2.jpg found: %s" % [VIDEO_LOG_PREFIX, steve2_path])
@@ -235,6 +249,9 @@ func _connect_exit_popup() -> void:
 	_pin_top_button.pressed.connect(func() -> void:
 		_toggle_always_on_top()
 	)
+	_pressure_button.pressed.connect(func() -> void:
+		_on_pressure_wash_pressed()
+	)
 	_quit_app_button.pressed.connect(func() -> void:
 		get_tree().quit()
 	)
@@ -255,7 +272,7 @@ func _gui_input(event: InputEvent) -> void:
 				_close_inventory()
 				accept_event()
 				return
-			if _state != State.RUNAWAY and _is_pointer_on_pet(mb.position):
+			if _is_pointer_on_pet(mb.position):
 				_open_exit_popup()
 			else:
 				_close_exit_popup()
@@ -302,8 +319,6 @@ func _process_drag_input(event: InputEvent) -> void:
 		if mb.button_index != DRAG_BUTTON:
 			return
 		if mb.pressed:
-			if _state == State.RUNAWAY:
-				return
 			if _is_click_on_blocking_ui(mb.global_position):
 				return
 			if _exit_popup.visible:
@@ -379,6 +394,7 @@ func _process(delta: float) -> void:
 
 	_tick_hover_hud(delta)
 	_refresh_wash_progress()
+	_tick_pressure_cooldown(delta)
 
 
 func _start_wash_cycle() -> void:
@@ -441,14 +457,52 @@ func trigger_free_speedup() -> bool:
 	return true
 
 
+func _on_pressure_wash_pressed() -> void:
+	if _pressure_cd > 0.0:
+		return
+	_pressure_cd = GameData.PRESSURE_BUTTON_COOLDOWN
+	_refresh_pressure_button()
+	var cut: float = GameData.roll_pressure_wash_cut()
+	if _state == State.WASHING:
+		_wash_remaining = maxf(_wash_remaining - cut, 0.0)
+		print("%s pressure cut=%.1fs remaining=%.1fs" % [VIDEO_LOG_PREFIX, cut, _wash_remaining])
+		_refresh_wash_progress()
+		if _wash_remaining <= 0.0:
+			_finish_wash()
+	else:
+		print("%s pressure cut=%.1fs (not washing, skipped)" % [VIDEO_LOG_PREFIX, cut])
+	if GameData.roll_pressure_runaway():
+		_trigger_runaway()
+
+
+func _tick_pressure_cooldown(delta: float) -> void:
+	if _pressure_cd <= 0.0:
+		return
+	_pressure_cd = maxf(_pressure_cd - delta, 0.0)
+	_refresh_pressure_button()
+
+
+func _refresh_pressure_button() -> void:
+	if not is_instance_valid(_pressure_button):
+		return
+	var cooling: bool = _pressure_cd > 0.0
+	_pressure_button.disabled = cooling
+	if is_instance_valid(_pressure_cd_bar):
+		_pressure_cd_bar.visible = cooling
+		if cooling and GameData.PRESSURE_BUTTON_COOLDOWN > 0.0:
+			_pressure_cd_bar.value = _pressure_cd / GameData.PRESSURE_BUTTON_COOLDOWN
+		else:
+			_pressure_cd_bar.value = 0.0
+
+
 func _trigger_runaway() -> void:
 	_state = State.RUNAWAY
 	_cooldown_remaining = GameData.get_calculated_cooldown()
 	_dragging = false
 	_close_exit_popup()
 	_close_inventory()
-	_set_pet_hidden(true)
-	_log("RUNAWAY! hidden, cooldown=%.1fs (reduction=%.0f%%)" % [
+	_show_runaway_basin(true)
+	_log("RUNAWAY! basin left, cooldown=%.1fs (reduction=%.0f%%)" % [
 		_cooldown_remaining,
 		GameData.get_cd_reduction() * 100.0,
 	])
@@ -459,9 +513,44 @@ func _tick_runaway(delta: float) -> void:
 	if _cooldown_remaining > 0.0:
 		return
 	_cooldown_remaining = 0.0
-	_set_pet_hidden(false)
+	_show_runaway_basin(false)
 	_log("cooldown over -> pet is back")
 	_start_wash_cycle()
+
+
+func _show_runaway_basin(active: bool) -> void:
+	_hover_time = 0.0
+	_set_hover_hud_visible(false, false)
+	if active:
+		_set_video_playing(false)
+		if is_instance_valid(_pet_frame):
+			_pet_frame.visible = false
+		if is_instance_valid(_placeholder_visual):
+			_placeholder_visual.visible = false
+		if is_instance_valid(_basin_frame):
+			if _container_texture != null:
+				_basin_frame.texture = _container_texture
+			_basin_frame.position = _layout_area.position
+			_basin_frame.size = _layout_area.size
+			_basin_frame.visible = true
+			_apply_chroma_material(
+				_basin_frame,
+				chroma_key_similarity,
+				chroma_key_smoothness,
+				chroma_spill_suppression
+			)
+		if is_instance_valid(_pet_visual):
+			_pet_visual.visible = true
+		if is_instance_valid(_runaway_banner):
+			_runaway_banner.visible = true
+	else:
+		if is_instance_valid(_basin_frame):
+			_basin_frame.visible = false
+		if is_instance_valid(_runaway_banner):
+			_runaway_banner.visible = false
+		if is_instance_valid(_pet_visual):
+			_pet_visual.visible = true
+		_set_video_playing(_video_enabled)
 
 
 func _set_pet_hidden(hide_pet: bool) -> void:
@@ -913,6 +1002,8 @@ func _apply_video_key() -> void:
 		return
 	_apply_chroma_material(_pet_frame, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
 	_apply_chroma_material(_inventory_bg, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
+	if is_instance_valid(_basin_frame) and _basin_frame.visible:
+		_apply_chroma_material(_basin_frame, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
 
 
 func _log_chroma_key_state() -> void:
@@ -967,6 +1058,8 @@ func _wash_progress_value() -> int:
 
 
 func _current_pet_rect() -> Rect2:
+	if is_instance_valid(_basin_frame) and _basin_frame.visible and _basin_frame.size.x > 1.0:
+		return Rect2(_basin_frame.position, _basin_frame.size)
 	if is_instance_valid(_pet_frame) and _pet_frame.visible and _pet_frame.size.x > 1.0:
 		return Rect2(_pet_frame.position, _pet_frame.size)
 	if is_instance_valid(_pet_video) and _pet_video.size.x > 1.0:
@@ -1051,8 +1144,7 @@ func _is_pointer_on_pet(local_pos: Vector2) -> bool:
 
 
 func _open_exit_popup() -> void:
-	if _state == State.RUNAWAY:
-		return
+	_refresh_pressure_button()
 	_exit_popup.visible = true
 	print_verbose("%s context menu open" % VIDEO_LOG_PREFIX)
 
@@ -1076,7 +1168,8 @@ func _refresh_pin_button() -> void:
 
 func _set_pet_layer_visible(shown: bool) -> void:
 	if _state == State.RUNAWAY:
-		shown = false
+		_show_runaway_basin(true)
+		return
 	if is_instance_valid(_pet_visual):
 		_pet_visual.visible = shown
 	_set_video_playing(shown)

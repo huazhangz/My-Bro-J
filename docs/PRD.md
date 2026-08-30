@@ -27,8 +27,8 @@
 | 3 | 仓库存储上限 | 未晾干内裤进仓库，容量 **10**，满后暂停洗涤，有空位自动恢复 | ✅ 已实现 |
 | 4 | 品质、磨损与收藏 | 一次性 / 涤纶 / 纯棉 / 真丝 / 奢华 / 火星科技 + 8 档磨损前缀 | ✅ 数据层 + 烘干机 / 抽屉网格 |
 | 5 | 付费加速 | 已下线（`PAID_SPEEDUP_ENABLED = false`） | ⬜ 已禁用 |
-| 6 | 免费加速与风险触发 | 有概率触发"Steve 随机跑路" | ✅ 已实现 |
-| 7 | 跑路与冷却机制 | 跑路后隐藏桌宠 + 冷却倒计时，结束后自动回归 | ✅ 已实现 |
+| 6 | 压力Steve快点洗 | 右键菜单按钮：随机扣 1 秒~12 小时洗涤时间，冷却 15 分钟 | ✅ 已实现 |
+| 7 | 跑路与空盆 | 每次压力点击 15.5% 跑路：立绘换成抠绿幕空盆 + 红色「已跑路...」 | ✅ 已实现 |
 | 8 | 换装与展示 | 图鉴 / 换装 UI 已下线（`CODEX_ENABLED = false`） | ⬜ 已禁用 |
 | 11 | 动态立绘 | `VideoStreamPlayer` 循环播放 Steve 视频，跑路时隐藏并暂停 | ✅ 已实现（需自备 `.ogv` 素材） |
 | 9 | 品质 CD 缩减算法 | 穿戴品质越高，跑路冷却缩减越多 | ✅ 已实现 |
@@ -49,9 +49,11 @@
 | `DRY_DURATION_PER_QUALITY` | `10.0` 秒 | 品质每高一级增加的烘干时间（与磨损无关） |
 | `HOVER_SHOW_DELAY` | `1.5` 秒 | 鼠标在立绘上停留后显示洗涤水条 |
 | `WAREHOUSE_CAPACITY` | `10` | 未晾干仓库容量上限，满即暂停洗涤 |
-| `RUNAWAY_BASE_COOLDOWN` | `120.0` 秒 | 跑路冷却基础时长（未穿戴时） |
-| `FREE_SPEEDUP_RUNAWAY_CHANCE` | `0.075` | 免费加速触发跑路的概率（7.5%） |
-| `FREE_SPEEDUP_SECONDS` | `20.0` 秒 | 免费加速成功时扣减的洗涤时间 |
+| `RUNAWAY_BASE_COOLDOWN` | `120.0` 秒 | 跑路后回归的基础冷却（品质/收藏会再缩减） |
+| `PRESSURE_WASH_REDUCTION_MIN` | `1.0` 秒 | 压力按钮随机扣时下限 |
+| `PRESSURE_WASH_REDUCTION_MAX` | `43200` 秒 | 压力按钮随机扣时上限（12 小时） |
+| `PRESSURE_BUTTON_COOLDOWN` | `900` 秒 | 压力按钮冷却（15 分钟），按钮上叠透明进度条 |
+| `PRESSURE_RUNAWAY_CHANCE` | `0.155` | 每次点击压力按钮的跑路概率 |
 | `PAID_SPEEDUP_ENABLED` | `false` | 付费加速已下线 |
 | `CODEX_ENABLED` | `false` | 图鉴 / 换装 UI 已下线 |
 | `INVENTORY_SCALE` | `2.5` | 烘干机 / 抽屉弹层相对立绘区域的放大倍数 |
@@ -156,17 +158,16 @@ GameData.get_calculated_cooldown(base_seconds := 120.0, quality := 当前穿戴)
         │            仓库满 10 条                │
         │                  ▼                    │
         └────────────  PAUSED_FULL          RUNAWAY
-                                          (隐藏 + CD 倒计时)
+                                          (空盆 + 「已跑路...」+ 回归 CD)
                                                ▲
-                                    免费加速 7.5% 概率触发
+                              「压力Steve快点洗」每次点击 15.5%
 ```
 
 - 每条内裤持有**独立的 one-shot `Timer`**（时长 `dry_duration_for(quality)`），
   超时后调用 `GameData.dry_item(id)`，节点自动 `queue_free()`。
 - `GameData.warehouse_changed` 信号触发 `_try_resume_wash()`，实现"有空位自动恢复洗涤"。
-- 跑路期间调用 `_set_pet_hidden(true)`：隐藏全部可见节点 + 开启
-  `WINDOW_FLAG_MOUSE_PASSTHROUGH`（整窗鼠标穿透），视觉与交互上等于窗口消失，
-  不用 `minimize` 以免抢占任务栏焦点。
+- 跑路时停播立绘视频，显示 `BasinFrame`（`container.jpg` + 当前扣色参数），
+  并弹出红色半透明「已跑路...」。窗口仍可拖拽。回归 CD 结束后恢复视频并重新开洗。
 
 ---
 
@@ -236,8 +237,10 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 - **ExitPopup**（根节点下，默认隐藏）：在立绘上 **右键** 弹出居中菜单
   - `烘干机`：隐藏立绘，打开库存弹层（`dryer.jpg` 抠绿幕）
   - `抽屉`：隐藏立绘，打开库存弹层（`drawer.jpg` 抠绿幕）
+  - `压力Steve快点洗`：随机扣洗涤时间（1s~12h），冷却 15 分钟，冷却条叠在按钮上
   - `固定上层`：切换窗口置顶
   - `晚点再洗`：退出进程
+  - 跑路时立绘换成 `container.jpg` 抠绿幕空盆，并弹出红色半透明「已跑路...」
   - 点弹窗外 / `ESC`：关闭菜单
 - **InventoryPopup**（全屏，默认隐藏）：背景随种类换 `dryer.jpg` / `drawer.jpg`，外加半透明黑遮罩
   - 窗口临时放大为立绘区域的 **2.5 倍**（`INVENTORY_SCALE`，保持宽高比）
@@ -378,6 +381,7 @@ My-Bro-J/
 │   ├── images/
 │   │   ├── dryer.jpg       # 烘干机弹层背景
 │   │   ├── drawer.jpg      # 抽屉弹层背景
+│   │   ├── container.jpg   # 跑路空盆（绿幕，用当前扣色）
 │   │   └── steve2.jpg      # 无可用视频时的静帧回落
 │   ├── fonts/
 │   │   ├── YuanRou-P-Bold.ttf             # 唯一 UI 字体（源柔 P Bold）
@@ -400,10 +404,12 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 ├── PetVisual (Control, IGNORE)
 │   ├── PetVideo (VideoStreamPlayer)
 │   ├── PetFrame (TextureRect)
+│   ├── BasinFrame (TextureRect, 跑路空盆)
 │   └── PlaceholderVisual (Control)
 │       └── Head / EyeLeft / EyeRight / Body / Basin
 ├── ExitPopup (PanelContainer, 默认隐藏)
-│   └── 烘干机 / 抽屉 / 退出游戏
+│   └── 烘干机 / 抽屉 / 压力Steve快点洗 / 固定上层 / 晚点再洗
+├── RunawayBanner（红色半透明「已跑路...」）
 └── InventoryPopup (Control, 默认隐藏, 全屏)
     ├── InventoryBg (TextureRect = dryer.jpg)
     ├── InventoryMask (ColorRect 0,0,0,0.6)
@@ -454,7 +460,9 @@ Steve (Control, 铺满窗口, theme = steve_theme)
   - [x] 引擎实跑验证：45s 出货、90s+品质烘干、容量上限 10、CD 缩减数值全部正确
 - [x] **Day 3**：右键菜单 + 库存网格（常驻 HUD / 图鉴 / 加速按钮已拆除）
   - [x] 唯一中文字体 YuanRou-P-Bold + `steve_theme.tres`
-  - [x] 右键 `ExitPopup`：烘干机 / 抽屉 / 固定上层 / 晚点再洗
+  - [x] 右键 `ExitPopup`：烘干机 / 抽屉 / 压力Steve快点洗 / 固定上层 / 晚点再洗
+  - [x] 压力按钮：`randf_range(1s, 12h)` 扣洗涤时间，冷却 15 分钟叠透明进度条
+  - [x] 每次压力点击 15.5% 跑路：空盆 `container.jpg` 抠绿幕 + 红色「已跑路...」
   - [x] `InventoryPopup`：dryer/drawer 绿幕背景 + 5 列滚动网格
   - [x] 悬停 1.5s 头顶洗涤水条
   - [x] 品质重构为一次性 / 涤纶 / 纯棉 / 真丝 / 奢华 / 火星科技，并附加 8 档磨损前缀

@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scripts/steve.gd" id="1_steve"]
 [ext_resource type="Theme" path="res://assets/fonts/steve_theme.tres" id="2_theme"]
@@ -6,6 +6,7 @@
 [ext_resource type="VideoStreamTheora" path="res://assets/videos/steve.ogv" id="4_ogv"]
 [ext_resource type="Texture2D" path="res://assets/images/dryer.jpg" id="5_dryer"]
 [ext_resource type="Texture2D" path="res://assets/images/drawer.jpg" id="6_drawer"]
+[ext_resource type="Texture2D" path="res://assets/images/container.jpg" id="7_basin"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_videokey"]
 shader = ExtResource("3_videokey")
@@ -20,6 +21,39 @@ shader_parameter/key_color = Color(0, 1, 0, 1)
 shader_parameter/similarity = 0.4
 shader_parameter/smoothness = 0.1
 shader_parameter/spill_suppression = 0.3
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_basinkey"]
+shader = ExtResource("3_videokey")
+shader_parameter/key_color = Color(0, 1, 0, 1)
+shader_parameter/similarity = 0.4
+shader_parameter/smoothness = 0.1
+shader_parameter/spill_suppression = 0.3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cd_bg"]
+bg_color = Color(0, 0, 0, 0)
+border_width_left = 0
+border_width_top = 0
+border_width_right = 0
+border_width_bottom = 0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cd_fill"]
+bg_color = Color(0.08, 0.1, 0.14, 0.45)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_runaway"]
+bg_color = Color(0.72, 0.08, 0.08, 0.55)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 0.35, 0.28, 0.7)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_water_bg"]
 bg_color = Color(0.04, 0.1, 0.18, 0.7)
@@ -91,6 +125,20 @@ offset_top = 5.0
 offset_right = 245.0
 offset_bottom = 345.0
 mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="BasinFrame" type="TextureRect" parent="PetVisual"]
+unique_name_in_owner = true
+visible = false
+material = SubResource("ShaderMaterial_basinkey")
+layout_mode = 0
+offset_left = 5.0
+offset_top = 5.0
+offset_right = 245.0
+offset_bottom = 345.0
+mouse_filter = 2
+texture = ExtResource("7_basin")
 expand_mode = 1
 stretch_mode = 5
 
@@ -195,10 +243,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -86.0
-offset_top = -102.0
-offset_right = 86.0
-offset_bottom = 102.0
+offset_left = -102.0
+offset_top = -128.0
+offset_right = 102.0
+offset_bottom = 128.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_type_variation = &"SolidPanel"
@@ -219,6 +267,39 @@ layout_mode = 2
 theme_type_variation = &"CoinButton"
 text = "抽屉"
 
+[node name="PressureWashSlot" type="Control" parent="ExitPopup/Rows"]
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PressureWashButton" type="Button" parent="ExitPopup/Rows/PressureWashSlot"]
+unique_name_in_owner = true
+clip_contents = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"RiskButton"
+text = "压力Steve快点洗"
+
+[node name="PressureCooldownBar" type="ProgressBar" parent="ExitPopup/Rows/PressureWashSlot"]
+unique_name_in_owner = true
+visible = false
+z_index = 1
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_cd_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_cd_fill")
+max_value = 1.0
+show_percentage = false
+
 [node name="PinTopButton" type="Button" parent="ExitPopup/Rows"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -230,6 +311,34 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"CloseButton"
 text = "晚点再洗"
+
+[node name="RunawayBanner" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+z_index = 40
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -92.0
+offset_top = -28.0
+offset_right = 92.0
+offset_bottom = 28.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_runaway")
+
+[node name="RunawayLabel" type="Label" parent="RunawayBanner"]
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"TitleLabel"
+theme_override_colors/font_color = Color(1, 0.92, 0.9, 1)
+text = "已跑路..."
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="InventoryPopup" type="Control" parent="."]
 unique_name_in_owner = true

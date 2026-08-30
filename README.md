@@ -29,7 +29,8 @@
 |------|------|
 | 鼠标在立绘上停留 1.5 秒 | 头顶显示洗涤水条与进度文字 |
 | 左键拖动 | 移动桌宠窗口 |
-| **在立绘上右键** | 烘干机 / 抽屉 / 固定上层 / 晚点再洗 |
+| **在立绘上右键** | 烘干机 / 抽屉 / 压力Steve快点洗 / 固定上层 / 晚点再洗 |
+| 点「压力Steve快点洗」 | 随机扣 1 秒~12 小时洗涤时间；15.5% 跑路变空盆；按钮冷却 15 分钟 |
 | 点「烘干机」/「抽屉」 | 打开 2.5× 滚动网格（晾干中 / 已收藏） |
 | 点关闭、再右键或 `ESC` | 关闭弹层 |
 | `ESC` | 弹窗开着则关闭，否则退出 |
@@ -53,6 +54,7 @@ My-Bro-J/
 ├── scripts/GameData.gd
 ├── assets/images/dryer.jpg
 ├── assets/images/drawer.jpg
+├── assets/images/container.jpg
 ├── assets/images/steve2.jpg
 ├── assets/fonts/YuanRou-P-Bold.ttf
 ├── assets/fonts/YuanRou-OFL.txt

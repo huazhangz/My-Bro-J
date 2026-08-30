@@ -92,6 +92,7 @@ const USER_VIDEO_FILE: String = "steve3.mp4"
 const USER_DRYER_FILE: String = "dryer.jpg"
 const USER_DRAWER_FILE: String = "drawer.jpg"
 const USER_STEVE2_FILE: String = "Steve2.jpg"
+const USER_CONTAINER_FILE: String = "container.jpg"
 const USER_UI_FONT_FILE: String = "YuanRou-P-Bold.ttf"
 const USER_UI_FONT_ZIP: String = "YuanRou-P-Bold.zip"
 const RES_UI_FONT_PATH: String = "res://assets/fonts/YuanRou-P-Bold.ttf"
@@ -145,9 +146,15 @@ const WASH_PROGRESS_MAX: int = 100
 
 ## 跑路冷却基础秒数（未穿戴任何内裤时的冷却）。
 const RUNAWAY_BASE_COOLDOWN: float = 120.0
-## 免费加速触发「Steve 跑路」的概率。
-const FREE_SPEEDUP_RUNAWAY_CHANCE: float = 0.075
-## 免费加速成功时直接扣掉的洗涤秒数。
+## 「压力Steve快点洗」每次点击的跑路判定概率。
+const PRESSURE_RUNAWAY_CHANCE: float = 0.155
+## 压力按钮每次随机扣减的洗涤秒数区间（1 秒 ~ 12 小时）。
+const PRESSURE_WASH_REDUCTION_MIN: float = 1.0
+const PRESSURE_WASH_REDUCTION_MAX: float = 43200.0
+## 压力按钮冷却。
+const PRESSURE_BUTTON_COOLDOWN: float = 900.0
+## 兼容旧免费加速 API。
+const FREE_SPEEDUP_RUNAWAY_CHANCE: float = PRESSURE_RUNAWAY_CHANCE
 const FREE_SPEEDUP_SECONDS: float = 20.0
 ## 付费加速 / 图鉴换装已下线（无 UI 入口）。常量保留给存档兼容。
 const PAID_SPEEDUP_ENABLED: bool = false
@@ -384,6 +391,14 @@ func get_cd_reduction(quality: int = -2) -> float:
 func get_calculated_cooldown(base_seconds: float = RUNAWAY_BASE_COOLDOWN, quality: int = -2) -> float:
 	var reduced: float = base_seconds * (1.0 - get_cd_reduction(quality))
 	return maxf(reduced, MIN_COOLDOWN_SECONDS)
+
+
+func roll_pressure_wash_cut() -> float:
+	return randf_range(PRESSURE_WASH_REDUCTION_MIN, PRESSURE_WASH_REDUCTION_MAX)
+
+
+func roll_pressure_runaway() -> bool:
+	return randf() < PRESSURE_RUNAWAY_CHANCE
 
 
 # --- 存档（Day 5 预留） ---------------------------------------------------
