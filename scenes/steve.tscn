@@ -657,7 +657,7 @@ theme_override_constants/separation = 8
 [node name="TidyHint" type="Label" parent="InventoryPopup/InventoryBody/TidyPanel"]
 layout_mode = 2
 mouse_filter = 2
-text = "勾选要丢掉的品质或随机词条"
+text = "品质从高到低。只勾品质或词条删该组；两边都勾只删同时符合的。"
 autowrap_mode = 3
 
 [node name="TidyQualityBox" type="HFlowContainer" parent="InventoryPopup/InventoryBody/TidyPanel"]
@@ -700,7 +700,8 @@ vertical_scroll_mode = 2
 [node name="InventoryGrid" type="GridContainer" parent="InventoryPopup/InventoryBody/InventoryScroll"]
 unique_name_in_owner = true
 layout_mode = 2
-size_flags_horizontal = 3
+size_flags_horizontal = 0
+size_flags_vertical = 0
 theme_override_constants/h_separation = 8
 theme_override_constants/v_separation = 8
 columns = 5

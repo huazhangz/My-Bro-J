@@ -27,6 +27,16 @@ const QUALITY_NAMES: Dictionary = {
 	Quality.MARTIAN: "Martian",
 }
 
+## 收拾一下品质按钮：从高到低、从左到右。
+const QUALITY_TIDY_ORDER: Array[int] = [
+	Quality.MARTIAN,
+	Quality.LUXURY,
+	Quality.SILK,
+	Quality.COTTON,
+	Quality.POLYESTER,
+	Quality.ONEOFF,
+]
+
 ## 中文名，UI 展示用。
 const QUALITY_NAMES_CN: Dictionary = {
 	Quality.ONEOFF: "一次性",
@@ -79,14 +89,17 @@ const WEAR_PREFIXES: PackedStringArray = [
 	"臭的",
 ]
 
-## 烘干机 / 抽屉弹层相对立绘的放大倍数，再乘 INVENTORY_SIZE_FACTOR。
-const INVENTORY_SCALE: float = 2.5
-## 相对上一版库存窗边长的缩放（75%），窗口宽:高 = 4:3。
-const INVENTORY_SIZE_FACTOR: float = 0.75
-const INVENTORY_ASPECT_W: float = 4.0
-const INVENTORY_ASPECT_H: float = 3.0
+## 库存窗按「横 5 × 竖 6」卡片正好铺满来定尺寸，不跟立绘体型。
 const GRID_COLUMNS: int = 5
-const ITEM_CARD_SIZE: Vector2 = Vector2(120.0, 142.0)
+const GRID_VISIBLE_ROWS: int = 6
+const GRID_H_SEP: int = 8
+const GRID_V_SEP: int = 8
+const ITEM_CARD_SIZE: Vector2 = Vector2(110.0, 96.0)
+const ITEM_CARD_SWATCH_H: float = 30.0
+const INVENTORY_PAD_X: float = 32.0
+const INVENTORY_CHROME_Y: float = 70.0
+const INVENTORY_SCROLL_GUTTER: float = 18.0
+const TIDY_PANEL_MIN_HEIGHT: float = 168.0
 ## 立绘 / 库存图等比放大。
 const IMAGE_SCALE: float = 1.2
 ## Steve 本体相对放大后的框再向右偏的格数（1 格 = 1 逻辑像素）。
@@ -173,11 +186,12 @@ const USER_ASSET_DIRS: PackedStringArray = [
 
 # --- 核心数值 -------------------------------------------------------------
 
-## 洗完一条内裤需要的秒数（正常速度）。
-const WASH_DURATION: float = 45.0
+## 洗完一条内裤需要的秒数（正常速度）。旧 45s → 3 分钟。
+const WASH_DURATION: float = 180.0
 ## 烘干基础秒数；品质每高一级再加 DRY_DURATION_PER_QUALITY（与磨损无关）。
-const DRY_DURATION_BASE: float = 90.0
-const DRY_DURATION_PER_QUALITY: float = 10.0
+## 旧 90 + 10×等级；基础改为 5 分钟后增量按 300/90 等比例。
+const DRY_DURATION_BASE: float = 300.0
+const DRY_DURATION_PER_QUALITY: float = 100.0 / 3.0
 ## 兼容旧引用：等于基础烘干时长。
 const DRY_DURATION: float = DRY_DURATION_BASE
 ## 未晾干仓库容量上限，满后暂停洗涤。
@@ -206,7 +220,7 @@ const AFFINITY_QUALITY_K: float = 14.0
 const AFFINITY_QUALITY_SHARE: float = 85.0
 const AFFINITY_COMPANION_SHARE: float = 15.0
 const AFFINITY_COMPANION_FULL_SECONDS: float = 449280.0
-const AFFINITY_RUNAWAY_PENALTY: float = 4.0
+const AFFINITY_RUNAWAY_PENALTY: float = 25.0
 const PET_SIZE_SMALL: int = 0
 const PET_SIZE_MEDIUM: int = 1
 const PET_SIZE_LARGE: int = 2
@@ -215,8 +229,8 @@ const PET_SIZE_SCALES: Array[float] = [0.70, 1.00, 1.35, 2.00]
 const PET_SIZE_LABELS: PackedStringArray = ["小", "中", "大", "超大"]
 ## 超大体型时 Steve 再向右偏的格数（上次 3 + 本次 3）。
 const PET_SIZE_HUGE_SHIFT_X: float = 6.0
-const DRYER_ICON_NUDGE_Y: float = 2.0
-const DRAWER_ICON_NUDGE_Y: float = 3.0
+const DRYER_ICON_NUDGE_Y: float = 5.0
+const DRAWER_ICON_NUDGE_Y: float = 8.0
 const AFFINITY_QUALITY_VALUE: Dictionary = {
 	Quality.ONEOFF: 1.0,
 	Quality.POLYESTER: 2.0,
@@ -355,7 +369,7 @@ func make_display_name(wear: String, quality: int) -> String:
 	return "%s·%s" % [wear, quality_display_name(quality)]
 
 
-## 烘干秒数 = 90 + 品质等级 × 10。ONEOFF=0 … MARTIAN=5。
+## 烘干秒数 = 300 + 品质等级 × (100/3)。ONEOFF=0 … MARTIAN=5。
 func dry_duration_for(quality: int) -> float:
 	var level: int = clampi(quality, 0, int(Quality.MARTIAN))
 	return DRY_DURATION_BASE + float(level) * DRY_DURATION_PER_QUALITY
@@ -392,27 +406,93 @@ func add_wet_item(quality: int = -1) -> Dictionary:
 	return item
 
 
-## 抽屉收拾：品质集合与磨损集合取交集。不减 underwear_total（生涯已洗条数）。
-func delete_dry_matching(qualities: Array[int], wears: PackedStringArray) -> int:
+func item_wear_text(item: Dictionary) -> String:
+	var wear: String = String(item.get("wear", "")).strip_edges()
+	if wear.is_empty():
+		wear = String(item.get("wear_modifier", "")).strip_edges()
+	if wear.is_empty():
+		var display: String = String(item.get("display_name", ""))
+		var cut: int = display.find("·")
+		if cut >= 0:
+			wear = display.substr(0, cut).strip_edges()
+	return wear
+
+
+func quality_in_filters(qualities: Array[int], quality: int) -> bool:
+	for q: int in qualities:
+		if int(q) == quality:
+			return true
+	return false
+
+
+func wear_in_filters(wears: PackedStringArray, wear: String) -> bool:
+	var key: String = wear.strip_edges()
+	for w: String in wears:
+		if String(w).strip_edges() == key:
+			return true
+	return false
+
+
+## 只勾品质：删该品质全部。只勾词条：删该词条全部。两边都勾：只删同时符合的。
+func item_matches_tidy_filters(
+	item: Dictionary, qualities: Array[int], wears: PackedStringArray
+) -> bool:
 	if qualities.is_empty() and wears.is_empty():
-		return 0
+		return false
+	var quality: int = int(item.get("quality", -1))
+	var wear: String = item_wear_text(item)
+	if not qualities.is_empty() and not quality_in_filters(qualities, quality):
+		return false
+	if not wears.is_empty() and not wear_in_filters(wears, wear):
+		return false
+	return true
+
+
+func _split_by_tidy_filters(
+	items: Array[Dictionary], qualities: Array[int], wears: PackedStringArray
+) -> Dictionary:
 	var kept: Array[Dictionary] = []
-	var removed: int = 0
-	for item: Dictionary in dry_collection:
-		var quality: int = int(item.get("quality", 0))
-		var wear: String = String(item.get("wear", item.get("wear_modifier", "")))
-		var quality_ok: bool = qualities.is_empty() or qualities.has(quality)
-		var wear_ok: bool = wears.is_empty() or wears.has(wear)
-		if quality_ok and wear_ok:
-			removed += 1
+	var removed: Array[Dictionary] = []
+	for item: Dictionary in items:
+		if item_matches_tidy_filters(item, qualities, wears):
+			removed.append(item)
 		else:
 			kept.append(item)
-	if removed <= 0:
+	return {"kept": kept, "removed": removed}
+
+
+func _copy_item_array(source: Array) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for item: Dictionary in source:
+		out.append(item)
+	return out
+
+
+## 抽屉收拾。不减 underwear_total。
+func delete_dry_matching(qualities: Array[int], wears: PackedStringArray) -> int:
+	var split: Dictionary = _split_by_tidy_filters(dry_collection, qualities, wears)
+	var removed: Array = split["removed"]
+	if removed.is_empty():
 		return 0
-	dry_collection = kept
+	dry_collection = _copy_item_array(split["kept"])
 	collection_changed.emit(dry_collection.size())
 	save_game()
-	return removed
+	return removed.size()
+
+
+## 烘干机收拾。不减 underwear_total。返回被删条目的 id。
+func delete_wet_matching(qualities: Array[int], wears: PackedStringArray) -> Array[int]:
+	var split: Dictionary = _split_by_tidy_filters(wet_warehouse, qualities, wears)
+	var removed: Array = split["removed"]
+	var ids: Array[int] = []
+	if removed.is_empty():
+		return ids
+	for item: Dictionary in removed:
+		ids.append(int(item.get("id", 0)))
+	wet_warehouse = _copy_item_array(split["kept"])
+	warehouse_changed.emit(wet_warehouse.size(), WAREHOUSE_CAPACITY)
+	save_game()
+	return ids
 
 
 func dry_item(item_id: int) -> bool:
@@ -607,15 +687,20 @@ func pet_layout_area() -> Rect2:
 	return area
 
 
-func inventory_window_size() -> Vector2i:
-	var box_w: float = PET_AREA.size.x * INVENTORY_SCALE * INVENTORY_SIZE_FACTOR
-	var box_h: float = PET_AREA.size.y * INVENTORY_SCALE * INVENTORY_SIZE_FACTOR
-	var width: float = box_w
-	var height: float = width * INVENTORY_ASPECT_H / INVENTORY_ASPECT_W
-	if height > box_h:
-		height = box_h
-		width = height * INVENTORY_ASPECT_W / INVENTORY_ASPECT_H
-	return Vector2i(maxi(int(round(width)), 400), maxi(int(round(height)), 300))
+func inventory_grid_size() -> Vector2:
+	return Vector2(
+		float(GRID_COLUMNS) * ITEM_CARD_SIZE.x + float(GRID_COLUMNS - 1) * float(GRID_H_SEP),
+		float(GRID_VISIBLE_ROWS) * ITEM_CARD_SIZE.y + float(GRID_VISIBLE_ROWS - 1) * float(GRID_V_SEP)
+	)
+
+
+func inventory_window_size(tidy_open: bool = false) -> Vector2i:
+	var grid: Vector2 = inventory_grid_size()
+	var width: int = int(round(grid.x + INVENTORY_PAD_X + INVENTORY_SCROLL_GUTTER))
+	var height: int = int(round(grid.y + INVENTORY_CHROME_Y))
+	if tidy_open:
+		height += int(TIDY_PANEL_MIN_HEIGHT)
+	return Vector2i(width, height)
 
 
 func context_menu_window_size() -> Vector2i:

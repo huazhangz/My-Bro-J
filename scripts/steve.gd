@@ -99,6 +99,7 @@ var _pet_video: VideoStreamPlayer
 @onready var _tidy_delete_button: Button = %TidyDeleteButton
 @onready var _tidy_cancel_button: Button = %TidyCancelButton
 @onready var _inventory_grid: GridContainer = %InventoryGrid
+@onready var _inventory_scroll: ScrollContainer = %InventoryScroll
 @onready var _inventory_empty: Label = %InventoryEmpty
 @onready var _inventory_bg: TextureRect = %InventoryBg
 @onready var _hover_hud: Control = %HoverHud
@@ -684,6 +685,16 @@ func _start_dry_timer(item_id: int) -> void:
 		timer.queue_free()
 	)
 	timer.start()
+
+
+func _cancel_dry_timer(item_id: int) -> void:
+	if not _dry_timers.has(item_id):
+		return
+	var timer: Timer = _dry_timers[item_id] as Timer
+	_dry_timers.erase(item_id)
+	if is_instance_valid(timer):
+		timer.stop()
+		timer.queue_free()
 
 
 func _try_resume_wash() -> void:
@@ -1540,7 +1551,7 @@ func _apply_inventory_headline(kind: String) -> void:
 			GameData.INVENTORY_HEADLINE_HEIGHT
 		)
 	if is_instance_valid(_tidy_button):
-		_tidy_button.visible = kind == "drawer"
+		_tidy_button.visible = true
 		_tidy_button.custom_minimum_size.y = GameData.INVENTORY_HEADLINE_HEIGHT
 	_set_tidy_panel_visible(false)
 
@@ -1557,7 +1568,7 @@ func _open_inventory(kind: String) -> void:
 	_expand_overlay_window(_inventory_window_size())
 	_apply_inventory_background(kind)
 	_apply_inventory_headline(kind)
-	_inventory_grid.columns = GameData.GRID_COLUMNS
+	_apply_inventory_grid_metrics()
 	_inventory_popup.visible = true
 	_fill_inventory_grid()
 	call_deferred("_layout_inventory_bg")
@@ -1574,7 +1585,21 @@ func _close_inventory() -> void:
 
 
 func _inventory_window_size() -> Vector2i:
-	return GameData.inventory_window_size()
+	var tidy_open: bool = is_instance_valid(_tidy_panel) and _tidy_panel.visible
+	return GameData.inventory_window_size(tidy_open)
+
+
+func _apply_inventory_grid_metrics() -> void:
+	if is_instance_valid(_inventory_grid):
+		_inventory_grid.columns = GameData.GRID_COLUMNS
+		_inventory_grid.add_theme_constant_override("h_separation", GameData.GRID_H_SEP)
+		_inventory_grid.add_theme_constant_override("v_separation", GameData.GRID_V_SEP)
+		_inventory_grid.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		_inventory_grid.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	if is_instance_valid(_inventory_scroll):
+		_inventory_scroll.custom_minimum_size = GameData.inventory_grid_size()
+		_inventory_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		_inventory_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 
 
 func _expand_overlay_window(new_size: Vector2i) -> void:
@@ -1665,7 +1690,7 @@ func _make_item_card(item: Dictionary) -> Control:
 	card.add_child(col)
 
 	var icon: ColorRect = ColorRect.new()
-	icon.custom_minimum_size = Vector2(0.0, 44.0)
+	icon.custom_minimum_size = Vector2(0.0, GameData.ITEM_CARD_SWATCH_H)
 	icon.color = Color(accent.r, accent.g, accent.b, 0.85)
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(icon)
@@ -1674,6 +1699,8 @@ func _make_item_card(item: Dictionary) -> Control:
 	wear_label.text = wear
 	wear_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	wear_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	wear_label.clip_text = false
+	wear_label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	wear_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	wear_label.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
 	wear_label.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
@@ -1682,6 +1709,9 @@ func _make_item_card(item: Dictionary) -> Control:
 	var quality_label: Label = Label.new()
 	quality_label.text = quality_name
 	quality_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	quality_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	quality_label.clip_text = false
+	quality_label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	quality_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	quality_label.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
 	quality_label.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
@@ -1837,7 +1867,7 @@ func _build_tidy_filters() -> void:
 		return
 	if _tidy_quality_box.get_child_count() > 0:
 		return
-	for quality: int in GameData.Quality.values():
+	for quality: int in GameData.QUALITY_TIDY_ORDER:
 		var button: Button = Button.new()
 		button.toggle_mode = true
 		button.text = GameData.quality_display_name(quality)
@@ -1879,7 +1909,9 @@ func _apply_tidy_toggle_style(button: Button, selected: bool) -> void:
 
 
 func _toggle_tidy_panel() -> void:
-	if _inventory_kind != "drawer" or not is_instance_valid(_tidy_panel):
+	if _inventory_kind != "drawer" and _inventory_kind != "dryer":
+		return
+	if not is_instance_valid(_tidy_panel):
 		return
 	_set_tidy_panel_visible(not _tidy_panel.visible)
 
@@ -1889,6 +1921,9 @@ func _set_tidy_panel_visible(shown: bool) -> void:
 		_tidy_panel.visible = shown
 	if not shown:
 		_clear_tidy_toggles()
+	if _inventory_popup.visible:
+		_expand_overlay_window(_inventory_window_size())
+		call_deferred("_layout_inventory_bg")
 
 
 func _clear_tidy_toggles() -> void:
@@ -1901,21 +1936,46 @@ func _clear_tidy_toggles() -> void:
 				button.button_pressed = false
 
 
-func _confirm_tidy_delete() -> void:
+func _collect_tidy_filters() -> Dictionary:
 	var qualities: Array[int] = []
 	var wears: PackedStringArray = PackedStringArray()
 	if is_instance_valid(_tidy_quality_box):
 		for child: Node in _tidy_quality_box.get_children():
 			var button: Button = child as Button
-			if button != null and button.button_pressed:
-				qualities.append(int(button.get_meta("quality", 0)))
+			if button == null or not button.button_pressed:
+				continue
+			qualities.append(int(button.get_meta("quality", -1)))
 	if is_instance_valid(_tidy_wear_box):
 		for child: Node in _tidy_wear_box.get_children():
 			var button: Button = child as Button
-			if button != null and button.button_pressed:
-				wears.append(String(button.get_meta("wear", "")))
-	var removed: int = GameData.delete_dry_matching(qualities, wears)
-	print("%s tidy removed=%d" % [VIDEO_LOG_PREFIX, removed])
+			if button == null or not button.button_pressed:
+				continue
+			wears.append(String(button.get_meta("wear", "")).strip_edges())
+	return {"qualities": qualities, "wears": wears}
+
+
+func _confirm_tidy_delete() -> void:
+	var filters: Dictionary = _collect_tidy_filters()
+	var qualities: Array[int] = []
+	for q: int in filters["qualities"]:
+		qualities.append(int(q))
+	var wears: PackedStringArray = PackedStringArray()
+	for wear: String in filters["wears"]:
+		wears.append(String(wear))
+	if qualities.is_empty() and wears.is_empty():
+		print("%s tidy skipped: no filters" % VIDEO_LOG_PREFIX)
+		return
+	var removed: int = 0
+	if _inventory_kind == "dryer":
+		var ids: Array[int] = GameData.delete_wet_matching(qualities, wears)
+		for item_id: int in ids:
+			_cancel_dry_timer(item_id)
+		removed = ids.size()
+	else:
+		removed = GameData.delete_dry_matching(qualities, wears)
+	print("%s tidy kind=%s removed=%d q=%s w=%s" % [
+		VIDEO_LOG_PREFIX, _inventory_kind, removed, str(qualities), str(wears),
+	])
 	_fill_inventory_grid()
 	_set_tidy_panel_visible(false)
 

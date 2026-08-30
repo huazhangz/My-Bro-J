@@ -86,8 +86,8 @@ My-Bro-J/
 
 | 常量 | 值 | 含义 |
 |------|-----|------|
-| `WASH_DURATION` | 45 s | 洗完一条内裤 |
-| `DRY_DURATION_BASE` | 90 s | 烘干基础时长；品质每级 +10 s |
+| `WASH_DURATION` | 180 s | 洗完一条内裤（3 分钟） |
+| `DRY_DURATION_BASE` | 300 s | 烘干基础 5 分钟；品质每级 +100/3 s |
 | `WAREHOUSE_CAPACITY` | 10 | 未晾干仓库上限，满则暂停洗涤 |
 | `RUNAWAY_BASE_COOLDOWN` | 120 s | 跑路冷却基础时长 |
 | `FREE_SPEEDUP_RUNAWAY_CHANCE` | 7.5% | 免费加速触发跑路的概率 |
