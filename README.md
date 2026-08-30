@@ -74,7 +74,8 @@ My-Bro-J/
 
 源文件：`C:\Users\ASUS\My-Bro-J\steve3.mp4`（绿幕）。Godot 4 只播 `.ogv`。
 启动时若找到该 mp4 会用 FFmpeg 覆盖 `assets/videos/steve.ogv`（失败再写 `user://steve.ogv`）。
-仓库里 70KB 测试占位片会被拒绝。色度键默认：绿 `#00FF00`，similarity `0.40`，smoothness `0.10`。
+仓库里 70KB 测试占位片会被拒绝。立绘框 / 色度键默认锁定为 `GameData.PET_AREA` 与
+`CHROMA_KEY_*`（`#00FF00` / `0.40` / `0.10` / `0.30`），与当前 `steve.tscn` 一致。
 详见 [`assets/videos/README.md`](assets/videos/README.md)。
 
 ---

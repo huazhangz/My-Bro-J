@@ -105,6 +105,13 @@ const USER_UI_FONT_ALIASES: PackedStringArray = [
 ## 仓库里 70KB / 4 秒的 steve.ogv 是测试占位片，不能当人物动画。
 const STUB_VIDEO_MAX_BYTES: int = 80000
 const ALWAYS_ON_TOP_DEFAULT: bool = true
+## 与 scenes/steve.tscn 里当前 Steve 立绘框 / 扣色导出值一致，作为唯一默认。
+const PET_AREA: Rect2 = Rect2(5.0, 5.0, 240.0, 340.0)
+const CHROMA_KEY_ENABLED: bool = true
+const CHROMA_KEY_COLOR: Color = Color(0.0, 1.0, 0.0, 1.0)
+const CHROMA_KEY_SIMILARITY: float = 0.40
+const CHROMA_KEY_SMOOTHNESS: float = 0.10
+const CHROMA_SPILL_SUPPRESSION: float = 0.30
 const USER_ASSET_DIRS: PackedStringArray = [
 	USER_PROJECT_DIR,
 	USER_PROJECT_DIR_WSL,

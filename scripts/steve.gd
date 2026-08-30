@@ -18,8 +18,7 @@ const VIDEO_DIR: String = "res://assets/videos"
 const VIDEO_PATH: String = "res://assets/videos/steve.ogv"
 const USER_CACHE_OGV: String = "user://steve.ogv"
 ## 无 HUD 后立绘铺满窗口，按宽高比居中内接。
-## 默认立绘包围盒；运行时以实际 PetVideo / PetFrame 矩形为准。
-const VIDEO_AREA: Rect2 = Rect2(5.0, 5.0, 240.0, 340.0)
+## 包围盒默认来自 GameData.PET_AREA；进树时改用场景里已微调的 PetVideo 矩形。
 const HOVER_HUD_HEIGHT: float = 40.0
 const HOVER_BAR_HEIGHT: float = 12.0
 const HOVER_GAP: float = 6.0
@@ -101,15 +100,17 @@ var _hover_tween: Tween
 var _always_on_top: bool = true
 var _dryer_texture: Texture2D
 var _drawer_texture: Texture2D
+var _layout_area: Rect2 = GameData.PET_AREA
 
 
 func _ready() -> void:
 	get_tree().root.gui_embed_subwindows = false
 	_debug_log = OS.get_cmdline_user_args().has("--petlog")
-	print("%s build=qualities-wear-dryer-drawer  scene=%s  menu=烘干机/抽屉/退出游戏" % [
+	print("%s build=qualities-wear-dryer-drawer  scene=%s  menu=烘干机/抽屉/固定上层/晚点再洗" % [
 		VIDEO_LOG_PREFIX, scene_file_path,
 	])
 	_ensure_pet_video_node()
+	_capture_layout_area()
 	_always_on_top = GameData.ALWAYS_ON_TOP_DEFAULT
 	_apply_mouse_filters()
 	_apply_ui_font()
@@ -501,8 +502,8 @@ func _ensure_pet_video_node() -> void:
 	_pet_video.autoplay = true
 	_pet_video.expand = true
 	_pet_video.loop = true
-	_pet_video.position = VIDEO_AREA.position
-	_pet_video.size = VIDEO_AREA.size
+	_pet_video.position = GameData.PET_AREA.position
+	_pet_video.size = GameData.PET_AREA.size
 	visual.add_child(_pet_video)
 	visual.move_child(_pet_video, 0)
 	print("%s restored missing PetVideo under %s" % [VIDEO_LOG_PREFIX, visual.get_path()])
@@ -865,9 +866,10 @@ func _fit_video_rect() -> bool:
 	if source.x <= 0.0 or source.y <= 0.0:
 		return false
 
-	var ratio: float = minf(VIDEO_AREA.size.x / source.x, VIDEO_AREA.size.y / source.y)
+	var area: Rect2 = _pet_area()
+	var ratio: float = minf(area.size.x / source.x, area.size.y / source.y)
 	var fitted: Vector2 = source * ratio
-	_pet_video.position = VIDEO_AREA.position + (VIDEO_AREA.size - fitted) * 0.5
+	_pet_video.position = area.position + (area.size - fitted) * 0.5
 	_pet_video.size = fitted
 	_sync_video_display()
 	return true
@@ -931,7 +933,12 @@ func set_chroma_key_enabled(enabled: bool) -> void:
 	chroma_key_enabled = enabled
 
 
-func apply_chroma_key(color: Color, similarity: float = 0.40, smoothness: float = 0.10, spill: float = 0.30) -> void:
+func apply_chroma_key(
+	color: Color = GameData.CHROMA_KEY_COLOR,
+	similarity: float = GameData.CHROMA_KEY_SIMILARITY,
+	smoothness: float = GameData.CHROMA_KEY_SMOOTHNESS,
+	spill: float = GameData.CHROMA_SPILL_SUPPRESSION
+) -> void:
 	chroma_key_color = color
 	chroma_key_similarity = similarity
 	chroma_key_smoothness = smoothness
@@ -964,7 +971,26 @@ func _current_pet_rect() -> Rect2:
 		return Rect2(_pet_frame.position, _pet_frame.size)
 	if is_instance_valid(_pet_video) and _pet_video.size.x > 1.0:
 		return Rect2(_pet_video.position, _pet_video.size)
-	return VIDEO_AREA
+	return _pet_area()
+
+
+func _pet_area() -> Rect2:
+	return _layout_area
+
+
+func _capture_layout_area() -> void:
+	if is_instance_valid(_pet_video) and _pet_video.size.x >= 8.0 and _pet_video.size.y >= 8.0:
+		_layout_area = Rect2(_pet_video.position, _pet_video.size)
+	else:
+		_layout_area = GameData.PET_AREA
+	print("%s default layout=%s  chroma=#%s sim=%.2f smooth=%.2f spill=%.2f" % [
+		VIDEO_LOG_PREFIX,
+		str(_layout_area),
+		chroma_key_color.to_html(false),
+		chroma_key_similarity,
+		chroma_key_smoothness,
+		chroma_spill_suppression,
+	])
 
 
 func _layout_hover_hud() -> void:

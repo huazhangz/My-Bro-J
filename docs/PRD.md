@@ -57,6 +57,11 @@
 | `INVENTORY_SCALE` | `2.5` | 烘干机 / 抽屉弹层相对立绘区域的放大倍数 |
 | `GRID_COLUMNS` | `5` | 库存网格列数 |
 | `ITEM_CARD_SIZE` | `100 × 118` | 库存卡片最小尺寸 |
+| `PET_AREA` | `Rect2(5, 5, 240, 340)` | 当前 Steve 立绘默认框（与 `steve.tscn` PetVideo 一致） |
+| `CHROMA_KEY_COLOR` | `#00FF00` | 当前扣色默认 |
+| `CHROMA_KEY_SIMILARITY` | `0.40` | 当前扣色容差 |
+| `CHROMA_KEY_SMOOTHNESS` | `0.10` | 当前边缘羽化 |
+| `CHROMA_SPILL_SUPPRESSION` | `0.30` | 当前溢色抑制 |
 
 ### 3.2 品质表 `enum Quality`
 
@@ -314,7 +319,7 @@ PetVisual (Control, IGNORE)
 
 | 事项 | 处理 |
 |------|------|
-| 可用区域 | `VIDEO_AREA = Rect2(5, 5, 240, 340)`，铺满窗口后按比例居中内接 |
+| 可用区域 | `GameData.PET_AREA`（默认 `Rect2(5, 5, 240, 340)`）；进树时改用场景里已保存的 PetVideo 矩形 |
 | 缩放 | 第一帧解出后按视频宽高比在该区域内**居中内接**（`_fit_video_rect()`），不拉伸变形 |
 | 拖拽 | `PetVideo.mouse_filter = IGNORE`，点击穿到根 `Control` 的 `_gui_input`，拖拽逻辑零改动 |
 | 鼠标穿透 | 跑路时仍走原有的 `WINDOW_FLAG_MOUSE_PASSTHROUGH`，视频不参与输入 |
