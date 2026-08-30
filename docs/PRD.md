@@ -250,11 +250,11 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 默认**不显示任何 HUD / CanvasLayer**。画面只有 `PetVisual`（视频或几何占位）。
 
 - **ExitPopup**（根节点下，默认隐藏）：在立绘上 **右键** 弹出 **4 倍**圆角菜单，窗口放大并按屏幕位置夹紧
-  - 烘干机 / 抽屉：抠绿幕图标 + 下方文字，**不是 Button**
-  - 气泡：❤好感度 / 内裤总计 / ⏰陪伴时长 / 🏃跑路次数（`user://save_data.json` 持久化）
-  - 好感度：品质 log 高权重 + 陪伴时长最多 15% − 跑路中等扣分
+  - 顶部气泡：❤好感度 / 内裤总计 / ⏰陪伴时长（HH：MM：SS 墙钟累计） / 🏃跑路次数
+  - 其下烘干机 / 抽屉：**图标在左、文字在右**，整块是 Button；图标为旧尺寸 30%，烘干机再中心 ×1.85
+  - 好感度：品质 log 高权重 + 陪伴 log（满值时间 ×260%）最多 15% − 跑路中等扣分
   - `能不能给我洗快点`：随机扣洗涤时间（1s~12h）；冷却灰显读秒
-  - `设置`：内含「固定上层」
+  - `设置`：固定上层 + Steve 体型（小 70% / 中 / 大 135% / 超大 200%）
   - `晚点再洗`：存档后退出
   - 右上角 `×`：关闭并还原窗口
   - 跑路时立绘换成按比例内接的 `container.jpg` 空盆；「已跑路...」居中贴在画面顶部，z 低于菜单
@@ -430,8 +430,8 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 ├── ExitPopup (圆角 PanelContainer, 默认隐藏, 铺满放大窗口)
 │   └── ExitInner
 │       ├── MenuHeader（×）
-│       ├── MenuIcons（抠绿图标 + 文字，非 Button）
 │       ├── StatBubbles（好感 / 内裤 / 陪伴 / 跑路）
+│       ├── MenuIcons（左图标右文字的 Button）
 │       ├── 能不能给我洗快点
 │       ├── 设置 / 晚点再洗
 │       └── SettingsPanel（固定上层）
