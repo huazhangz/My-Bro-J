@@ -82,7 +82,13 @@ const WEAR_PREFIXES: PackedStringArray = [
 ## 烘干机 / 抽屉弹层相对立绘的放大倍数。
 const INVENTORY_SCALE: float = 2.5
 const GRID_COLUMNS: int = 5
-const ITEM_CARD_SIZE: Vector2 = Vector2(100.0, 118.0)
+const ITEM_CARD_SIZE: Vector2 = Vector2(120.0, 142.0)
+## 立绘 / 库存图等比放大。
+const IMAGE_SCALE: float = 1.2
+## Steve 本体相对放大后的框再向右偏的格数（1 格 = 1 逻辑像素）。
+const PET_SHIFT_X: float = 5.0
+const WINDOW_WIDTH: int = 300
+const WINDOW_HEIGHT: int = 420
 
 ## 本机素材目录（用户把 jpg / mp4 放在仓库根目录，不再使用桌面路径）。
 const USER_PROJECT_DIR: String = "C:/Users/ASUS/My-Bro-J"
@@ -107,7 +113,7 @@ const USER_UI_FONT_ALIASES: PackedStringArray = [
 const STUB_VIDEO_MAX_BYTES: int = 80000
 const ALWAYS_ON_TOP_DEFAULT: bool = true
 ## 与 scenes/steve.tscn 里当前 Steve 立绘框 / 扣色导出值一致，作为唯一默认。
-const PET_AREA: Rect2 = Rect2(5.0, 5.0, 240.0, 340.0)
+const PET_AREA: Rect2 = Rect2(10.0, 5.0, 288.0, 408.0)
 const CHROMA_KEY_ENABLED: bool = true
 const CHROMA_KEY_COLOR: Color = Color(0.0, 1.0, 0.0, 1.0)
 const CHROMA_KEY_SIMILARITY: float = 0.40
@@ -399,6 +405,16 @@ func roll_pressure_wash_cut() -> float:
 
 func roll_pressure_runaway() -> bool:
 	return randf() < PRESSURE_RUNAWAY_CHANCE
+
+
+func format_pressure_ready_clock(remaining_seconds: float) -> String:
+	var now: Dictionary = Time.get_datetime_dict_from_system()
+	var total: int = int(now["hour"]) * 3600 + int(now["minute"]) * 60 + int(now["second"])
+	total += maxi(int(ceili(remaining_seconds)), 0)
+	total = total % 86400
+	var hour: int = int(total / 3600)
+	var minute: int = int((total % 3600) / 60)
+	return "%d：%02d" % [hour, minute]
 
 
 # --- 存档（Day 5 预留） ---------------------------------------------------

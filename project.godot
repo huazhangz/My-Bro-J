@@ -1,6 +1,6 @@
 ; Engine configuration file.
 ; Steve 桌宠小游戏 (Steve Desktop Pet)
-; 透明 / 无边框 / 总在最前 的 250x350 桌面悬浮窗。
+; 透明 / 无边框 / 总在最前 的 300x420 桌面悬浮窗（立绘 1.2 倍）。
 
 config_version=5
 
@@ -24,8 +24,8 @@ gdscript/warnings/untyped_declaration=1
 
 [display]
 
-window/size/viewport_width=250
-window/size/viewport_height=350
+window/size/viewport_width=300
+window/size/viewport_height=420
 window/size/borderless=true
 window/size/transparent=true
 window/size/always_on_top=false

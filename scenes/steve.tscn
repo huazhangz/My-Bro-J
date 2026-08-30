@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://scripts/steve.gd" id="1_steve"]
 [ext_resource type="Theme" path="res://assets/fonts/steve_theme.tres" id="2_theme"]
@@ -28,20 +28,6 @@ shader_parameter/key_color = Color(0, 1, 0, 1)
 shader_parameter/similarity = 0.4
 shader_parameter/smoothness = 0.1
 shader_parameter/spill_suppression = 0.3
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cd_bg"]
-bg_color = Color(0, 0, 0, 0)
-border_width_left = 0
-border_width_top = 0
-border_width_right = 0
-border_width_bottom = 0
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cd_fill"]
-bg_color = Color(0.08, 0.1, 0.14, 0.45)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_runaway"]
 bg_color = Color(0.72, 0.08, 0.08, 0.55)
@@ -104,10 +90,10 @@ mouse_filter = 2
 unique_name_in_owner = true
 editor_description = "Required unique name %PetVideo for steve.gd"
 layout_mode = 0
-offset_left = 5.0
+offset_left = 10.0
 offset_top = 5.0
-offset_right = 245.0
-offset_bottom = 345.0
+offset_right = 298.0
+offset_bottom = 413.0
 mouse_filter = 2
 stream = ExtResource("4_ogv")
 volume_db = -80.0
@@ -120,10 +106,10 @@ unique_name_in_owner = true
 visible = false
 material = SubResource("ShaderMaterial_videokey")
 layout_mode = 0
-offset_left = 5.0
+offset_left = 10.0
 offset_top = 5.0
-offset_right = 245.0
-offset_bottom = 345.0
+offset_right = 298.0
+offset_bottom = 413.0
 mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
@@ -133,10 +119,10 @@ unique_name_in_owner = true
 visible = false
 material = SubResource("ShaderMaterial_basinkey")
 layout_mode = 0
-offset_left = 5.0
+offset_left = 10.0
 offset_top = 5.0
-offset_right = 245.0
-offset_bottom = 345.0
+offset_right = 298.0
+offset_bottom = 413.0
 mouse_filter = 2
 texture = ExtResource("7_basin")
 expand_mode = 1
@@ -155,46 +141,46 @@ mouse_filter = 2
 
 [node name="Head" type="ColorRect" parent="PetVisual/PlaceholderVisual"]
 layout_mode = 0
-offset_left = 98.0
-offset_top = 80.0
-offset_right = 152.0
-offset_bottom = 130.0
+offset_left = 122.6
+offset_top = 96.0
+offset_right = 187.4
+offset_bottom = 156.0
 mouse_filter = 2
 color = Color(0.976471, 0.858824, 0.717647, 1)
 
 [node name="EyeLeft" type="ColorRect" parent="PetVisual/PlaceholderVisual"]
 layout_mode = 0
-offset_left = 111.0
-offset_top = 98.0
-offset_right = 119.0
-offset_bottom = 106.0
+offset_left = 138.2
+offset_top = 117.6
+offset_right = 147.8
+offset_bottom = 127.2
 mouse_filter = 2
 color = Color(0.152941, 0.152941, 0.176471, 1)
 
 [node name="EyeRight" type="ColorRect" parent="PetVisual/PlaceholderVisual"]
 layout_mode = 0
-offset_left = 131.0
-offset_top = 98.0
-offset_right = 139.0
-offset_bottom = 106.0
+offset_left = 162.2
+offset_top = 117.6
+offset_right = 171.8
+offset_bottom = 127.2
 mouse_filter = 2
 color = Color(0.152941, 0.152941, 0.176471, 1)
 
 [node name="Body" type="ColorRect" parent="PetVisual/PlaceholderVisual"]
 layout_mode = 0
-offset_left = 84.0
-offset_top = 130.0
-offset_right = 166.0
-offset_bottom = 210.0
+offset_left = 105.8
+offset_top = 156.0
+offset_right = 204.2
+offset_bottom = 252.0
 mouse_filter = 2
 color = Color(0.176471, 0.501961, 0.878431, 1)
 
 [node name="Basin" type="ColorRect" parent="PetVisual/PlaceholderVisual"]
 layout_mode = 0
-offset_left = 60.0
-offset_top = 210.0
-offset_right = 190.0
-offset_bottom = 246.0
+offset_left = 77.0
+offset_top = 252.0
+offset_right = 233.0
+offset_bottom = 295.2
 mouse_filter = 2
 color = Color(0.239216, 0.729412, 0.788235, 0.870588)
 
@@ -243,10 +229,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -102.0
-offset_top = -128.0
-offset_right = 102.0
-offset_bottom = 128.0
+offset_left = -122.0
+offset_top = -154.0
+offset_right = 122.0
+offset_bottom = 154.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_type_variation = &"SolidPanel"
@@ -267,38 +253,13 @@ layout_mode = 2
 theme_type_variation = &"CoinButton"
 text = "抽屉"
 
-[node name="PressureWashSlot" type="Control" parent="ExitPopup/Rows"]
-custom_minimum_size = Vector2(0, 32)
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="PressureWashButton" type="Button" parent="ExitPopup/Rows/PressureWashSlot"]
+[node name="PressureWashButton" type="Button" parent="ExitPopup/Rows"]
 unique_name_in_owner = true
-clip_contents = true
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
 theme_type_variation = &"RiskButton"
 text = "压力Steve快点洗"
-
-[node name="PressureCooldownBar" type="ProgressBar" parent="ExitPopup/Rows/PressureWashSlot"]
-unique_name_in_owner = true
-visible = false
-z_index = 1
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_styles/background = SubResource("StyleBoxFlat_cd_bg")
-theme_override_styles/fill = SubResource("StyleBoxFlat_cd_fill")
-max_value = 1.0
-show_percentage = false
+autowrap_mode = 3
 
 [node name="PinTopButton" type="Button" parent="ExitPopup/Rows"]
 unique_name_in_owner = true
@@ -322,10 +283,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -92.0
-offset_top = -28.0
-offset_right = 92.0
-offset_bottom = 28.0
+offset_left = -110.0
+offset_top = -34.0
+offset_right = 110.0
+offset_bottom = 34.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2

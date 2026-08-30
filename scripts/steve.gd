@@ -64,7 +64,6 @@ var _pet_video: VideoStreamPlayer
 @onready var _dryer_button: Button = %DryerButton
 @onready var _drawer_button: Button = %DrawerButton
 @onready var _pressure_button: Button = %PressureWashButton
-@onready var _pressure_cd_bar: ProgressBar = %PressureCooldownBar
 @onready var _pin_top_button: Button = %PinTopButton
 @onready var _quit_app_button: Button = %QuitAppButton
 @onready var _basin_frame: TextureRect = %BasinFrame
@@ -487,12 +486,10 @@ func _refresh_pressure_button() -> void:
 		return
 	var cooling: bool = _pressure_cd > 0.0
 	_pressure_button.disabled = cooling
-	if is_instance_valid(_pressure_cd_bar):
-		_pressure_cd_bar.visible = cooling
-		if cooling and GameData.PRESSURE_BUTTON_COOLDOWN > 0.0:
-			_pressure_cd_bar.value = _pressure_cd / GameData.PRESSURE_BUTTON_COOLDOWN
-		else:
-			_pressure_cd_bar.value = 0.0
+	if cooling:
+		_pressure_button.text = "%s后再压力他" % GameData.format_pressure_ready_clock(_pressure_cd)
+	else:
+		_pressure_button.text = "压力Steve快点洗"
 
 
 func _trigger_runaway() -> void:

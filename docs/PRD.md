@@ -13,7 +13,7 @@
 收集不同品质的内裤图鉴，用代币或"免费加速（带跑路风险）"推进循环。
 
 - 渲染后端：`gl_compatibility`（兼容老显卡，2D 小游戏够用）
-- 窗口尺寸：**250 × 350**
+- 窗口尺寸：**300 × 420**（立绘图像 1.2 倍；Steve 默认再右移 5 格）
 - 主场景：`res://scenes/steve.tscn`
 
 ---
@@ -52,14 +52,16 @@
 | `RUNAWAY_BASE_COOLDOWN` | `120.0` 秒 | 跑路后回归的基础冷却（品质/收藏会再缩减） |
 | `PRESSURE_WASH_REDUCTION_MIN` | `1.0` 秒 | 压力按钮随机扣时下限 |
 | `PRESSURE_WASH_REDUCTION_MAX` | `43200` 秒 | 压力按钮随机扣时上限（12 小时） |
-| `PRESSURE_BUTTON_COOLDOWN` | `900` 秒 | 压力按钮冷却（15 分钟），按钮上叠透明进度条 |
+| `PRESSURE_BUTTON_COOLDOWN` | `900` 秒 | 压力按钮冷却 15 分钟；灰显并写「HH：MM后再压力他」 |
+| `IMAGE_SCALE` | `1.2` | 立绘 / 库存图等比放大 |
+| `PET_SHIFT_X` | `5` | Steve 默认再向右偏 5 格 |
 | `PRESSURE_RUNAWAY_CHANCE` | `0.155` | 每次点击压力按钮的跑路概率 |
 | `PAID_SPEEDUP_ENABLED` | `false` | 付费加速已下线 |
 | `CODEX_ENABLED` | `false` | 图鉴 / 换装 UI 已下线 |
 | `INVENTORY_SCALE` | `2.5` | 烘干机 / 抽屉弹层相对立绘区域的放大倍数 |
 | `GRID_COLUMNS` | `5` | 库存网格列数 |
-| `ITEM_CARD_SIZE` | `100 × 118` | 库存卡片最小尺寸 |
-| `PET_AREA` | `Rect2(5, 5, 240, 340)` | 当前 Steve 立绘默认框（与 `steve.tscn` PetVideo 一致） |
+| `ITEM_CARD_SIZE` | `120 × 142` | 库存卡片最小尺寸（已 ×1.2） |
+| `PET_AREA` | `Rect2(10, 5, 288, 408)` | Steve 默认框：原 240×340 ×1.2，再右移 5 格 |
 | `CHROMA_KEY_COLOR` | `#00FF00` | 当前扣色默认 |
 | `CHROMA_KEY_SIMILARITY` | `0.40` | 当前扣色容差 |
 | `CHROMA_KEY_SMOOTHNESS` | `0.10` | 当前边缘羽化 |
@@ -177,8 +179,8 @@ GameData.get_calculated_cooldown(base_seconds := 120.0, quality := 当前穿戴)
 
 ```ini
 [display]
-window/size/viewport_width=250
-window/size/viewport_height=350
+window/size/viewport_width=300
+window/size/viewport_height=420
 window/size/borderless=true
 window/size/transparent=true
 window/size/always_on_top=false
@@ -237,7 +239,7 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 - **ExitPopup**（根节点下，默认隐藏）：在立绘上 **右键** 弹出居中菜单
   - `烘干机`：隐藏立绘，打开库存弹层（`dryer.jpg` 抠绿幕）
   - `抽屉`：隐藏立绘，打开库存弹层（`drawer.jpg` 抠绿幕）
-  - `压力Steve快点洗`：随机扣洗涤时间（1s~12h），冷却 15 分钟，冷却条叠在按钮上
+  - `压力Steve快点洗`：随机扣洗涤时间（1s~12h）；冷却时按钮变灰，文案为「HH：MM后再压力他」
   - `固定上层`：切换窗口置顶
   - `晚点再洗`：退出进程
   - 跑路时立绘换成 `container.jpg` 抠绿幕空盆，并弹出红色半透明「已跑路...」
@@ -322,7 +324,7 @@ PetVisual (Control, IGNORE)
 
 | 事项 | 处理 |
 |------|------|
-| 可用区域 | `GameData.PET_AREA`（默认 `Rect2(5, 5, 240, 340)`）；进树时改用场景里已保存的 PetVideo 矩形 |
+| 可用区域 | `GameData.PET_AREA`（默认 `Rect2(10, 5, 288, 408)`）；进树时用场景 PetVideo 矩形 |
 | 缩放 | 第一帧解出后按视频宽高比在该区域内**居中内接**（`_fit_video_rect()`），不拉伸变形 |
 | 拖拽 | `PetVideo.mouse_filter = IGNORE`，点击穿到根 `Control` 的 `_gui_input`，拖拽逻辑零改动 |
 | 鼠标穿透 | 跑路时仍走原有的 `WINDOW_FLAG_MOUSE_PASSTHROUGH`，视频不参与输入 |
@@ -366,7 +368,7 @@ Theora **没有 Alpha 通道**，视频必然是一块不透明矩形。项目�
 
 ```
 My-Bro-J/
-├── project.godot           # 透明/无边框/置顶/250x350 + GameData Autoload
+├── project.godot           # 透明/无边框/置顶/300x420 + GameData Autoload
 ├── README.md               # 仓库说明与目录树
 ├── .cursorrules            # AI 编码规则（强制 Godot 4.x 语法、DisplayServer、闭包信号）
 ├── .gitignore              # 忽略 .godot/ 导入缓存与导出产物
@@ -444,7 +446,7 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 
 - [x] **Day 1**：透明无边框窗口配置 + 桌面悬浮窗基础搭建 + 鼠标拖拽移动功能
   - [x] `project.godot` 写入 transparent / borderless / always_on_top / per_pixel_transparency
-  - [x] 视口尺寸 250×350
+  - [x] 视口尺寸 300×420（图像 ×1.2，Steve 默认右移 5 格）
   - [x] `steve.tscn` 根节点改为 `Control`，铺满窗口，背景完全透明
   - [x] 基于 `DisplayServer.mouse_get_position()` + `window_set_position()` 的拖拽
   - [x] 修复 "无法移动" / "embedded can't be moved"（禁用编辑器内嵌 + 运行时检测提示）
@@ -461,7 +463,7 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 - [x] **Day 3**：右键菜单 + 库存网格（常驻 HUD / 图鉴 / 加速按钮已拆除）
   - [x] 唯一中文字体 YuanRou-P-Bold + `steve_theme.tres`
   - [x] 右键 `ExitPopup`：烘干机 / 抽屉 / 压力Steve快点洗 / 固定上层 / 晚点再洗
-  - [x] 压力按钮：`randf_range(1s, 12h)` 扣洗涤时间，冷却 15 分钟叠透明进度条
+  - [x] 压力按钮：`randf_range(1s, 12h)` 扣洗涤时间；冷却灰显「HH：MM后再压力他」
   - [x] 每次压力点击 15.5% 跑路：空盆 `container.jpg` 抠绿幕 + 红色「已跑路...」
   - [x] `InventoryPopup`：dryer/drawer 绿幕背景 + 5 列滚动网格
   - [x] 悬停 1.5s 头顶洗涤水条
