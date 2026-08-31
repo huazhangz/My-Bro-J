@@ -61,10 +61,6 @@ var _pet_video: VideoStreamPlayer
 @onready var _pet_frame: TextureRect = %PetFrame
 @onready var _placeholder_visual: Control = %PlaceholderVisual
 @onready var _exit_popup: PanelContainer = %ExitPopup
-@onready var _dryer_icon: TextureRect = %DryerIcon
-@onready var _drawer_icon: TextureRect = %DrawerIcon
-@onready var _dryer_icon_clip: Control = %DryerIconClip
-@onready var _drawer_icon_clip: Control = %DrawerIconClip
 @onready var _dryer_slot: Button = %DryerSlot
 @onready var _drawer_slot: Button = %DrawerSlot
 @onready var _size_small_button: Button = %SizeSmallButton
@@ -186,9 +182,6 @@ var _hover_time: float = 0.0
 var _hover_hud_shown: bool = false
 var _hover_tween: Tween
 var _always_on_top: bool = true
-var _dryer_texture: Texture2D
-var _drawer_texture: Texture2D
-var _drawer_icon_texture: Texture2D
 var _container_texture: Texture2D
 var _layout_area: Rect2 = GameData.PET_AREA
 var _pressure_cd: float = 0.0
@@ -208,7 +201,7 @@ var _chat_thread_wrapped: bool = false
 func _ready() -> void:
 	get_tree().root.gui_embed_subwindows = false
 	_debug_log = OS.get_cmdline_user_args().has("--petlog")
-	print("%s build=qualities-wear-dryer-drawer  scene=%s  menu=4x icons+stats" % [
+	print("%s build=qualities-wear-dryer-drawer  scene=%s  menu=emoji+50cutouts" % [
 		VIDEO_LOG_PREFIX, scene_file_path,
 	])
 	_ensure_pet_video_node()
@@ -219,6 +212,7 @@ func _ready() -> void:
 	_apply_window_setup()
 	_apply_pet_size()
 	_ingest_user_images()
+	UnderwearArt.texture_for({"id": 1, "art_index": 0, "quality": 0})
 	_apply_round_chrome()
 	_apply_video_key()
 	_apply_menu_icons()
@@ -257,10 +251,15 @@ func _apply_mouse_filters() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var ignore_nodes: Array[Control] = [
 		_pet_visual, _pet_video, _pet_frame, _placeholder_visual,
-		_inventory_bg, _inventory_title, _inventory_empty,
+		_inventory_title, _inventory_empty,
 		_inventory_chrome, _inventory_mask,
 		_hover_hud, _water_bar, _wash_label,
 	]
+	if is_instance_valid(_inventory_bg):
+		_inventory_bg.visible = false
+		_inventory_bg.texture = null
+		_inventory_bg.material = null
+		ignore_nodes.append(_inventory_bg)
 	for node: Control in ignore_nodes:
 		if is_instance_valid(node):
 			node.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -297,25 +296,6 @@ func _apply_window_setup() -> void:
 
 
 func _ingest_user_images() -> void:
-	_dryer_texture = GameData.load_image_texture(GameData.USER_DRYER_FILE)
-	if _dryer_texture == null and is_instance_valid(_inventory_bg):
-		_dryer_texture = _inventory_bg.texture
-	_drawer_texture = GameData.load_image_texture(GameData.USER_DRAWER_FILE)
-	var drawer_icon_path: String = GameData.first_existing_named(GameData.USER_DRAWER_ICON_ALIASES)
-	if not drawer_icon_path.is_empty() and not drawer_icon_path.begins_with("res://assets/images/"):
-		GameData.copy_file(drawer_icon_path, GameData.RES_DRAWER_ICON_PATH)
-	_drawer_icon_texture = GameData.load_image_texture(GameData.USER_DRAWER_ICON_FILE)
-	if _drawer_icon_texture == null and not drawer_icon_path.is_empty():
-		_drawer_icon_texture = GameData.load_image_texture(drawer_icon_path.get_file())
-	if _drawer_icon_texture == null:
-		_drawer_icon_texture = _drawer_texture
-		if drawer_icon_path.is_empty():
-			drawer_icon_path = GameData.first_existing_file(GameData.USER_DRAWER_FILE)
-	if _dryer_texture != null:
-		print("%s dryer bg <- %s" % [VIDEO_LOG_PREFIX, GameData.first_existing_file(GameData.USER_DRYER_FILE)])
-	if _drawer_texture != null:
-		print("%s drawer bg <- %s" % [VIDEO_LOG_PREFIX, GameData.first_existing_file(GameData.USER_DRAWER_FILE)])
-	print("%s drawer icon <- %s" % [VIDEO_LOG_PREFIX, drawer_icon_path])
 	var container_path: String = GameData.first_existing_file(GameData.USER_CONTAINER_FILE)
 	if not container_path.is_empty() and not container_path.begins_with("res://assets/images/"):
 		GameData.copy_file(container_path, "res://assets/images/container.jpg")
@@ -380,11 +360,15 @@ func _unify_theme_text(target: Theme, font: FontFile) -> void:
 		"OptionButton",
 	]
 	var white: Color = GameData.UI_FONT_COLOR
+	var outline: Color = GameData.UI_FONT_OUTLINE_COLOR
+	var outline_size: int = GameData.UI_FONT_OUTLINE_SIZE
 	var size: int = GameData.UI_FONT_SIZE
 	for type_name: String in types:
 		target.set_font("font", type_name, font)
 		target.set_font_size("font_size", type_name, size)
 		target.set_color("font_color", type_name, white)
+		target.set_color("font_outline_color", type_name, outline)
+		target.set_constant("outline_size", type_name, outline_size)
 		target.set_color("font_shadow_color", type_name, Color(0, 0, 0, 0.85))
 		if type_name.ends_with("Button") or type_name == "Button":
 			target.set_color("font_disabled_color", type_name, white)
@@ -392,21 +376,37 @@ func _unify_theme_text(target: Theme, font: FontFile) -> void:
 			target.set_color("font_hover_color", type_name, white)
 			target.set_color("font_pressed_color", type_name, white)
 			target.set_color("font_hover_pressed_color", type_name, white)
+			target.set_color("font_outline_color", type_name, outline)
+			target.set_constant("outline_size", type_name, outline_size)
+	for line_type: String in ["LineEdit", "TextEdit"]:
+		target.set_font("font", line_type, font)
+		target.set_font_size("font_size", line_type, size)
+		target.set_color("font_color", line_type, white)
+		target.set_color("font_placeholder_color", line_type, Color(1.0, 1.0, 1.0, 0.72))
+		target.set_color("caret_color", line_type, white)
+		target.set_color("font_outline_color", line_type, outline)
+		target.set_constant("outline_size", line_type, outline_size)
 
 
 func _unify_control_text(node: Node, font: FontFile) -> void:
 	if node is Control:
 		var control: Control = node as Control
-		if control is Label or control is Button or control is ProgressBar:
+		if control is Label or control is Button or control is ProgressBar or control is LineEdit:
 			control.add_theme_font_override("font", font)
 			control.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
 			control.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+			control.add_theme_color_override("font_outline_color", GameData.UI_FONT_OUTLINE_COLOR)
+			control.add_theme_constant_override("outline_size", GameData.UI_FONT_OUTLINE_SIZE)
 			if control is Button:
 				var button: Button = control as Button
 				button.add_theme_color_override("font_disabled_color", GameData.UI_FONT_COLOR)
 				button.add_theme_color_override("font_focus_color", GameData.UI_FONT_COLOR)
 				button.add_theme_color_override("font_hover_color", GameData.UI_FONT_COLOR)
 				button.add_theme_color_override("font_pressed_color", GameData.UI_FONT_COLOR)
+			if control is LineEdit:
+				var line: LineEdit = control as LineEdit
+				line.add_theme_color_override("font_placeholder_color", Color(1.0, 1.0, 1.0, 0.72))
+				line.add_theme_color_override("caret_color", GameData.UI_FONT_COLOR)
 	for child: Node in node.get_children():
 		_unify_control_text(child, font)
 
@@ -424,6 +424,8 @@ func _style_menu_text_tree(node: Node, font: FontFile) -> void:
 		control.add_theme_font_override("font", font)
 		control.add_theme_font_size_override("font_size", GameData.MENU_UI_FONT_SIZE)
 		control.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+		control.add_theme_color_override("font_outline_color", GameData.UI_FONT_OUTLINE_COLOR)
+		control.add_theme_constant_override("outline_size", GameData.UI_FONT_OUTLINE_SIZE)
 		control.add_theme_constant_override("line_spacing", GameData.MENU_LINE_SPACING)
 		if control is Button:
 			var button: Button = control as Button
@@ -438,8 +440,10 @@ func _style_menu_text_tree(node: Node, font: FontFile) -> void:
 func _apply_menu_control_heights() -> void:
 	if is_instance_valid(_dryer_slot):
 		_dryer_slot.custom_minimum_size.y = GameData.MENU_SLOT_HEIGHT
+		_dryer_slot.text = GameData.DRYER_BUTTON_TEXT
 	if is_instance_valid(_drawer_slot):
 		_drawer_slot.custom_minimum_size.y = GameData.MENU_SLOT_HEIGHT
+		_drawer_slot.text = GameData.DRAWER_BUTTON_TEXT
 	if is_instance_valid(_pressure_button):
 		_pressure_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
 	if is_instance_valid(_chat_button):
@@ -561,12 +565,10 @@ func _connect_exit_popup() -> void:
 		_process_drag_input(event)
 	)
 	_inventory_popup.resized.connect(func() -> void:
-		if _inventory_popup.visible:
-			_layout_inventory_bg()
+		pass
 	)
 	_exit_popup.resized.connect(func() -> void:
-		if _exit_popup.visible:
-			_layout_menu_icons()
+		pass
 	)
 	GameData.stats_changed.connect(func() -> void:
 		_refresh_stat_bubbles()
@@ -1086,7 +1088,9 @@ func _make_chat_row(item: Dictionary) -> Control:
 	name_label.text = GameData.CHAT_USER_NAME if is_user else GameData.CHAT_STEVE_NAME
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if is_user else HORIZONTAL_ALIGNMENT_LEFT
 	name_label.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
-	name_label.add_theme_color_override("font_color", GameData.WHATSAPP_NAME_COLOR)
+	name_label.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+	name_label.add_theme_color_override("font_outline_color", GameData.UI_FONT_OUTLINE_COLOR)
+	name_label.add_theme_constant_override("outline_size", GameData.UI_FONT_OUTLINE_SIZE)
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var bubble: PanelContainer = PanelContainer.new()
 	var box: StyleBoxFlat = StyleBoxFlat.new()
@@ -1105,7 +1109,9 @@ func _make_chat_row(item: Dictionary) -> Control:
 	body.text = String(item.get("text", ""))
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
-	body.add_theme_color_override("font_color", GameData.WHATSAPP_BUBBLE_TEXT)
+	body.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+	body.add_theme_color_override("font_outline_color", GameData.UI_FONT_OUTLINE_COLOR)
+	body.add_theme_constant_override("outline_size", GameData.UI_FONT_OUTLINE_SIZE)
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bubble.add_child(body)
 	col.add_child(name_label)
@@ -1851,18 +1857,11 @@ func _apply_video_key() -> void:
 	if not chroma_key_enabled:
 		if is_instance_valid(_pet_frame):
 			_pet_frame.material = null
-		if is_instance_valid(_dryer_icon):
-			_dryer_icon.material = null
-		if is_instance_valid(_drawer_icon):
-			_drawer_icon.material = null
 		return
 	if _video_enabled:
 		_apply_chroma_material(_pet_frame, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
 	else:
 		_apply_smart_chroma(_pet_frame, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
-	_apply_smart_chroma(_inventory_bg, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
-	_apply_smart_chroma(_dryer_icon, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
-	_apply_smart_chroma(_drawer_icon, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
 	if is_instance_valid(_basin_frame) and _basin_frame.visible:
 		_apply_smart_chroma(_basin_frame, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
 
@@ -2062,7 +2061,6 @@ func _open_exit_popup() -> void:
 	_expand_overlay_window(GameData.context_menu_window_size(false))
 	_exit_popup.visible = true
 	_apply_menu_icons()
-	call_deferred("_layout_menu_icons")
 	print_verbose("%s context menu open" % VIDEO_LOG_PREFIX)
 
 
@@ -2071,6 +2069,7 @@ func _close_exit_popup() -> void:
 		_exit_popup.visible = false
 	if is_instance_valid(_settings_panel):
 		_settings_panel.visible = false
+	_cancel_pending_movie_fetch()
 	_restore_overlay_window_if_idle()
 	if not _any_content_overlay_open() and _state != State.RUNAWAY:
 		_set_pet_layer_visible(true)
@@ -2105,36 +2104,11 @@ func _set_pet_layer_visible(shown: bool) -> void:
 		_set_hover_hud_visible(false, false)
 
 
-func _apply_inventory_background(kind: String) -> void:
+func _apply_inventory_background(_kind: String) -> void:
 	if is_instance_valid(_inventory_bg):
-		if kind == "drawer":
-			_inventory_bg.texture = null
-			_inventory_bg.visible = false
-		else:
-			_inventory_bg.visible = true
-			if _dryer_texture != null:
-				_inventory_bg.texture = _dryer_texture
-	_apply_video_key()
-	_layout_inventory_bg()
-
-
-func _layout_inventory_bg() -> void:
-	if not is_instance_valid(_inventory_bg) or not _inventory_bg.visible:
-		return
-	var host: Control = _inventory_bg.get_parent() as Control
-	var area: Vector2 = host.size if is_instance_valid(host) else _inventory_popup.size
-	if area.x < 2.0 or area.y < 2.0:
-		area = Vector2(DisplayServer.window_get_size())
-	var zoom: float = GameData.DRYER_BG_ZOOM
-	var fitted: Vector2 = area * zoom
-	_inventory_bg.anchor_left = 0.5
-	_inventory_bg.anchor_top = 0.5
-	_inventory_bg.anchor_right = 0.5
-	_inventory_bg.anchor_bottom = 0.5
-	_inventory_bg.offset_left = -fitted.x * 0.5
-	_inventory_bg.offset_top = -fitted.y * 0.5
-	_inventory_bg.offset_right = fitted.x * 0.5
-	_inventory_bg.offset_bottom = fitted.y * 0.5
+		_inventory_bg.texture = null
+		_inventory_bg.material = null
+		_inventory_bg.visible = false
 
 
 func _apply_inventory_headline(kind: String) -> void:
@@ -2229,7 +2203,6 @@ func _open_inventory(kind: String) -> void:
 	_apply_inventory_grid_metrics()
 	_inventory_popup.visible = true
 	_fill_inventory_grid()
-	call_deferred("_layout_inventory_bg")
 
 
 func _close_inventory() -> void:
@@ -2482,29 +2455,10 @@ func _style_stat_bubbles() -> void:
 
 
 func _apply_menu_icons() -> void:
-	if is_instance_valid(_dryer_icon) and _dryer_texture != null:
-		_dryer_icon.texture = _dryer_texture
-	if is_instance_valid(_drawer_icon) and _drawer_icon_texture != null:
-		_drawer_icon.texture = _drawer_icon_texture
-	_apply_video_key()
-	_layout_menu_icons()
-
-
-func _layout_menu_icons() -> void:
-	_fit_menu_icon(_dryer_icon_clip, _dryer_icon, GameData.DRYER_ICON_ZOOM, GameData.DRYER_ICON_NUDGE_Y)
-	_fit_menu_icon(_drawer_icon_clip, _drawer_icon, 1.0, GameData.DRAWER_ICON_NUDGE_Y)
-
-
-func _fit_menu_icon(clip: Control, icon: TextureRect, zoom: float, nudge_y: float) -> void:
-	var box: Vector2 = GameData.MENU_ICON_SIZE
-	if is_instance_valid(clip):
-		clip.custom_minimum_size = box
-		clip.clip_contents = true
-	if not is_instance_valid(icon):
-		return
-	var drawn: Vector2 = box * maxf(zoom, 1.0)
-	icon.position = Vector2((box.x - drawn.x) * 0.5, (box.y - drawn.y) * 0.5 + nudge_y)
-	icon.size = drawn
+	if is_instance_valid(_dryer_slot):
+		_dryer_slot.text = GameData.DRYER_BUTTON_TEXT
+	if is_instance_valid(_drawer_slot):
+		_drawer_slot.text = GameData.DRAWER_BUTTON_TEXT
 
 
 func _set_pet_size_tier(tier: int) -> void:
@@ -2628,7 +2582,6 @@ func _set_tidy_panel_visible(shown: bool) -> void:
 		_clear_tidy_toggles()
 	if _inventory_popup.visible:
 		_expand_overlay_window(_inventory_window_size())
-		call_deferred("_layout_inventory_bg")
 
 
 func _clear_tidy_toggles() -> void:
@@ -2711,7 +2664,9 @@ func _ensure_notice_nodes() -> void:
 		_notice_label.clip_text = true
 		_notice_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		_notice_label.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
-		_notice_label.add_theme_color_override("font_color", GameData.WHATSAPP_BUBBLE_TEXT)
+		_notice_label.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+		_notice_label.add_theme_color_override("font_outline_color", GameData.UI_FONT_OUTLINE_COLOR)
+		_notice_label.add_theme_constant_override("outline_size", GameData.UI_FONT_OUTLINE_SIZE)
 		_notice_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_notice_panel.add_child(_notice_label)
 		add_child(_notice_panel)
@@ -2863,7 +2818,9 @@ func _show_speech_bubble() -> void:
 		return
 	_set_hover_hud_visible(false, false)
 	_notice_label.text = _pending_steve_notice
-	_notice_label.add_theme_color_override("font_color", GameData.WHATSAPP_BUBBLE_TEXT)
+	_notice_label.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+	_notice_label.add_theme_color_override("font_outline_color", GameData.UI_FONT_OUTLINE_COLOR)
+	_notice_label.add_theme_constant_override("outline_size", GameData.UI_FONT_OUTLINE_SIZE)
 	_style_speech_panel()
 	_notice_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	_notice_panel.visible = true
@@ -3065,7 +3022,9 @@ func _setup_fortune_ui() -> void:
 	_fortune_result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_fortune_result.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_fortune_result.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_fortune_result.add_theme_color_override("font_color", GameData.WHATSAPP_BUBBLE_TEXT)
+	_fortune_result.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+	_fortune_result.add_theme_color_override("font_outline_color", GameData.UI_FONT_OUTLINE_COLOR)
+	_fortune_result.add_theme_constant_override("outline_size", GameData.UI_FONT_OUTLINE_SIZE)
 	var result_panel: PanelContainer = PanelContainer.new()
 	var result_box: StyleBoxFlat = StyleBoxFlat.new()
 	result_box.bg_color = GameData.WHATSAPP_INCOMING_COLOR
@@ -3460,9 +3419,23 @@ func _reset_movie_button() -> void:
 		_movie_button.text = GameData.MOVIE_BUTTON_TEXT
 
 
+func _cancel_pending_movie_fetch() -> void:
+	if _movie_open():
+		return
+	if not _movie_loading and (_movie_client == null or not _movie_client.is_busy()):
+		return
+	if _movie_client != null and _movie_client.has_method("cancel_fetch"):
+		_movie_client.cancel_fetch()
+	_reset_movie_button()
+
+
 func _on_movie_ready(path: String, title: String) -> void:
 	_reset_movie_button()
 	if _state == State.RUNAWAY:
+		return
+	if _movie_open() and is_instance_valid(_movie_player) and _movie_player.is_playing():
+		if is_instance_valid(_movie_title) and not title.is_empty():
+			_movie_title.text = title
 		return
 	_hide_speech_bubble()
 	if is_instance_valid(_exit_popup):

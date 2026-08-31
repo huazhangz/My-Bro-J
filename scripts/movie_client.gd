@@ -2,7 +2,8 @@ extends HTTPRequest
 
 ## 从 Internet Archive 抓取白名单内的免费非限制级 Theora 影片。
 ## 先读 metadata 拿直链（d1/dir），避免 archive.org/download 跳转把请求挂死。
-## cancel_request() 不会发 request_completed，卡住时必须自己换片。
+## 文件阶段写到磁盘后，先达到可播阈值就开播，剩余继续写入同一文件。
+## 关闭右键菜单会 cancel_fetch()，未开播的下载立刻停掉。
 
 signal movie_ready(path: String, title: String)
 signal movie_failed(reason: String)
@@ -18,6 +19,8 @@ var _phase: String = ""
 var _stall: float = 0.0
 var _last_bytes: int = -1
 var _token: int = 0
+var _early_ready: bool = false
+var _cancelled: bool = false
 
 
 func _ready() -> void:
@@ -38,17 +41,20 @@ func is_busy() -> bool:
 func fetch_random() -> void:
 	if _busy:
 		return
+	_cancelled = false
 	_queue = GameData.shuffled_movie_catalog()
 	print("%s start catalog=%d" % [GameData.MOVIE_LOG_PREFIX, _queue.size()])
 	_try_next_movie()
 
 
 func cancel_fetch() -> void:
+	_cancelled = true
 	_token += 1
 	if _busy:
 		cancel_request()
 	_busy = false
-	_phase = ""
+	_phase = "idle"
+	_early_ready = false
 	_queue.clear()
 	_url_queue.clear()
 	_current = {}
@@ -66,11 +72,14 @@ func poll(delta: float) -> void:
 		_stall += delta
 		if _stall >= GameData.MOVIE_STALL_SECONDS:
 			print("%s stall phase=%s bytes=%d, skip" % [GameData.MOVIE_LOG_PREFIX, _phase, n])
+			if _early_ready:
+				return
 			movie_progress.emit(GameData.MOVIE_SWITCH_TEXT)
 			_abandon_current("stall")
 			return
 	if _phase != "file":
 		return
+	_maybe_emit_early_ready(n)
 	var total: int = get_body_size()
 	if total > 0:
 		var pct: int = clampi(int(round(100.0 * float(n) / float(total))), 0, 99)
@@ -94,9 +103,26 @@ func _progress_bytes() -> int:
 	return maxi(n, on_disk)
 
 
+func _maybe_emit_early_ready(n: int) -> void:
+	if _early_ready or _phase != "file":
+		return
+	var dest: String = GameData.movie_cache_path(String(_current.get("id", "")))
+	if n < GameData.MOVIE_PLAY_AFTER_BYTES:
+		return
+	if not GameData.movie_file_is_playable(dest):
+		return
+	_early_ready = true
+	var title: String = String(_current.get("title", ""))
+	print("%s early play %s bytes=%d" % [GameData.MOVIE_LOG_PREFIX, title, n])
+	movie_ready.emit(dest, title)
+
+
 func _try_next_movie() -> void:
+	if _cancelled:
+		return
 	download_file = ""
 	_url_queue.clear()
+	_early_ready = false
 	if _queue.is_empty():
 		_busy = false
 		_phase = ""
@@ -136,7 +162,10 @@ func _try_next_movie() -> void:
 
 
 func _try_next_url() -> void:
+	if _cancelled:
+		return
 	download_file = ""
+	_early_ready = false
 	if _url_queue.is_empty():
 		call_deferred("_try_next_movie")
 		return
@@ -171,6 +200,8 @@ func _get_url(url: String) -> bool:
 
 
 func _abandon_current(reason: String) -> void:
+	if _cancelled:
+		return
 	var phase: String = _phase
 	print("%s abandon phase=%s reason=%s" % [GameData.MOVIE_LOG_PREFIX, phase, reason])
 	_token += 1
@@ -178,7 +209,9 @@ func _abandon_current(reason: String) -> void:
 	cancel_request()
 	download_file = ""
 	var dest: String = GameData.movie_cache_path(String(_current.get("id", "")))
-	_cleanup_partial(dest)
+	if not _early_ready:
+		_cleanup_partial(dest)
+	_early_ready = false
 	if phase == "file":
 		call_deferred("_try_next_url")
 	elif phase == "meta":
@@ -192,7 +225,7 @@ func _abandon_current(reason: String) -> void:
 
 
 func _on_completed(result: int, code: int, body: PackedByteArray) -> void:
-	if _phase == "idle":
+	if _cancelled or _phase == "idle" or _phase.is_empty():
 		return
 	var dest: String = GameData.movie_cache_path(String(_current.get("id", "")))
 	var title: String = String(_current.get("title", ""))
@@ -200,6 +233,10 @@ func _on_completed(result: int, code: int, body: PackedByteArray) -> void:
 	download_file = ""
 	if result != RESULT_SUCCESS or code < 200 or code >= 300:
 		print("%s http fail phase=%s result=%d code=%d" % [GameData.MOVIE_LOG_PREFIX, phase, result, code])
+		if _early_ready:
+			_busy = false
+			_phase = ""
+			return
 		_cleanup_partial(dest)
 		if phase == "file":
 			call_deferred("_try_next_url")
@@ -224,8 +261,12 @@ func _on_completed(result: int, code: int, body: PackedByteArray) -> void:
 			_fallback_direct_urls()
 		call_deferred("_try_next_url")
 		return
-	if not GameData.movie_file_is_theora(dest):
+	if not GameData.movie_file_has_ogg_header(dest):
 		print("%s not theora %s" % [GameData.MOVIE_LOG_PREFIX, dest])
+		if _early_ready:
+			_busy = false
+			_phase = ""
+			return
 		_cleanup_partial(dest)
 		call_deferred("_try_next_url")
 		return

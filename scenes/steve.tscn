@@ -1,20 +1,11 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/steve.gd" id="1_steve"]
 [ext_resource type="Theme" path="res://assets/fonts/steve_theme.tres" id="2_theme"]
 [ext_resource type="Shader" path="res://assets/shaders/chroma_key.gdshader" id="3_videokey"]
-[ext_resource type="Texture2D" path="res://assets/images/dryer.jpg" id="5_dryer"]
-[ext_resource type="Texture2D" path="res://assets/images/drawer.jpg" id="6_drawer"]
 [ext_resource type="Texture2D" path="res://assets/images/container.jpg" id="7_basin"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_videokey"]
-shader = ExtResource("3_videokey")
-shader_parameter/key_color = Color(0, 1, 0, 1)
-shader_parameter/similarity = 0.81
-shader_parameter/smoothness = 0.15
-shader_parameter/spill_suppression = 0.3
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_invkey"]
 shader = ExtResource("3_videokey")
 shader_parameter/key_color = Color(0, 1, 0, 1)
 shader_parameter/similarity = 0.81
@@ -322,47 +313,8 @@ custom_minimum_size = Vector2(168, 76)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"CodexButton"
-text = ""
-
-[node name="DryerRow" type="HBoxContainer" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons/DryerSlot"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 6.0
-offset_right = -8.0
-offset_bottom = -6.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_constants/separation = 8
-alignment = 1
-
-[node name="DryerIconClip" type="Control" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons/DryerSlot/DryerRow"]
-unique_name_in_owner = true
-clip_contents = true
-custom_minimum_size = Vector2(50, 50)
-layout_mode = 2
-mouse_filter = 2
-
-[node name="DryerIcon" type="TextureRect" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons/DryerSlot/DryerRow/DryerIconClip"]
-unique_name_in_owner = true
-layout_mode = 0
-offset_right = 50.0
-offset_bottom = 50.0
-mouse_filter = 2
-texture = ExtResource("5_dryer")
-expand_mode = 1
-stretch_mode = 6
-material = SubResource("ShaderMaterial_invkey")
-
-[node name="DryerCaption" type="Label" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons/DryerSlot/DryerRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-text = "烘干机"
-vertical_alignment = 1
+text = "🧺 烘干机"
+autowrap_mode = 3
 
 [node name="DrawerSlot" type="Button" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons"]
 unique_name_in_owner = true
@@ -370,47 +322,8 @@ custom_minimum_size = Vector2(168, 76)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"CoinButton"
-text = ""
-
-[node name="DrawerRow" type="HBoxContainer" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons/DrawerSlot"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 6.0
-offset_right = -8.0
-offset_bottom = -6.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_constants/separation = 8
-alignment = 1
-
-[node name="DrawerIconClip" type="Control" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons/DrawerSlot/DrawerRow"]
-unique_name_in_owner = true
-clip_contents = true
-custom_minimum_size = Vector2(50, 50)
-layout_mode = 2
-mouse_filter = 2
-
-[node name="DrawerIcon" type="TextureRect" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons/DrawerSlot/DrawerRow/DrawerIconClip"]
-unique_name_in_owner = true
-layout_mode = 0
-offset_right = 50.0
-offset_bottom = 50.0
-mouse_filter = 2
-texture = ExtResource("6_drawer")
-expand_mode = 1
-stretch_mode = 6
-material = SubResource("ShaderMaterial_invkey")
-
-[node name="DrawerCaption" type="Label" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons/DrawerSlot/DrawerRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-text = "抽屉"
-vertical_alignment = 1
+text = "🗄️ 抽屉"
+autowrap_mode = 3
 
 [node name="PressureWashButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
 unique_name_in_owner = true
@@ -440,7 +353,8 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
 theme_type_variation = &"CodexButton"
-text = "看电影"
+text = "哥请你看个电影吧"
+autowrap_mode = 3
 
 [node name="DinnerButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
 unique_name_in_owner = true
@@ -581,23 +495,14 @@ mouse_filter = 2
 
 [node name="InventoryBg" type="TextureRect" parent="InventoryPopup/InventoryBgClip"]
 unique_name_in_owner = true
-material = SubResource("ShaderMaterial_invkey")
+visible = false
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -210.0
-offset_right = 150.0
-offset_bottom = 210.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-texture = ExtResource("5_dryer")
-expand_mode = 1
-stretch_mode = 6
 
 [node name="InventoryMask" type="Panel" parent="InventoryPopup"]
 unique_name_in_owner = true

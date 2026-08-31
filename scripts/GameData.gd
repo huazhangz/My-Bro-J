@@ -95,7 +95,7 @@ const GRID_VISIBLE_ROWS: int = 6
 const GRID_H_SEP: int = 8
 const GRID_V_SEP: int = 8
 const ITEM_CARD_SIZE: Vector2 = Vector2(110.0, 96.0)
-const ITEM_CARD_SWATCH_H: float = 30.0
+const ITEM_CARD_SWATCH_H: float = 42.0
 const INVENTORY_PAD_X: float = 32.0
 const INVENTORY_CHROME_Y: float = 70.0
 const INVENTORY_SCROLL_GUTTER: float = 8.0
@@ -114,16 +114,6 @@ const USER_PROJECT_DIR: String = "C:/Users/ASUS/My-Bro-J"
 const USER_PROJECT_DIR_WSL: String = "/mnt/c/Users/ASUS/My-Bro-J"
 const USER_DESKTOP_DIR: String = "C:/Users/ASUS/Desktop"
 const USER_VIDEO_FILE: String = "steve3.mp4"
-const USER_DRYER_FILE: String = "dryer.jpg"
-const USER_DRAWER_FILE: String = "drawer.jpg"
-const USER_DRAWER_ICON_FILE: String = "drawer1.jpg"
-const RES_DRAWER_ICON_PATH: String = "res://assets/images/drawer1.jpg"
-const USER_DRAWER_ICON_ALIASES: PackedStringArray = [
-	"drawer1.jpg",
-	"Drawer1.jpg",
-	"drawer_icon.jpg",
-	"drawer-icon.jpg",
-]
 const USER_STEVE2_FILE: String = "Steve2.jpg"
 const USER_STEVE2_ALIASES: PackedStringArray = [
 	"Steve2.jpg",
@@ -138,6 +128,10 @@ const RES_UI_FONT_PATH: String = "res://assets/fonts/YuanRou-P-Bold.ttf"
 ## 全界面统一字号；字体本身为 Bold。业务脚本不得另写字号。
 const UI_FONT_SIZE: int = 16
 const UI_FONT_COLOR: Color = Color(1.0, 1.0, 1.0, 1.0)
+const UI_FONT_OUTLINE_COLOR: Color = Color(0.0, 0.0, 0.0, 0.92)
+const UI_FONT_OUTLINE_SIZE: int = 4
+const DRYER_BUTTON_TEXT: String = "🧺 烘干机"
+const DRAWER_BUTTON_TEXT: String = "🗄️ 抽屉"
 ## 仅右键菜单：字号 19，行距为字号 ×0.3。
 const MENU_UI_FONT_SIZE: int = 19
 const MENU_LINE_SPACING: int = 6
@@ -154,7 +148,7 @@ const RUNAWAY_BANNER_HEIGHT: float = 30.0
 const RUNAWAY_BANNER_TOP_INSET: float = 8.0
 const PRESSURE_BUTTON_TEXT: String = "能不能给我洗快点"
 const PRESSURE_COOLDOWN_SUFFIX: String = "后再压力他"
-const MOVIE_BUTTON_TEXT: String = "看电影"
+const MOVIE_BUTTON_TEXT: String = "哥请你看个电影吧"
 const MOVIE_LOADING_TEXT: String = "给你包场呢妈妈，耐心等等我"
 const DINNER_BUTTON_TEXT: String = "约个饭"
 const CHAT_BUTTON_TEXT: String = "聊聊天"
@@ -226,6 +220,9 @@ const MOVIE_VOLUME_DEFAULT: float = 0.8
 const MOVIE_SPEEDS: PackedFloat32Array = [0.75, 1.0, 1.5, 2.0]
 const MOVIE_CACHE_DIR: String = "user://movies"
 const MOVIE_MAX_BYTES: int = 130000000
+## 下到这么多字节且文件头是 OggS 就先开播，剩余边下边写同一文件。
+const MOVIE_PLAY_AFTER_BYTES: int = 2500000
+const MOVIE_MIN_HEADER_BYTES: int = 65536
 const MOVIE_YEAR_MIN: int = 2009
 const MOVIE_FAIL_TEXT: String = "这场包场黄了，换一部或稍后再试。"
 const MOVIE_MUTE_TEXT: String = "♪"
@@ -260,6 +257,24 @@ const MOVIE_CATALOG: Array = [
 	},
 ]
 const UNDERWEAR_EMOJI: String = "🩲"
+const UNDERWEAR_ART_COUNT: int = 50
+const UNDERWEAR_SHEET_COLUMNS: int = 5
+const UNDERWEAR_SHEET_ROWS: int = 5
+const UNDERWEAR_SHEET_CELLS: int = 25
+const UNDERWEAR_ART_SIZE: int = 128
+const UNDERWEAR_RES_DIR: String = "res://assets/images/underwear"
+const UNDERWEAR_USER_DIR: String = "user://underwear"
+const USER_BOXERS_SHEET_A: PackedStringArray = [
+	"boxers.png",
+	"Boxers.png",
+	"BOXERS.png",
+]
+const USER_BOXERS_SHEET_B: PackedStringArray = [
+	"boxers1.png",
+	"Boxers1.png",
+	"BOXERS1.png",
+	"boxers_1.png",
+]
 const TIDY_SELECTED_COLOR: Color = Color(0.86, 0.16, 0.18, 0.96)
 const TIDY_IDLE_COLOR: Color = Color(0.22, 0.24, 0.30, 0.94)
 ## 必须用字面量数组。PackedStringArray(...) 构造不是常量表达式（Godot 报错 98）。
@@ -269,7 +284,7 @@ const USER_UI_FONT_ALIASES: PackedStringArray = [
 	"GenJyuuGothic-P-Bold.ttf",
 	"YuanRou-P-Bold.zip",
 ]
-## 仓库里 70KB / 4 秒的 steve.ogv 是测试占位片，不能当人物动画。
+## 小于该字节数的 steve.ogv 视为测试占位片，不能当人物动画。
 const STUB_VIDEO_MAX_BYTES: int = 80000
 const ALWAYS_ON_TOP_DEFAULT: bool = true
 ## 与 scenes/steve.tscn 里当前 Steve 立绘框 / 扣色导出值一致，作为唯一默认。
@@ -285,8 +300,6 @@ const DRAWER_HEADLINE_COLOR: Color = Color(0.85, 0.65, 0.16, 0.94)
 const INVENTORY_HEADLINE_HEIGHT: float = 36.0
 const INVENTORY_HEADLINE_PAD_X: float = 14.0
 const INVENTORY_CLOSE_BUTTON_WIDTH: float = 72.0
-## 仅烘干机页：背景图从中心放大，裁掉边缘。
-const DRYER_BG_ZOOM: float = 1.36
 const USER_ASSET_DIRS: PackedStringArray = [
 	USER_PROJECT_DIR,
 	USER_PROJECT_DIR_WSL,
@@ -325,12 +338,10 @@ const TAP_FLASH_SECONDS: float = 1.15
 const TAP_FLASH_COLOR: Color = Color(0.32, 0.78, 0.96, 0.72)
 const NOTICE_SECONDS: float = 6.5
 const NOTICE_MAX_CHARS: int = 48
-## WhatsApp 经典气泡：对方白、自己绿，深色字。
-const WHATSAPP_INCOMING_COLOR: Color = Color(1.0, 1.0, 1.0, 1.0)
-const WHATSAPP_OUTGOING_COLOR: Color = Color(0.863, 0.973, 0.776, 1.0)
-const WHATSAPP_BUBBLE_TEXT: Color = Color(0.067, 0.106, 0.129, 1.0)
-const WHATSAPP_NAME_COLOR: Color = Color(0.4, 0.47, 0.506, 1.0)
-const WHATSAPP_THREAD_BG: Color = Color(0.898, 0.867, 0.835, 1.0)
+## 聊天气泡底板仍用 WhatsApp 配色；文字一律走全局白字黑边。
+const WHATSAPP_INCOMING_COLOR: Color = Color(0.22, 0.26, 0.32, 0.96)
+const WHATSAPP_OUTGOING_COLOR: Color = Color(0.18, 0.42, 0.28, 0.96)
+const WHATSAPP_THREAD_BG: Color = Color(0.10, 0.12, 0.16, 0.94)
 const MOVIE_STALL_SECONDS: float = 18.0
 const MOVIE_META_TIMEOUT: float = 20.0
 const MOVIE_REQUEST_TIMEOUT: float = 240.0
@@ -350,9 +361,6 @@ const WASH_BAR_SHIFT_Y: float = 9.0
 const CONTEXT_MENU_SCALE: float = 4.0
 const CONTEXT_MENU_BASE_SIZE: Vector2i = Vector2i(244, 420)
 const CONTEXT_MENU_MARGIN: int = 16
-## 菜单图标相对旧 168 的 30%；烘干机再从中心放大 85%（×1.85）裁边。
-const MENU_ICON_SIZE: Vector2 = Vector2(50.0, 50.0)
-const DRYER_ICON_ZOOM: float = 1.85
 const POPUP_CORNER_RADIUS: int = 28
 const BUBBLE_CORNER_RADIUS: int = 18
 const SAVE_PATH: String = "user://save_data.json"
@@ -371,8 +379,6 @@ const PET_SIZE_SCALES: Array[float] = [0.70, 1.00, 1.35, 2.00]
 const PET_SIZE_LABELS: PackedStringArray = ["小", "中", "大", "超大"]
 ## 超大体型时 Steve 再向右偏的格数（上次 3 + 本次 3）。
 const PET_SIZE_HUGE_SHIFT_X: float = 6.0
-const DRYER_ICON_NUDGE_Y: float = 5.0
-const DRAWER_ICON_NUDGE_Y: float = 8.0
 const AFFINITY_QUALITY_VALUE: Dictionary = {
 	Quality.ONEOFF: 1.0,
 	Quality.POLYESTER: 2.0,
@@ -520,6 +526,25 @@ func make_display_name(wear: String, quality: int) -> String:
 	return "%s·%s" % [wear, quality_display_name(quality)]
 
 
+func roll_art_index() -> int:
+	return randi_range(0, UNDERWEAR_ART_COUNT - 1)
+
+
+func item_art_index(item: Dictionary) -> int:
+	if item.has("art_index"):
+		return clampi(int(item.get("art_index", 0)), 0, UNDERWEAR_ART_COUNT - 1)
+	var item_id: int = int(item.get("id", 1))
+	return posmod(item_id - 1, UNDERWEAR_ART_COUNT)
+
+
+func underwear_res_path(art_index: int) -> String:
+	return "%s/%02d.png" % [UNDERWEAR_RES_DIR, clampi(art_index, 0, UNDERWEAR_ART_COUNT - 1) + 1]
+
+
+func underwear_user_path(art_index: int) -> String:
+	return "%s/%02d.png" % [UNDERWEAR_USER_DIR, clampi(art_index, 0, UNDERWEAR_ART_COUNT - 1) + 1]
+
+
 ## 烘干秒数 = 300 + 品质等级 × (100/3)。ONEOFF=0 … MARTIAN=5。
 func dry_duration_for(quality: int) -> float:
 	var level: int = clampi(quality, 0, int(Quality.MARTIAN))
@@ -542,6 +567,7 @@ func add_wet_item(quality: int = -1) -> Dictionary:
 		"wear": wear,
 		"wear_modifier": wear,
 		"display_name": make_display_name(wear, q),
+		"art_index": roll_art_index(),
 		"washed_at": now,
 		"dry_seconds": dry_seconds,
 		"dry_deadline": now + dry_seconds,
@@ -1129,6 +1155,9 @@ func fortune_offline_reply() -> String:
 func shuffled_movie_catalog() -> Array:
 	var copy: Array = MOVIE_CATALOG.duplicate(true)
 	copy.shuffle()
+	copy.sort_custom(func(a: Variant, b: Variant) -> bool:
+		return int((a as Dictionary).get("bytes", MOVIE_MAX_BYTES)) < int((b as Dictionary).get("bytes", MOVIE_MAX_BYTES))
+	)
 	return copy
 
 
@@ -1136,22 +1165,41 @@ func movie_cache_path(movie_id: String) -> String:
 	return "%s/%s.ogv" % [MOVIE_CACHE_DIR, movie_id]
 
 
-func movie_file_is_theora(path: String) -> bool:
+func movie_file_has_ogg_header(path: String) -> bool:
 	if path.is_empty() or not FileAccess.file_exists(path):
 		return false
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return false
-	var size: int = file.get_length()
 	var head: PackedByteArray = file.get_buffer(4)
 	file.close()
-	if size <= 65536 or head.size() < 4:
+	return head.size() >= 4 and head.get_string_from_ascii() == "OggS"
+
+
+func movie_file_is_theora(path: String) -> bool:
+	if not movie_file_has_ogg_header(path):
 		return false
-	return head.get_string_from_ascii() == "OggS"
+	return file_byte_count(path) > MOVIE_MIN_HEADER_BYTES
+
+
+func movie_file_is_playable(path: String) -> bool:
+	if not movie_file_has_ogg_header(path):
+		return false
+	return file_byte_count(path) >= MOVIE_PLAY_AFTER_BYTES
 
 
 func movie_is_cached(movie_id: String) -> bool:
-	return movie_file_is_theora(movie_cache_path(movie_id))
+	var path: String = movie_cache_path(movie_id)
+	if not movie_file_is_theora(path):
+		return false
+	var expected: int = 0
+	for entry: Dictionary in MOVIE_CATALOG:
+		if String(entry.get("id", "")) == movie_id:
+			expected = int(entry.get("bytes", 0))
+			break
+	if expected <= 0:
+		return file_byte_count(path) > MOVIE_PLAY_AFTER_BYTES
+	return file_byte_count(path) >= int(float(expected) * 0.98)
 
 
 func archive_metadata_url(archive_id: String) -> String:
@@ -1528,4 +1576,5 @@ func _normalize_item(entry: Dictionary) -> Dictionary:
 	item["wear_modifier"] = wear
 	if String(item.get("display_name", "")).is_empty():
 		item["display_name"] = make_display_name(wear, quality)
+	item["art_index"] = item_art_index(item)
 	return item

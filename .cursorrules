@@ -85,7 +85,8 @@
  `visible = false`。运行时仍由 `_setup_pet_video()` 校验，失败才把占位图打开。
  不要删掉这份 `ext_resource`，否则编辑器又会默认露出几何占位。
  用户绿幕源文件约定为 `C:/Users/ASUS/My-Bro-J/steve3.mp4`：存在则 FFmpeg 转 `user://steve.ogv` 与 `assets/videos/steve.ogv`。
-  烘干机 / 立绘静帧约定为同目录 `dryer.jpg`、`Steve2.jpg`。
+ 立绘静帧约定为同目录 `Steve2.jpg`。内裤表 `boxers.png` / `boxers1.png`（各 5×5）运行时抠绿切片。
+ 烘干机 / 抽屉菜单按钮用 Emoji 文案，不再使用贴图。
 - 默认画面只有角色立绘。右键角色弹出「烘干机 / 抽屉 / 退出游戏」，不要再挂 CanvasLayer HUD。
 - 主场景只有 `scenes/steve.tscn`，不要再新增第二套平行场景或脚本。
 - `VideoStreamPlayer` 必须 `mouse_filter = Control.MOUSE_FILTER_IGNORE`，否则会吃掉窗口拖拽。
