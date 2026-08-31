@@ -213,22 +213,24 @@ const MOVIE_RESIZE_EDGE: int = 10
 const MOVIE_VOLUME_DEFAULT: float = 0.8
 const MOVIE_SPEEDS: PackedFloat32Array = [0.75, 1.0, 1.5, 2.0]
 const MOVIE_CACHE_DIR: String = "user://movies"
-const MOVIE_REQUEST_TIMEOUT: float = 300.0
 const MOVIE_MAX_BYTES: int = 120000000
 const MOVIE_FAIL_TEXT: String = "这场包场黄了，换一部或稍后再试。"
 const MOVIE_MUTE_TEXT: String = "静音"
 const MOVIE_UNMUTE_TEXT: String = "声开"
 const MOVIE_MAX_TEXT: String = "最大化"
 const MOVIE_RESTORE_TEXT: String = "还原"
+const MOVIE_LOG_PREFIX: String = "[Steve/Movie] "
 ## 仅收录可公开抓取、非限制级的 CC / 公有领域影片（Godot 只播 Theora/ogv）。
+## bytes 用于优先抓小文件，避免一直停在「给你包场」。
 const MOVIE_CATALOG: Array = [
 	{
-		"id": "big_buck_bunny_640",
-		"title": "Big Buck Bunny",
-		"license": "CC-BY",
+		"id": "kid_auto_races",
+		"title": "Kid Auto Races at Venice",
+		"license": "Public Domain",
 		"rating": "G",
-		"archive_id": "BigBuckBunny_310",
-		"file": "big_buck_bunny_640.ogv",
+		"archive_id": "TheKidAutoRaceinVenice",
+		"file": "The_Kid_Auto_Race_In_Venice.ogv",
+		"bytes": 26026632,
 	},
 	{
 		"id": "elephants_dream",
@@ -237,22 +239,16 @@ const MOVIE_CATALOG: Array = [
 		"rating": "PG",
 		"archive_id": "ElephantsDream",
 		"file": "ed_1024.ogv",
+		"bytes": 45617852,
 	},
 	{
-		"id": "sintel",
-		"title": "Sintel",
+		"id": "big_buck_bunny_640",
+		"title": "Big Buck Bunny",
 		"license": "CC-BY",
-		"rating": "PG",
-		"archive_id": "Sintel_201809",
-		"file": "Sintel.ogv",
-	},
-	{
-		"id": "kid_auto_races",
-		"title": "Kid Auto Races at Venice",
-		"license": "Public Domain",
 		"rating": "G",
-		"archive_id": "TheKidAutoRaceinVenice",
-		"file": "The_Kid_Auto_Race_In_Venice.ogv",
+		"archive_id": "BigBuckBunny_310",
+		"file": "big_buck_bunny_640.ogv",
+		"bytes": 45627697,
 	},
 	{
 		"id": "chaplin_barroom_floor",
@@ -261,6 +257,16 @@ const MOVIE_CATALOG: Array = [
 		"rating": "G",
 		"archive_id": "THEFACEONTHEBARROOMFLOOR1914CharlieChaplin",
 		"file": "THE FACE ON THE BARROOM FLOOR (1914)  -- Charlie Chaplin.ogv",
+		"bytes": 52000000,
+	},
+	{
+		"id": "sintel",
+		"title": "Sintel",
+		"license": "CC-BY",
+		"rating": "PG",
+		"archive_id": "Sintel_201809",
+		"file": "Sintel.ogv",
+		"bytes": 69000000,
 	},
 ]
 const UNDERWEAR_EMOJI: String = "🩲"
@@ -327,8 +333,24 @@ const WORK_BREAK_TEXT: String = "你又工作45分钟了哦，注意休息~"
 const TAP_FLASH_TEXT: String = "加速 -5秒"
 const TAP_FLASH_SECONDS: float = 1.15
 const TAP_FLASH_COLOR: Color = Color(0.32, 0.78, 0.96, 0.72)
-const NOTICE_SECONDS: float = 3.6
+const NOTICE_SECONDS: float = 6.5
 const NOTICE_MAX_CHARS: int = 48
+## WhatsApp 经典气泡：对方白、自己绿，深色字。
+const WHATSAPP_INCOMING_COLOR: Color = Color(1.0, 1.0, 1.0, 1.0)
+const WHATSAPP_OUTGOING_COLOR: Color = Color(0.863, 0.973, 0.776, 1.0)
+const WHATSAPP_BUBBLE_TEXT: Color = Color(0.067, 0.106, 0.129, 1.0)
+const WHATSAPP_NAME_COLOR: Color = Color(0.4, 0.47, 0.506, 1.0)
+const WHATSAPP_THREAD_BG: Color = Color(0.898, 0.867, 0.835, 1.0)
+const MOVIE_STALL_SECONDS: float = 18.0
+const MOVIE_META_TIMEOUT: float = 20.0
+const MOVIE_REQUEST_TIMEOUT: float = 240.0
+const MOVIE_SWITCH_TEXT: String = "给你包场呢妈妈，耐心等等我 换片中"
+const FFMPEG_GUESSES: PackedStringArray = [
+	"C:/ffmpeg/bin/ffmpeg.exe",
+	"C:/Program Files/ffmpeg/bin/ffmpeg.exe",
+	"C:/Program Files (x86)/ffmpeg/bin/ffmpeg.exe",
+	"C:/tools/ffmpeg/bin/ffmpeg.exe",
+]
 ## 进度条淡入 / 淡出时长。
 const HOVER_FADE_SECONDS: float = 0.35
 const WASH_PROGRESS_MAX: int = 100
@@ -1116,7 +1138,9 @@ func fortune_offline_reply() -> String:
 
 func shuffled_movie_catalog() -> Array:
 	var copy: Array = MOVIE_CATALOG.duplicate(true)
-	copy.shuffle()
+	copy.sort_custom(func(a, b) -> bool:
+		return int((a as Dictionary).get("bytes", 1 << 30)) < int((b as Dictionary).get("bytes", 1 << 30))
+	)
 	return copy
 
 
@@ -1124,22 +1148,67 @@ func movie_cache_path(movie_id: String) -> String:
 	return "%s/%s.ogv" % [MOVIE_CACHE_DIR, movie_id]
 
 
-func movie_is_cached(movie_id: String) -> bool:
-	var path: String = movie_cache_path(movie_id)
-	if not FileAccess.file_exists(path):
+func movie_file_is_theora(path: String) -> bool:
+	if path.is_empty() or not FileAccess.file_exists(path):
 		return false
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return false
 	var size: int = file.get_length()
+	var head: PackedByteArray = file.get_buffer(4)
 	file.close()
-	return size > 65536
+	if size <= 65536 or head.size() < 4:
+		return false
+	return head.get_string_from_ascii() == "OggS"
+
+
+func movie_is_cached(movie_id: String) -> bool:
+	return movie_file_is_theora(movie_cache_path(movie_id))
+
+
+func archive_metadata_url(archive_id: String) -> String:
+	return "https://archive.org/metadata/%s" % archive_id.uri_encode()
 
 
 func archive_download_url(archive_id: String, file_name: String) -> String:
-	return "https://archive.org/download/%s/%s" % [
-		archive_id.uri_encode(), file_name.uri_encode(),
-	]
+	return "https://archive.org/download/%s/%s" % [archive_id.uri_encode(), file_name.uri_encode()]
+
+
+func archive_item_file_url(host: String, directory: String, file_name: String) -> String:
+	var host_clean: String = host.strip_edges().trim_prefix("https://").trim_prefix("http://")
+	if host_clean.is_empty() or file_name.is_empty():
+		return ""
+	var dir_clean: String = directory.strip_edges()
+	if not dir_clean.begins_with("/"):
+		dir_clean = "/" + dir_clean
+	return "https://%s%s/%s" % [host_clean, dir_clean.rstrip("/"), file_name.uri_encode()]
+
+
+func parse_archive_download_urls(body: PackedByteArray, archive_id: String, wanted_file: String) -> PackedStringArray:
+	var parsed: Variant = JSON.parse_string(body.get_string_from_utf8())
+	var urls: PackedStringArray = PackedStringArray()
+	if not parsed is Dictionary:
+		return urls
+	var data: Dictionary = parsed
+	var file_name: String = wanted_file
+	var picked: Dictionary = pick_archive_ogv(data.get("files", []))
+	if file_name.is_empty() and not picked.is_empty():
+		file_name = String(picked.get("name", ""))
+	if file_name.is_empty():
+		return urls
+	var d1: String = String(data.get("d1", "")).strip_edges()
+	var d2: String = String(data.get("d2", "")).strip_edges()
+	var directory: String = String(data.get("dir", "")).strip_edges()
+	var item_url: String = archive_item_file_url(d1, directory, file_name)
+	if not item_url.is_empty():
+		urls.append(item_url)
+	var item_url2: String = archive_item_file_url(d2, directory, file_name)
+	if not item_url2.is_empty() and not urls.has(item_url2):
+		urls.append(item_url2)
+	var fallback: String = archive_download_url(archive_id, file_name)
+	if not urls.has(fallback):
+		urls.append(fallback)
+	return urls
 
 
 func pick_archive_ogv(files: Array) -> Dictionary:
@@ -1301,14 +1370,49 @@ func load_game() -> void:
 		load_from_dict(parsed as Dictionary)
 
 
+func runtime_asset_dirs() -> PackedStringArray:
+	var dirs: Array[String] = []
+	var seen: Dictionary = {}
+	var extras: PackedStringArray = PackedStringArray()
+	for dir: String in USER_ASSET_DIRS:
+		extras.append(dir)
+	extras.append(ProjectSettings.globalize_path("res://"))
+	extras.append(ProjectSettings.globalize_path("res://assets/videos"))
+	extras.append(ProjectSettings.globalize_path("res://assets/images"))
+	var res_root: String = ProjectSettings.globalize_path("res://").rstrip("/").rstrip("\\")
+	if not res_root.is_empty():
+		extras.append(res_root.get_base_dir())
+	var profile: String = OS.get_environment("USERPROFILE")
+	if profile.is_empty():
+		profile = OS.get_environment("HOME")
+	if not profile.is_empty():
+		var base: String = profile.rstrip("/").rstrip("\\")
+		extras.append(base)
+		extras.append("%s/Desktop" % base)
+		extras.append("%s/Downloads" % base)
+		extras.append("%s/Documents" % base)
+		extras.append("%s/Videos" % base)
+		extras.append("%s/My-Bro-J" % base)
+		extras.append("%s/scoop/apps/ffmpeg/current/bin" % base)
+		extras.append("%s/AppData/Local/Microsoft/WinGet/Links" % base)
+	for path: String in extras:
+		var clean: String = path.strip_edges().rstrip("/").rstrip("\\")
+		if clean.is_empty() or seen.has(clean):
+			continue
+		seen[clean] = true
+		dirs.append(clean)
+	return PackedStringArray(dirs)
+
+
 ## 按「仓库根目录 → res:// → assets → 桌面兜底」查找用户拖进来的文件。
 func user_file_candidates(file_name: String) -> PackedStringArray:
 	var out: PackedStringArray = PackedStringArray()
-	for dir: String in USER_ASSET_DIRS:
-		if dir == "res://":
-			out.append("res://%s" % file_name)
-		else:
-			out.append("%s/%s" % [dir.rstrip("/"), file_name])
+	var seen: Dictionary = {}
+	for dir: String in runtime_asset_dirs():
+		var candidate: String = "res://%s" % file_name if dir == "res://" else "%s/%s" % [dir, file_name]
+		if not seen.has(candidate):
+			seen[candidate] = true
+			out.append(candidate)
 	return out
 
 

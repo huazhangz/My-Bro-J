@@ -198,6 +198,9 @@ var _flash_panel: PanelContainer
 var _flash_label: Label
 var _flash_tween: Tween
 var _pending_steve_notice: String = ""
+var _speech_target: String = ""
+var _notice_wired: bool = false
+var _chat_thread_wrapped: bool = false
 
 
 func _ready() -> void:
@@ -583,6 +586,7 @@ func _gui_input(event: InputEvent) -> void:
 				and not _chat_popup.visible
 				and not _fortune_open()
 				and not _movie_open()
+				and not _speech_visible()
 				and _is_pointer_on_pet(mb.position)
 			):
 				_try_tap_speedup()
@@ -660,6 +664,8 @@ func _is_click_on_blocking_ui(global_pos: Vector2) -> bool:
 		]:
 			if is_instance_valid(control) and control.get_global_rect().has_point(global_pos):
 				return true
+	if _speech_visible() and is_instance_valid(_notice_panel) and _notice_panel.get_global_rect().has_point(global_pos):
+		return true
 	if _movie_open():
 		for control: Control in [
 			_movie_close_button, _movie_max_button, _movie_mute_button, _movie_volume, _movie_speed_box,
@@ -786,10 +792,12 @@ func _process(delta: float) -> void:
 	_tick_tap_speedup_cooldown(delta)
 	if _chat_send_cd > 0.0:
 		_chat_send_cd = maxf(_chat_send_cd - delta, 0.0)
+	if _movie_loading and _movie_client != null and _movie_client.has_method("poll"):
+		_movie_client.poll(delta)
 	_tick_movie_playback(delta)
 	if _state != State.RUNAWAY:
 		GameData.tick_work_presence(delta)
-		if GameData.consume_work_break():
+		if _can_show_speech_bubble() and GameData.consume_work_break():
 			_show_notice(GameData.WORK_BREAK_TEXT)
 	GameData.tick_companion(delta)
 	if _exit_popup.visible:
@@ -950,6 +958,7 @@ func _setup_chat_client() -> void:
 func _open_chat() -> void:
 	if _state == State.RUNAWAY:
 		return
+	_hide_speech_bubble()
 	if is_instance_valid(_exit_popup):
 		_exit_popup.visible = false
 	if is_instance_valid(_settings_panel):
@@ -991,10 +1000,11 @@ func _open_chat() -> void:
 func _close_chat() -> void:
 	if is_instance_valid(_chat_popup):
 		_chat_popup.visible = false
+	_hide_speech_bubble()
 	_restore_overlay_window_if_idle()
 	if not _any_overlay_open() and _state != State.RUNAWAY:
 		_set_pet_layer_visible(true)
-	_flush_steve_notice()
+	call_deferred("_try_show_speech")
 
 
 func _submit_chat() -> void:
@@ -1024,7 +1034,7 @@ func _on_chat_replied(text: String) -> void:
 		reply = GameData.CHAT_FAIL_TEXT
 	GameData.append_chat_message("assistant", reply)
 	_rebuild_chat_list()
-	_queue_steve_notice(reply)
+	_queue_steve_notice(reply, "chat")
 	_set_chat_composer_enabled(true)
 	if is_instance_valid(_chat_input):
 		_chat_input.grab_focus()
@@ -1065,19 +1075,26 @@ func _make_chat_row(item: Dictionary) -> Control:
 	name_label.text = GameData.CHAT_USER_NAME if is_user else GameData.CHAT_STEVE_NAME
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if is_user else HORIZONTAL_ALIGNMENT_LEFT
 	name_label.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
-	name_label.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+	name_label.add_theme_color_override("font_color", GameData.WHATSAPP_NAME_COLOR)
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var bubble: PanelContainer = PanelContainer.new()
 	var box: StyleBoxFlat = StyleBoxFlat.new()
-	box.bg_color = Color(0.38, 0.29, 0.68, 0.94) if is_user else Color(0.16, 0.18, 0.24, 0.94)
-	box.set_corner_radius_all(12)
+	box.bg_color = GameData.WHATSAPP_OUTGOING_COLOR if is_user else GameData.WHATSAPP_INCOMING_COLOR
+	box.corner_radius_top_left = 12
+	box.corner_radius_top_right = 12
+	if is_user:
+		box.corner_radius_bottom_left = 12
+		box.corner_radius_bottom_right = 4
+	else:
+		box.corner_radius_bottom_left = 4
+		box.corner_radius_bottom_right = 12
 	box.set_content_margin_all(10.0)
 	bubble.add_theme_stylebox_override("panel", box)
 	var body: Label = Label.new()
 	body.text = String(item.get("text", ""))
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
-	body.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+	body.add_theme_color_override("font_color", GameData.WHATSAPP_BUBBLE_TEXT)
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bubble.add_child(body)
 	col.add_child(name_label)
@@ -1312,8 +1329,11 @@ func _is_usable_ogv(path: String) -> bool:
 func _ingest_desktop_source() -> String:
 	var source: String = _find_desktop_source()
 	if source.is_empty():
-		print_verbose("%s user video not found: %s/%s" % [
-			VIDEO_LOG_PREFIX, GameData.USER_PROJECT_DIR, GameData.USER_VIDEO_FILE,
+		print("%s user video not found. project=%s  USER_PROJECT_DIR=%s  file=%s" % [
+			VIDEO_LOG_PREFIX,
+			ProjectSettings.globalize_path("res://"),
+			GameData.USER_PROJECT_DIR,
+			GameData.USER_VIDEO_FILE,
 		])
 		return ""
 	print_rich("[color=#54d18c]%s找到本机素材：%s[/color]" % [VIDEO_LOG_PREFIX, source])
@@ -1323,10 +1343,10 @@ func _ingest_desktop_source() -> String:
 	var dest_user: String = ProjectSettings.globalize_path(USER_CACHE_OGV)
 	var src_mtime: int = FileAccess.get_modified_time(source)
 	if _is_usable_ogv(VIDEO_PATH) and FileAccess.get_modified_time(VIDEO_PATH) >= src_mtime:
-		print_verbose("%s project ogv is newer than %s" % [VIDEO_LOG_PREFIX, source])
+		print("%s project ogv is newer than %s" % [VIDEO_LOG_PREFIX, source])
 		return VIDEO_PATH
 	if _is_usable_ogv(USER_CACHE_OGV) and FileAccess.get_modified_time(USER_CACHE_OGV) >= src_mtime:
-		print_verbose("%s chroma-ready cache hit: %s" % [VIDEO_LOG_PREFIX, USER_CACHE_OGV])
+		print("%s chroma-ready cache hit: %s" % [VIDEO_LOG_PREFIX, USER_CACHE_OGV])
 		return USER_CACHE_OGV
 	if _run_ffmpeg_theora(source, dest_res) and _is_usable_ogv(VIDEO_PATH):
 		print_rich("[color=#54d18c]%s已转码 steve3 -> %s[/color]" % [VIDEO_LOG_PREFIX, VIDEO_PATH])
@@ -1342,17 +1362,101 @@ func _find_desktop_source() -> String:
 	var names: PackedStringArray = PackedStringArray([
 		GameData.USER_VIDEO_FILE,
 		"Steve3.mp4",
+		"steve3.MP4",
+		"steve 3.mp4",
+		"steve.mp4",
+		"Steve.mp4",
 		"steve3.ogv",
 		"Steve3.ogv",
 	])
 	for file_name: String in names:
 		var path: String = GameData.first_existing_file(file_name)
 		if not path.is_empty():
+			print("%s named hit %s" % [VIDEO_LOG_PREFIX, path])
 			return path
+	return _scan_steve_video_file()
+
+
+func _scan_steve_video_file() -> String:
+	var dirs: PackedStringArray = GameData.runtime_asset_dirs()
+	for dir_path: String in dirs:
+		var found: String = _scan_dir_for_steve_video(dir_path, 0)
+		if not found.is_empty():
+			return found
 	return ""
 
 
+func _scan_dir_for_steve_video(dir_path: String, depth: int) -> String:
+	var dir: DirAccess = DirAccess.open(dir_path)
+	if dir == null:
+		return ""
+	var files: PackedStringArray = dir.get_files()
+	var mp4_hit: String = ""
+	for file_name: String in files:
+		var low: String = file_name.to_lower()
+		if not ("steve" in low):
+			continue
+		var full: String = "%s/%s" % [dir_path.rstrip("/").rstrip("\\"), file_name]
+		if low.ends_with(".mp4") or low.ends_with(".mov") or low.ends_with(".mkv"):
+			print("%s scan hit %s" % [VIDEO_LOG_PREFIX, full])
+			if mp4_hit.is_empty() or "steve3" in low:
+				mp4_hit = full
+		if low.ends_with(".ogv") and _is_usable_ogv(full):
+			print("%s scan hit %s" % [VIDEO_LOG_PREFIX, full])
+			return full
+	if not mp4_hit.is_empty():
+		return mp4_hit
+	if depth >= 1:
+		return ""
+	for sub: String in dir.get_directories():
+		if sub.begins_with("."):
+			continue
+		var low_sub: String = sub.to_lower()
+		if low_sub in ["godot", "node_modules", ".git"]:
+			continue
+		var nested: String = _scan_dir_for_steve_video("%s/%s" % [dir_path.rstrip("/").rstrip("\\"), sub], depth + 1)
+		if not nested.is_empty():
+			return nested
+	return ""
+
+
+func _ffmpeg_bin() -> String:
+	var output: Array = []
+	if OS.get_name() == "Windows":
+		var where_code: int = OS.execute("where.exe", PackedStringArray(["ffmpeg"]), output, true)
+		if where_code != 0:
+			output.clear()
+			where_code = OS.execute("cmd.exe", PackedStringArray(["/c", "where", "ffmpeg"]), output, true)
+		if where_code == 0:
+			for line: Variant in output:
+				for piece: String in String(line).split("\n"):
+					var path: String = piece.strip_edges().trim_prefix("\"").trim_suffix("\"")
+					if path.to_lower().ends_with("ffmpeg.exe") and FileAccess.file_exists(path):
+						return path
+		for path: String in GameData.FFMPEG_GUESSES:
+			if FileAccess.file_exists(path):
+				return path
+		for dir_path: String in GameData.runtime_asset_dirs():
+			var guess: String = "%s/ffmpeg.exe" % dir_path
+			if FileAccess.file_exists(guess):
+				return guess
+			var guess2: String = "%s/bin/ffmpeg.exe" % dir_path
+			if FileAccess.file_exists(guess2):
+				return guess2
+	else:
+		var code: int = OS.execute("which", PackedStringArray(["ffmpeg"]), output, true)
+		if code == 0:
+			for line: Variant in output:
+				var path: String = String(line).strip_edges()
+				if not path.is_empty() and FileAccess.file_exists(path):
+					return path
+	return "ffmpeg"
+
+
 func _run_ffmpeg_theora(source: String, dest_os: String) -> bool:
+	var ffmpeg: String = _ffmpeg_bin()
+	print("%s ffmpeg=%s  src=%s  dest=%s" % [VIDEO_LOG_PREFIX, ffmpeg, source, dest_os])
+	DirAccess.make_dir_recursive_absolute(dest_os.get_base_dir())
 	var attempts: Array = [
 		PackedStringArray([
 			"-y", "-i", source,
@@ -1367,9 +1471,18 @@ func _run_ffmpeg_theora(source: String, dest_os: String) -> bool:
 	]
 	for args: PackedStringArray in attempts:
 		var output: Array = []
-		var code: int = OS.execute("ffmpeg", args, output, true)
+		var code: int = 0
+		if ffmpeg.contains("/") or ffmpeg.contains("\\"):
+			code = OS.execute(ffmpeg, args, output, true)
+		elif OS.get_name() == "Windows":
+			var cmd: PackedStringArray = PackedStringArray(["/c", "ffmpeg"])
+			cmd.append_array(args)
+			code = OS.execute("cmd.exe", cmd, output, true)
+		else:
+			code = OS.execute(ffmpeg, args, output, true)
+		print("%s ffmpeg exit=%d dest=%s" % [VIDEO_LOG_PREFIX, code, dest_os])
 		if code != 0:
-			print_verbose("%s ffmpeg exit=%d  dest=%s  %s" % [VIDEO_LOG_PREFIX, code, dest_os, str(output)])
+			print("%s ffmpeg log: %s" % [VIDEO_LOG_PREFIX, str(output)])
 			continue
 		if FileAccess.file_exists(dest_os) and not GameData.is_stub_ogv(dest_os):
 			return true
@@ -1490,7 +1603,9 @@ func _fail_video(reason: String, hint: String = "") -> void:
 	var still: Texture2D = GameData.load_image_texture(GameData.USER_STEVE2_FILE)
 	if still != null:
 		_placeholder_from_still(still)
-	print_rich("[color=#ff8b6a]%s未启用动态立绘，已回落到几何占位。[/color]" % VIDEO_LOG_PREFIX)
+		print_rich("[color=#ff8b6a]%s未启用动态立绘，已回落到 Steve2 静帧。[/color]" % VIDEO_LOG_PREFIX)
+	else:
+		print_rich("[color=#ff8b6a]%s未启用动态立绘，已回落到几何占位。[/color]" % VIDEO_LOG_PREFIX)
 	print_rich("[color=#ff8b6a]%s  原因：%s[/color]" % [VIDEO_LOG_PREFIX, reason])
 	if not hint.is_empty():
 		print_rich("[color=#ffcc66]%s  怎么修：%s[/color]" % [VIDEO_LOG_PREFIX, hint])
@@ -1652,7 +1767,7 @@ func apply_chroma_key(
 func _is_hovering_pet() -> bool:
 	if _state == State.RUNAWAY:
 		return false
-	if _inventory_popup.visible or _chat_popup.visible:
+	if _any_overlay_open() or _speech_visible():
 		return false
 	var local_pos: Vector2 = get_local_mouse_position()
 	if not Rect2(Vector2.ZERO, size).has_point(local_pos):
@@ -1751,6 +1866,10 @@ func _layout_hover_hud() -> void:
 
 func _refresh_wash_progress() -> void:
 	_layout_hover_hud()
+	if _speech_visible():
+		_layout_speech_bubble()
+		if is_instance_valid(_hover_hud):
+			_hover_hud.modulate.a = 0.0
 	var progress: int = _wash_progress_value()
 	_water_bar.max_value = float(GameData.WASH_PROGRESS_MAX)
 	_water_bar.value = float(progress)
@@ -1758,6 +1877,11 @@ func _refresh_wash_progress() -> void:
 
 
 func _tick_hover_hud(delta: float) -> void:
+	if _speech_visible():
+		_hover_time = 0.0
+		if _hover_hud_shown:
+			_set_hover_hud_visible(false, false)
+		return
 	if _is_hovering_pet():
 		_hover_time += delta
 		if _hover_time >= GameData.HOVER_SHOW_DELAY and not _hover_hud_shown:
@@ -1795,6 +1919,7 @@ func _pet_hit_rect() -> Rect2:
 
 
 func _open_exit_popup() -> void:
+	_hide_speech_bubble()
 	_refresh_pressure_button()
 	_refresh_stat_bubbles()
 	if is_instance_valid(_settings_panel):
@@ -1815,6 +1940,7 @@ func _close_exit_popup() -> void:
 	_restore_overlay_window_if_idle()
 	if not _any_content_overlay_open() and _state != State.RUNAWAY:
 		_set_pet_layer_visible(true)
+	call_deferred("_try_show_speech")
 
 
 func _toggle_always_on_top() -> void:
@@ -1833,12 +1959,14 @@ func _refresh_pin_button() -> void:
 
 func _set_pet_layer_visible(shown: bool) -> void:
 	if _state == State.RUNAWAY:
+		_hide_speech_bubble()
 		_show_runaway_basin(true)
 		return
 	if is_instance_valid(_pet_visual):
 		_pet_visual.visible = shown
 	_set_video_playing(shown)
 	if not shown:
+		_hide_speech_bubble()
 		_hover_time = 0.0
 		_set_hover_hud_visible(false, false)
 
@@ -1951,6 +2079,7 @@ func _refresh_context_menu_window() -> void:
 func _open_inventory(kind: String) -> void:
 	if _state == State.RUNAWAY:
 		return
+	_hide_speech_bubble()
 	_inventory_kind = kind
 	if is_instance_valid(_exit_popup):
 		_exit_popup.visible = false
@@ -1977,6 +2106,7 @@ func _close_inventory() -> void:
 	_restore_overlay_window_if_idle()
 	if not _any_content_overlay_open() and not _exit_popup.visible and _state != State.RUNAWAY:
 		_set_pet_layer_visible(true)
+	call_deferred("_try_show_speech")
 
 
 func _inventory_window_size() -> Vector2i:
@@ -2156,6 +2286,7 @@ func _apply_round_chrome() -> void:
 		_inventory_chrome.add_theme_stylebox_override("panel", inv_box)
 	if is_instance_valid(_chat_chrome):
 		_chat_chrome.add_theme_stylebox_override("panel", inv_box)
+	_style_chat_thread()
 	if is_instance_valid(_fortune_chrome):
 		_fortune_chrome.add_theme_stylebox_override("panel", inv_box)
 	if is_instance_valid(_movie_chrome):
@@ -2165,6 +2296,35 @@ func _apply_round_chrome() -> void:
 	_apply_menu_control_heights()
 	_style_stat_bubbles()
 	_style_scrollbars()
+
+
+func _style_chat_thread() -> void:
+	if not is_instance_valid(_chat_scroll):
+		return
+	if is_instance_valid(_chat_list):
+		_chat_list.add_theme_constant_override("separation", 8)
+	if _chat_thread_wrapped:
+		return
+	var parent: Node = _chat_scroll.get_parent()
+	if parent == null:
+		return
+	var wrap: PanelContainer = PanelContainer.new()
+	wrap.name = "ChatThread"
+	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var box: StyleBoxFlat = StyleBoxFlat.new()
+	box.bg_color = GameData.WHATSAPP_THREAD_BG
+	box.set_corner_radius_all(8)
+	box.set_content_margin_all(6.0)
+	wrap.add_theme_stylebox_override("panel", box)
+	var idx: int = _chat_scroll.get_index()
+	parent.remove_child(_chat_scroll)
+	_chat_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_chat_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	wrap.add_child(_chat_scroll)
+	parent.add_child(wrap)
+	parent.move_child(wrap, idx)
+	_chat_thread_wrapped = true
 
 
 func _style_stat_bubbles() -> void:
@@ -2409,16 +2569,21 @@ func _ensure_notice_nodes() -> void:
 		_notice_panel = PanelContainer.new()
 		_notice_panel.visible = false
 		_notice_panel.z_index = 40
-		_notice_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_notice_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 		_notice_label = Label.new()
 		_notice_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_notice_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_notice_label.max_lines_visible = 2
+		_notice_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		_notice_label.clip_text = true
+		_notice_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		_notice_label.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
-		_notice_label.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+		_notice_label.add_theme_color_override("font_color", GameData.WHATSAPP_BUBBLE_TEXT)
 		_notice_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_notice_panel.add_child(_notice_label)
 		add_child(_notice_panel)
-		_style_notice_panel(_notice_panel, Color(0.08, 0.09, 0.14, 0.94), Color(1.0, 0.85, 0.42, 0.9))
+		_style_notice_panel(
+			_notice_panel, GameData.WHATSAPP_INCOMING_COLOR, Color(0.82, 0.82, 0.82, 0.95)
+		)
 	if _flash_panel == null:
 		_flash_panel = PanelContainer.new()
 		_flash_panel.visible = false
@@ -2433,6 +2598,15 @@ func _ensure_notice_nodes() -> void:
 		_flash_panel.add_child(_flash_label)
 		add_child(_flash_panel)
 		_style_notice_panel(_flash_panel, GameData.TAP_FLASH_COLOR, Color(0.75, 0.95, 1.0, 0.85))
+	if not _notice_wired and is_instance_valid(_notice_panel):
+		_notice_wired = true
+		_notice_panel.gui_input.connect(func(event: InputEvent) -> void:
+			if event is InputEventMouseButton:
+				var mb: InputEventMouseButton = event
+				if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+					_on_speech_clicked()
+					_notice_panel.accept_event()
+		)
 
 
 func _style_notice_panel(panel: PanelContainer, fill: Color, border: Color) -> void:
@@ -2443,6 +2617,21 @@ func _style_notice_panel(panel: PanelContainer, fill: Color, border: Color) -> v
 	box.set_border_width_all(2)
 	box.border_color = border
 	panel.add_theme_stylebox_override("panel", box)
+
+
+func _style_speech_panel() -> void:
+	if not is_instance_valid(_notice_panel):
+		return
+	var box: StyleBoxFlat = StyleBoxFlat.new()
+	box.bg_color = GameData.WHATSAPP_INCOMING_COLOR
+	box.corner_radius_top_left = 16
+	box.corner_radius_top_right = 16
+	box.corner_radius_bottom_right = 16
+	box.corner_radius_bottom_left = 4
+	box.set_content_margin_all(10.0)
+	box.set_border_width_all(1)
+	box.border_color = Color(0.82, 0.82, 0.82, 0.95)
+	_notice_panel.add_theme_stylebox_override("panel", box)
 
 
 func _style_scrollbars() -> void:
@@ -2465,33 +2654,87 @@ func _hide_scroll_bar(bar: ScrollBar) -> void:
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
-func _queue_steve_notice(text: String) -> void:
+func _queue_steve_notice(text: String, target: String = "chat") -> void:
 	var excerpt: String = GameData.notice_excerpt(text)
 	if excerpt.is_empty():
 		return
-	_pending_steve_notice = "Steve：%s" % excerpt
-	if not _any_overlay_open():
-		_flush_steve_notice()
+	if target == "chat" and is_instance_valid(_chat_popup) and _chat_popup.visible:
+		return
+	if target == "fortune" and _fortune_open():
+		return
+	_pending_steve_notice = excerpt
+	_speech_target = target
+	if _can_show_speech_bubble():
+		_show_speech_bubble()
 
 
-func _flush_steve_notice() -> void:
+func _can_show_speech_bubble() -> bool:
+	if _state == State.RUNAWAY:
+		return false
+	if _any_overlay_open():
+		return false
+	if is_instance_valid(_pet_visual) and not _pet_visual.visible:
+		return false
+	return true
+
+
+func _speech_visible() -> bool:
+	return is_instance_valid(_notice_panel) and _notice_panel.visible
+
+
+func _speech_rect() -> Rect2:
+	var pet: Rect2 = _current_pet_rect()
+	var bar_w: float = clampf(pet.size.x * 0.78, 72.0, pet.size.x)
+	var hud_h: float = clampf(pet.size.x * 0.22, HOVER_HUD_HEIGHT + 8.0, 72.0)
+	var x: float = pet.position.x + (pet.size.x - bar_w) * 0.5
+	var y: float = pet.position.y - hud_h - HOVER_GAP
+	if y < 2.0:
+		y = pet.position.y + HOVER_GAP
+	y += GameData.WASH_BAR_SHIFT_Y
+	return Rect2(x, y, bar_w, hud_h)
+
+
+func _layout_speech_bubble() -> void:
+	if not _speech_visible():
+		return
+	var area: Rect2 = _speech_rect()
+	_notice_panel.position = area.position
+	_notice_panel.size = area.size
+
+
+func _try_show_speech() -> void:
+	if not _can_show_speech_bubble():
+		_hide_speech_bubble()
+		return
 	if _pending_steve_notice.is_empty():
 		return
-	var text: String = _pending_steve_notice
-	_pending_steve_notice = ""
-	_show_notice(text)
+	_show_speech_bubble()
 
 
-func _show_notice(text: String) -> void:
+func _hide_speech_bubble() -> void:
+	if is_instance_valid(_notice_tween):
+		_notice_tween.kill()
+	if is_instance_valid(_notice_panel):
+		_notice_panel.visible = false
+		_notice_panel.modulate.a = 0.0
+
+
+func _show_speech_bubble() -> void:
+	if not _can_show_speech_bubble():
+		return
+	if _pending_steve_notice.is_empty():
+		return
 	_ensure_notice_nodes()
 	if not is_instance_valid(_notice_panel) or not is_instance_valid(_notice_label):
 		return
-	_notice_label.text = GameData.notice_excerpt(text) if not text.begins_with("Steve") else text
+	_set_hover_hud_visible(false, false)
+	_notice_label.text = _pending_steve_notice
+	_notice_label.add_theme_color_override("font_color", GameData.WHATSAPP_BUBBLE_TEXT)
+	_style_speech_panel()
+	_notice_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	_notice_panel.visible = true
 	_notice_panel.modulate.a = 0.0
-	var width: float = clampf(size.x - 24.0, 160.0, 360.0)
-	_notice_panel.size = Vector2(width, 0.0)
-	_notice_panel.position = Vector2((size.x - width) * 0.5, 10.0)
+	_layout_speech_bubble()
 	if is_instance_valid(_notice_tween):
 		_notice_tween.kill()
 	_notice_tween = create_tween()
@@ -2501,7 +2744,30 @@ func _show_notice(text: String) -> void:
 	_notice_tween.finished.connect(func() -> void:
 		if is_instance_valid(_notice_panel):
 			_notice_panel.visible = false
+		_pending_steve_notice = ""
+		_speech_target = ""
 	)
+
+
+func _on_speech_clicked() -> void:
+	var target: String = _speech_target
+	_pending_steve_notice = ""
+	_speech_target = ""
+	_hide_speech_bubble()
+	if target == "fortune":
+		_open_fortune()
+	elif target == "chat":
+		_open_chat()
+
+
+func _show_notice(text: String) -> void:
+	_pending_steve_notice = GameData.notice_excerpt(text)
+	_speech_target = ""
+	if not _can_show_speech_bubble():
+		return
+	_show_speech_bubble()
+	if is_instance_valid(_notice_panel):
+		_notice_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 func _show_speed_flash() -> void:
@@ -2665,7 +2931,19 @@ func _setup_fortune_ui() -> void:
 	_fortune_result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_fortune_result.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_fortune_result.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_fortune_scroll.add_child(_fortune_result)
+	_fortune_result.add_theme_color_override("font_color", GameData.WHATSAPP_BUBBLE_TEXT)
+	var result_panel: PanelContainer = PanelContainer.new()
+	var result_box: StyleBoxFlat = StyleBoxFlat.new()
+	result_box.bg_color = GameData.WHATSAPP_INCOMING_COLOR
+	result_box.corner_radius_top_left = 12
+	result_box.corner_radius_top_right = 12
+	result_box.corner_radius_bottom_left = 4
+	result_box.corner_radius_bottom_right = 12
+	result_box.set_content_margin_all(10.0)
+	result_panel.add_theme_stylebox_override("panel", result_box)
+	result_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	result_panel.add_child(_fortune_result)
+	_fortune_scroll.add_child(result_panel)
 	_fill_fortune_pickers()
 	_fortune_year.item_selected.connect(func(_i: int) -> void:
 		_on_fortune_date_changed(true)
@@ -2754,6 +3032,7 @@ func _refresh_fortune_readout() -> void:
 func _open_fortune() -> void:
 	if _state == State.RUNAWAY:
 		return
+	_hide_speech_bubble()
 	if is_instance_valid(_exit_popup):
 		_exit_popup.visible = false
 	if is_instance_valid(_settings_panel):
@@ -2777,10 +3056,11 @@ func _open_fortune() -> void:
 func _close_fortune() -> void:
 	if is_instance_valid(_fortune_popup):
 		_fortune_popup.visible = false
+	_hide_speech_bubble()
 	_restore_overlay_window_if_idle()
 	if not _any_overlay_open() and _state != State.RUNAWAY:
 		_set_pet_layer_visible(true)
-	_flush_steve_notice()
+	call_deferred("_try_show_speech")
 
 
 func _set_fortune_busy(busy: bool) -> void:
@@ -2819,7 +3099,7 @@ func _on_fortune_replied(text: String) -> void:
 		reply = GameData.CHAT_FAIL_TEXT
 	if is_instance_valid(_fortune_result):
 		_fortune_result.text = reply
-	_queue_steve_notice(reply)
+	_queue_steve_notice(reply, "fortune")
 	_set_fortune_busy(false)
 
 
@@ -2831,6 +3111,10 @@ func _setup_movie_ui() -> void:
 	)
 	_movie_client.movie_failed.connect(func(reason: String) -> void:
 		_on_movie_failed(reason)
+	)
+	_movie_client.movie_progress.connect(func(text: String) -> void:
+		if _movie_loading and is_instance_valid(_movie_button):
+			_movie_button.text = text
 	)
 	_movie_popup = Control.new()
 	_movie_popup.name = "MoviePopup"
@@ -3027,6 +3311,7 @@ func _on_movie_ready(path: String, title: String) -> void:
 	_reset_movie_button()
 	if _state == State.RUNAWAY:
 		return
+	_hide_speech_bubble()
 	if is_instance_valid(_exit_popup):
 		_exit_popup.visible = false
 	if is_instance_valid(_settings_panel):
@@ -3057,14 +3342,23 @@ func _on_movie_failed(reason: String) -> void:
 func _play_movie_file(path: String) -> void:
 	if not is_instance_valid(_movie_player):
 		return
-	var abs_path: String = ProjectSettings.globalize_path(path) if path.begins_with("user://") else path
+	if not GameData.movie_file_is_theora(path):
+		print("%s movie file rejected path=%s" % [VIDEO_LOG_PREFIX, path])
+		_close_movie()
+		_on_movie_failed("not_theora")
+		return
+	var play_path: String = path
+	if path.begins_with("user://") or path.begins_with("res://"):
+		play_path = ProjectSettings.globalize_path(path)
 	var stream: VideoStreamTheora = VideoStreamTheora.new()
-	stream.file = abs_path
+	stream.file = play_path
 	_movie_player.stream = stream
 	_movie_speed = 1.0
 	_set_movie_speed(1.0)
 	_apply_movie_audio()
 	_movie_player.play()
+	if _movie_player.get_stream_length() <= 0.0 and not _movie_player.is_playing():
+		print("%s movie player did not start path=%s" % [VIDEO_LOG_PREFIX, play_path])
 
 
 func _stop_movie_player() -> void:
@@ -3078,10 +3372,11 @@ func _close_movie() -> void:
 	_movie_maximized = false
 	if is_instance_valid(_movie_popup):
 		_movie_popup.visible = false
+	_hide_speech_bubble()
 	_restore_overlay_window_if_idle()
 	if not _any_overlay_open() and _state != State.RUNAWAY:
 		_set_pet_layer_visible(true)
-	_flush_steve_notice()
+	call_deferred("_try_show_speech")
 
 
 func _toggle_movie_maximize() -> void:

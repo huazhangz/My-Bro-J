@@ -87,7 +87,12 @@
 | `FORTUNE_WINDOW_SIZE` | `460×640` | 运势对话框；生日只能用年/月/日/时辰选择器 |
 | `MOVIE_WINDOW_SIZE` | `720×480` | 看电影小窗默认尺寸；可拖边框，下限 `420×280` |
 | `MOVIE_SPEEDS` | `0.75 / 1 / 1.5 / 2` | 小窗倍速；非 1× 时静音以免音画错位 |
-| `MOVIE_CATALOG` | CC/公有领域白名单 | Internet Archive Theora；不含限制级 |
+| `MOVIE_CATALOG` | CC/公有领域白名单 | Internet Archive Theora；不含限制级；按体积从小到大抓 |
+| `MOVIE_STALL_SECONDS` | `18` | 下载字节不再增加则换片，避免一直停在「给你包场」 |
+| `WHATSAPP_INCOMING_COLOR` | `#FFFFFF` | 对方气泡（Steve） |
+| `WHATSAPP_OUTGOING_COLOR` | `#DCF8C6` | 自己气泡 |
+| `WHATSAPP_BUBBLE_TEXT` | `#111B21` | 气泡内深色字 |
+| `WHATSAPP_THREAD_BG` | `#E5DDD5` | 聊聊天会话底板 |
 | `TAP_SPEEDUP_SECONDS` | `5` | 双击 Steve 扣减的洗涤秒数；冷却 1 秒且不显示 |
 | `DRYER_HEADLINE_COLOR` | CodexButton 紫 | 烘干机标题条底色 |
 | `DRAWER_HEADLINE_COLOR` | CoinButton 金 | 抽屉标题条底色 |
@@ -493,7 +498,8 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 | 点「抽屉」 | 2.5× 弹层，5 列网格展示已晾干收藏 |
 | 点「聊聊天」 | 打开对话窗；口吻为孙哥人设 |
 | 点「哥来帮你算算运势~」 | 打开运势窗；必须用时间选择器提交生日/时辰 |
-| 点「看电影」 | 按钮改为「给你包场呢妈妈，耐心等等我」，抓取后弹出可缩放播放小窗 |
+| 点「看电影」 | 按钮改为「给你包场呢妈妈，耐心等等我」并显示进度；抓到后弹出可缩放播放小窗 |
+| 仅 Steve 在场时的头顶气泡 | WhatsApp 白色来信气泡盖住洗涤水条；点气泡跳转聊天 / 运势；关窗后不残留刚看过的句子 |
 | 点「固定上层」 | 开/关窗口置顶 |
 | 点「晚点再洗」 | 退出程序 |
 | 点「关闭」/ 弹窗外 / 库存上再右键 | 关闭对应弹层并还原窗口 |
@@ -533,9 +539,10 @@ Steve (Control, 铺满窗口, theme = steve_theme)
   - [x] 聊聊天主界面 + 7 天历史 + 孙哥 system prompt（sun-skill / sun-yuchen-perspective 蒸馏）；双击加速 5 秒；充值 demo
   - [x] 隐藏全部滚动条 UI，滚轮仍可滚动；烘干机 / 抽屉 / 聊聊天底板加不透明
   - [x] 运势：强制年/月/日/时辰选择器 + 大模型输出
-  - [x] 看电影：Archive 白名单免费非限制级 Theora 小窗；拖边框 / 最大化 / 音量 / 静音 / 倍速
+  - [x] 看电影：Archive metadata 直链 + 卡住换片；白名单免费非限制级 Theora 小窗；拖边框 / 最大化 / 音量 / 静音 / 倍速
   - [x] 悬停 1s 头顶洗涤水条；立绘命中盒收紧；双击水蓝 flash
-  - [x] Steve 发言主界面弹窗；45 分钟休息提醒；内裤贴图按 id 生成
+  - [x] Steve 发言气泡仅在独在且无菜单时出现，盖住洗涤条；WhatsApp 配色；点气泡跳转会话
+  - [x] 45 分钟休息提醒；内裤贴图按 id 生成
   - [x] 品质重构为一次性 / 涤纶 / 纯棉 / 真丝 / 奢华 / 火星科技，并附加 8 档磨损前缀
 - [ ] **Day 4**：换装展示系统 + 跑路冷却与 CD 缩减算法对接
   - [x] `VideoStreamPlayer` 动态立绘：autoplay + loop、宽高比内接、鼠标穿透不影响拖拽、
@@ -556,12 +563,17 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 
 1. UI 字体是完整的源柔 P Bold（约 11 MB），不再做 GB2312 子集。
 2. 动态立绘需自备 `.ogv` 素材（Godot 4 不支持 mp4 / webm）。仓库自带的 70KB
-   `steve.ogv` 是测试占位片，运行时不会播放；请把 `steve3.mp4` 放到仓库根目录后
-   F5 自动转码，或双击 `convert_video.bat`。失败时显示 `Steve2.jpg` / 几何占位。
+   `steve.ogv` 是测试占位片，运行时不会播放。启动时会扫仓库根目录 / `assets/videos` /
+   用户主目录与桌面的 `steve3.mp4`，并用本机 PATH 或常见安装路径里的 FFmpeg
+   （Windows 走 `where.exe` / `cmd`）转成 `assets/videos/steve.ogv`。也可双击
+   `convert_video.bat`。失败时显示 `Steve2.jpg` / 几何占位。
    Theora 无 Alpha 通道，透明背景要靠抠像着色器。
 3. 跑路时用「隐藏内容 + 整窗鼠标穿透」模拟窗口消失，未真正 `hide()` 主窗口；
    为了让玩家知道 Steve 何时回来，保留一条半透明的 `Steve跑路中 CD: xxs` 提示条。
 4. 离线收益未结算：条目已存 `dry_deadline` 时间戳，Day 5 读档时按现实时间补算。
 5. 拖拽已 clamp 在 `screen_get_usable_rect()` 内，多显示器场景待 Day 5 实测。
 6. 看电影只抓 `MOVIE_CATALOG` 里的 CC / 公有领域 Theora（Internet Archive），Godot 4 不能播 mp4。
-   首次下载约 20–65MB，缓存在 `user://movies`。聊聊天 / 运势需配置 `STEVE_CHAT_API_URL` 才会走在线大模型。
+   先拉 `archive.org/metadata/{id}` 拿 `d1`+`dir` 直链，避免 `/download/` 跳转挂死；
+   18 秒没有字节增长就换片。首次下载约 26–65MB，缓存在 `user://movies`。
+   聊聊天 / 运势需配置 `STEVE_CHAT_API_URL` 才会走在线大模型。
+   聊聊天双方气泡用 WhatsApp 经典配色（对方白 / 自己绿 / 深色字）。
