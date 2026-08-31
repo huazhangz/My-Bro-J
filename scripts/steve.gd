@@ -386,6 +386,7 @@ func _apply_menu_control_heights() -> void:
 	if is_instance_valid(_dinner_button):
 		_dinner_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
 		_dinner_button.text = GameData.DINNER_BUTTON_TEXT
+		_style_dinner_button()
 	if is_instance_valid(_chat_button):
 		_chat_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
 		_chat_button.text = GameData.CHAT_BUTTON_TEXT
@@ -442,6 +443,7 @@ func _connect_exit_popup() -> void:
 	_settings_button.pressed.connect(func() -> void:
 		if is_instance_valid(_settings_panel):
 			_settings_panel.visible = not _settings_panel.visible
+			_refresh_context_menu_window()
 	)
 	_size_small_button.pressed.connect(func() -> void:
 		_set_pet_size_tier(GameData.PET_SIZE_SMALL)
@@ -839,8 +841,8 @@ func _setup_chat_client() -> void:
 	_chat_client.chat_replied.connect(func(text: String) -> void:
 		_on_chat_replied(text)
 	)
-	_chat_client.chat_failed.connect(func(_reason: String) -> void:
-		_on_chat_replied(GameData.CHAT_FAIL_TEXT)
+	_chat_client.chat_failed.connect(func(reason: String) -> void:
+		_on_chat_replied(GameData.chat_fail_text(reason))
 	)
 
 
@@ -879,6 +881,8 @@ func _open_chat() -> void:
 	_rebuild_chat_list()
 	_set_chat_composer_enabled(true)
 	if is_instance_valid(_chat_input):
+		if not GameData.chat_api_ready():
+			_chat_input.placeholder_text = GameData.CHAT_UNCONFIGURED_HINT
 		_chat_input.grab_focus()
 
 
@@ -1682,7 +1686,7 @@ func _open_exit_popup() -> void:
 	if is_instance_valid(_settings_panel):
 		_settings_panel.visible = false
 	_set_pet_layer_visible(false)
-	_expand_overlay_window(GameData.context_menu_window_size())
+	_expand_overlay_window(GameData.context_menu_window_size(false))
 	_exit_popup.visible = true
 	_apply_menu_icons()
 	call_deferred("_layout_menu_icons")
@@ -1725,15 +1729,21 @@ func _set_pet_layer_visible(shown: bool) -> void:
 		_set_hover_hud_visible(false, false)
 
 
-func _apply_inventory_background(_kind: String) -> void:
-	if is_instance_valid(_inventory_bg) and _dryer_texture != null:
-		_inventory_bg.texture = _dryer_texture
+func _apply_inventory_background(kind: String) -> void:
+	if is_instance_valid(_inventory_bg):
+		if kind == "drawer":
+			_inventory_bg.texture = null
+			_inventory_bg.visible = false
+		else:
+			_inventory_bg.visible = true
+			if _dryer_texture != null:
+				_inventory_bg.texture = _dryer_texture
 	_apply_video_key()
 	_layout_inventory_bg()
 
 
 func _layout_inventory_bg() -> void:
-	if not is_instance_valid(_inventory_bg):
+	if not is_instance_valid(_inventory_bg) or not _inventory_bg.visible:
 		return
 	var host: Control = _inventory_bg.get_parent() as Control
 	var area: Vector2 = host.size if is_instance_valid(host) else _inventory_popup.size
@@ -1768,15 +1778,57 @@ func _apply_inventory_headline(kind: String) -> void:
 	box.content_margin_bottom = 6.0
 	_inventory_headline.add_theme_stylebox_override("panel", box)
 	_inventory_headline.custom_minimum_size.y = GameData.INVENTORY_HEADLINE_HEIGHT
-	if is_instance_valid(_inventory_close_button):
-		_inventory_close_button.custom_minimum_size = Vector2(
-			GameData.INVENTORY_CLOSE_BUTTON_WIDTH,
+	_style_inventory_header_buttons()
+	_set_tidy_panel_visible(false)
+
+
+func _style_inventory_header_buttons() -> void:
+	var buttons: Array[Button] = [_tidy_button, _inventory_close_button]
+	for button: Button in buttons:
+		if not is_instance_valid(button):
+			continue
+		button.theme_type_variation = &"CloseButton"
+		button.custom_minimum_size = Vector2(
+			GameData.INVENTORY_CLOSE_BUTTON_WIDTH if button == _inventory_close_button else 96.0,
 			GameData.INVENTORY_HEADLINE_HEIGHT
 		)
+		button.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
+		button.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+		button.add_theme_color_override("font_hover_color", GameData.UI_FONT_COLOR)
+		button.add_theme_color_override("font_pressed_color", GameData.UI_FONT_COLOR)
+		button.add_theme_color_override("font_focus_color", GameData.UI_FONT_COLOR)
 	if is_instance_valid(_tidy_button):
 		_tidy_button.visible = true
-		_tidy_button.custom_minimum_size.y = GameData.INVENTORY_HEADLINE_HEIGHT
-	_set_tidy_panel_visible(false)
+
+
+func _style_dinner_button() -> void:
+	if not is_instance_valid(_dinner_button):
+		return
+	var slots: Dictionary = {
+		"normal": GameData.DINNER_BUTTON_COLOR,
+		"hover": GameData.DINNER_BUTTON_HOVER,
+		"focus": GameData.DINNER_BUTTON_HOVER,
+		"pressed": GameData.DINNER_BUTTON_PRESSED,
+		"disabled": GameData.DINNER_BUTTON_COLOR,
+	}
+	for slot: String in slots.keys():
+		var box: StyleBoxFlat = StyleBoxFlat.new()
+		box.bg_color = slots[slot]
+		box.set_corner_radius_all(8)
+		box.set_content_margin_all(10.0)
+		box.set_border_width_all(2)
+		box.border_color = Color(1.0, 1.0, 1.0, 0.55)
+		_dinner_button.add_theme_stylebox_override(slot, box)
+	_dinner_button.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+	_dinner_button.add_theme_color_override("font_hover_color", GameData.UI_FONT_COLOR)
+	_dinner_button.add_theme_color_override("font_pressed_color", GameData.UI_FONT_COLOR)
+
+
+func _refresh_context_menu_window() -> void:
+	if not is_instance_valid(_exit_popup) or not _exit_popup.visible:
+		return
+	var settings_open: bool = is_instance_valid(_settings_panel) and _settings_panel.visible
+	_expand_overlay_window(GameData.context_menu_window_size(settings_open))
 
 
 func _open_inventory(kind: String) -> void:

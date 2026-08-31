@@ -153,6 +153,14 @@ const CHAT_API_URL: String = ""
 const CHAT_API_KEY_ENV: String = "STEVE_CHAT_API_KEY"
 const CHAT_API_URL_ENV: String = "STEVE_CHAT_API_URL"
 const CHAT_API_KEY_FILE: String = "user://chat_api_key.txt"
+const CHAT_CONFIG_FILE: String = "user://chat_config.json"
+const CHAT_MODEL_ENV: String = "STEVE_CHAT_MODEL"
+const CHAT_MODEL: String = ""
+const SETTINGS_PANEL_EXTRA_HEIGHT: int = 200
+const DINNER_BUTTON_COLOR: Color = Color(0.92, 0.40, 0.62, 0.94)
+const DINNER_BUTTON_HOVER: Color = Color(0.96, 0.52, 0.70, 0.96)
+const DINNER_BUTTON_PRESSED: Color = Color(0.78, 0.28, 0.50, 0.96)
+const CHAT_UNCONFIGURED_HINT: String = "外部模型未接通，先用本地占位回复。"
 const CHAT_HISTORY_SECONDS: float = 604800.0
 const CHAT_MAX_INPUT_CHARS: int = 400
 const CHAT_MAX_OUTPUT_CHARS: int = 1200
@@ -732,13 +740,15 @@ func inventory_window_size(tidy_open: bool = false) -> Vector2i:
 	return Vector2i(width, height)
 
 
-func context_menu_window_size() -> Vector2i:
+func context_menu_window_size(settings_open: bool = false) -> Vector2i:
 	var scaled: Vector2i = Vector2i(
 		int(float(CONTEXT_MENU_BASE_SIZE.x) * CONTEXT_MENU_SCALE),
 		int(float(CONTEXT_MENU_BASE_SIZE.y) * CONTEXT_MENU_SCALE)
 	)
+	if settings_open:
+		scaled.y += SETTINGS_PANEL_EXTRA_HEIGHT
 	var usable: Rect2i = DisplayServer.screen_get_usable_rect()
-	var pad: int = 48
+	var pad: int = 16 if settings_open else 48
 	if usable.size.x > pad:
 		scaled.x = clampi(scaled.x, 480, usable.size.x - pad)
 	if usable.size.y > pad:
@@ -803,10 +813,27 @@ func chat_context_for_api() -> Array[Dictionary]:
 	return out
 
 
+func _chat_file_config() -> Dictionary:
+	if not FileAccess.file_exists(CHAT_CONFIG_FILE):
+		return {}
+	var file: FileAccess = FileAccess.open(CHAT_CONFIG_FILE, FileAccess.READ)
+	if file == null:
+		return {}
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	file.close()
+	if parsed is Dictionary:
+		return parsed
+	return {}
+
+
 func resolved_chat_api_url() -> String:
 	var env_url: String = OS.get_environment(CHAT_API_URL_ENV).strip_edges()
 	if not env_url.is_empty():
 		return env_url
+	var cfg: Dictionary = _chat_file_config()
+	var file_url: String = String(cfg.get("url", "")).strip_edges()
+	if not file_url.is_empty():
+		return file_url
 	return CHAT_API_URL.strip_edges()
 
 
@@ -814,6 +841,10 @@ func resolved_chat_api_key() -> String:
 	var env_key: String = OS.get_environment(CHAT_API_KEY_ENV).strip_edges()
 	if not env_key.is_empty():
 		return env_key
+	var cfg: Dictionary = _chat_file_config()
+	var file_key: String = String(cfg.get("key", cfg.get("api_key", ""))).strip_edges()
+	if not file_key.is_empty():
+		return file_key
 	if FileAccess.file_exists(CHAT_API_KEY_FILE):
 		var file: FileAccess = FileAccess.open(CHAT_API_KEY_FILE, FileAccess.READ)
 		if file != null:
@@ -821,6 +852,36 @@ func resolved_chat_api_key() -> String:
 			file.close()
 			return key
 	return ""
+
+
+func resolved_chat_model() -> String:
+	var env_model: String = OS.get_environment(CHAT_MODEL_ENV).strip_edges()
+	if not env_model.is_empty():
+		return env_model
+	var cfg: Dictionary = _chat_file_config()
+	var file_model: String = String(cfg.get("model", "")).strip_edges()
+	if not file_model.is_empty():
+		return file_model
+	return CHAT_MODEL.strip_edges()
+
+
+func chat_api_ready() -> bool:
+	var url: String = resolved_chat_api_url()
+	return not url.is_empty() and chat_url_is_safe(url)
+
+
+func chat_fail_text(reason: String) -> String:
+	if reason == "unsafe_url":
+		return "接口地址不安全，请改用 HTTPS。"
+	if reason == "http_401" or reason == "http_403":
+		return "密钥无效或没有权限。"
+	if reason.begins_with("http_"):
+		return "服务器没有应答，稍后再试。"
+	if reason == "empty_reply":
+		return "模型没有返回内容。"
+	if reason == "request_error":
+		return "发不出去，请检查网络。"
+	return CHAT_FAIL_TEXT
 
 
 func chat_url_is_safe(url: String) -> bool:
@@ -833,10 +894,26 @@ func chat_url_is_safe(url: String) -> bool:
 
 
 func build_chat_payload(history: Array[Dictionary]) -> String:
-	return JSON.stringify({
+	var messages: Array = []
+	if not CHAT_SYSTEM_PROMPT.strip_edges().is_empty():
+		messages.append({
+			"role": "system",
+			"content": CHAT_SYSTEM_PROMPT,
+		})
+	for item: Dictionary in history:
+		messages.append({
+			"role": String(item.get("role", "user")),
+			"content": String(item.get("content", item.get("text", ""))),
+		})
+	var payload: Dictionary = {
+		"messages": messages,
+		"stream": false,
 		"system": CHAT_SYSTEM_PROMPT,
-		"messages": history,
-	})
+	}
+	var model: String = resolved_chat_model()
+	if not model.is_empty():
+		payload["model"] = model
+	return JSON.stringify(payload)
 
 
 func parse_chat_reply(body: PackedByteArray) -> String:
@@ -854,6 +931,12 @@ func parse_chat_reply(body: PackedByteArray) -> String:
 			return sanitize_chat_output(String(data.get("content", "")))
 		if data.has("message") and data.get("message") is String:
 			return sanitize_chat_output(String(data.get("message", "")))
+		if data.has("output") and data.get("output") is String:
+			return sanitize_chat_output(String(data.get("output", "")))
+		if data.has("choices"):
+			var choices2: Array = data.get("choices", [])
+			if not choices2.is_empty() and choices2[0] is Dictionary:
+				return sanitize_chat_output(String((choices2[0] as Dictionary).get("text", "")))
 	if parsed is String:
 		return sanitize_chat_output(parsed)
 	return ""

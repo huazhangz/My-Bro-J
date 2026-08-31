@@ -81,6 +81,7 @@
 | `CHROMA_KEY_SMOOTHNESS` | `0.15` | 当前边缘羽化 |
 | `DRYER_BG_ZOOM` | `1.36` | 烘干机 / 抽屉库存背景从中心放大（裁边） |
 | `CHAT_SYSTEM_PROMPT` | `""` | 外部模型 system prompt 预留位，下一阶段填入 |
+| `CHAT_CONFIG_FILE` | `user://chat_config.json` | 可选：url / key / model；环境变量优先 |
 | `CHAT_HISTORY_SECONDS` | `604800` | 聊聊天历史保留 7 天 |
 | `TAP_SPEEDUP_SECONDS` | `5` | 双击 Steve 扣减的洗涤秒数；冷却 1 秒且不显示 |
 | `DRYER_HEADLINE_COLOR` | CodexButton 紫 | 烘干机标题条底色 |
@@ -265,14 +266,14 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
   - 菜单图标相对按钮框下移：烘干机 `DRYER_ICON_NUDGE_Y=5`、抽屉 `DRAWER_ICON_NUDGE_Y=8`
   - 好感度：品质 log 高权重 + 陪伴 log（满值时间 ×260%）最多 15%；每次跑路 −25，最低 0
   - `能不能给我洗快点`：随机扣洗涤时间（1s~12h）；冷却灰显读秒
-  - `聊聊天`：对话窗 + 输入/发送（Enter）+ 7 天历史；外部 LLM 接口与 `CHAT_SYSTEM_PROMPT` 已预留
-  - Demo（占位）：`看电影` / `约个饭` / `充值`
-  - `设置`：固定上层 + Steve 体型（小 70% / 中 / 大 135% / 超大 200%，超大再右移 6 格）；体型只缩放立绘窗口，烘干机/抽屉交互窗尺寸固定
+  - `聊聊天`：对话窗 + 输入/发送（Enter）+ 7 天历史；OpenAI 兼容接口（`user://chat_config.json` / 环境变量）；`CHAT_SYSTEM_PROMPT` 预留
+  - Demo（占位）：`看电影` / `约个饭`（粉色） / `充值`
+  - `设置`：展开时菜单窗口加高并允许滚动，避免边框裁切；固定上层 + Steve 体型（小 / 中 / 大 / 超大）
   - `晚点再洗`：存档后退出
   - 右上角 `×`：关闭并还原窗口
   - 跑路时立绘换成按比例内接的 `container.jpg` 空盆；「已跑路...」居中贴在画面顶部，z 低于菜单
   - 点弹窗外 / `ESC` / `×`：关闭菜单
-- **InventoryPopup**（全屏，默认隐藏）：烘干机 / 抽屉都用 `dryer.jpg` 中心 ×1.36 裁边（抽屉不再铺 drawer 图）
+- **InventoryPopup**（全屏，默认隐藏）：烘干机用 `dryer.jpg` 中心 ×1.36；抽屉空白底；顶栏「收拾一下 / 关闭」统一 CloseButton 风格
   - 窗口按 **横 5 × 竖 6** 卡片刚好铺满计算（`inventory_window_size()`，不跟 Steve 体型）
   - 左上角标题带 headline 色条（烘干机紫 / 抽屉金，与右键按钮底色一致），高度不超过第一件库存
   - 右上角「关闭」与标题条同高；烘干机 / 抽屉关闭左侧都有「收拾一下」

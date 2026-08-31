@@ -20,6 +20,7 @@ build/
 # 本地存档
 save_data.json
 chat_api_key.txt
+chat_config.json
 
 # 系统垃圾
 .DS_Store

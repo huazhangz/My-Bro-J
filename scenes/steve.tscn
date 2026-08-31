@@ -234,20 +234,27 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_type_variation = &"SolidPanel"
 
-[node name="ExitInner" type="VBoxContainer" parent="ExitPopup"]
+[node name="MenuScroll" type="ScrollContainer" parent="ExitPopup"]
 layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 2
+
+[node name="ExitInner" type="VBoxContainer" parent="ExitPopup/MenuScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/separation = 14
 
-[node name="MenuHeader" type="HBoxContainer" parent="ExitPopup/ExitInner"]
+[node name="MenuHeader" type="HBoxContainer" parent="ExitPopup/MenuScroll/ExitInner"]
 layout_mode = 2
 theme_override_constants/separation = 0
 
-[node name="MenuHeaderSpacer" type="Control" parent="ExitPopup/ExitInner/MenuHeader"]
+[node name="MenuHeaderSpacer" type="Control" parent="ExitPopup/MenuScroll/ExitInner/MenuHeader"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="MenuCloseButton" type="Button" parent="ExitPopup/ExitInner/MenuHeader"]
+[node name="MenuCloseButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner/MenuHeader"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(28, 28)
 layout_mode = 2
@@ -255,62 +262,62 @@ size_flags_horizontal = 8
 theme_type_variation = &"CloseButton"
 text = "×"
 
-[node name="StatBubbles" type="GridContainer" parent="ExitPopup/ExitInner"]
+[node name="StatBubbles" type="GridContainer" parent="ExitPopup/MenuScroll/ExitInner"]
 layout_mode = 2
 theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 12
 columns = 2
 
-[node name="AffinityBubble" type="PanelContainer" parent="ExitPopup/ExitInner/StatBubbles"]
+[node name="AffinityBubble" type="PanelContainer" parent="ExitPopup/MenuScroll/ExitInner/StatBubbles"]
 custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="BubbleAffinity" type="Label" parent="ExitPopup/ExitInner/StatBubbles/AffinityBubble"]
+[node name="BubbleAffinity" type="Label" parent="ExitPopup/MenuScroll/ExitInner/StatBubbles/AffinityBubble"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "❤  好感度  0"
 horizontal_alignment = 1
 
-[node name="UnderwearBubble" type="PanelContainer" parent="ExitPopup/ExitInner/StatBubbles"]
+[node name="UnderwearBubble" type="PanelContainer" parent="ExitPopup/MenuScroll/ExitInner/StatBubbles"]
 custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="BubbleUnderwear" type="Label" parent="ExitPopup/ExitInner/StatBubbles/UnderwearBubble"]
+[node name="BubbleUnderwear" type="Label" parent="ExitPopup/MenuScroll/ExitInner/StatBubbles/UnderwearBubble"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "🩲  洗了 0 条 内裤"
 horizontal_alignment = 1
 
-[node name="CompanionBubble" type="PanelContainer" parent="ExitPopup/ExitInner/StatBubbles"]
+[node name="CompanionBubble" type="PanelContainer" parent="ExitPopup/MenuScroll/ExitInner/StatBubbles"]
 custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="BubbleCompanion" type="Label" parent="ExitPopup/ExitInner/StatBubbles/CompanionBubble"]
+[node name="BubbleCompanion" type="Label" parent="ExitPopup/MenuScroll/ExitInner/StatBubbles/CompanionBubble"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "陪伴时长  0：00"
 horizontal_alignment = 1
 
-[node name="RunawayBubble" type="PanelContainer" parent="ExitPopup/ExitInner/StatBubbles"]
+[node name="RunawayBubble" type="PanelContainer" parent="ExitPopup/MenuScroll/ExitInner/StatBubbles"]
 custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="BubbleRunaway" type="Label" parent="ExitPopup/ExitInner/StatBubbles/RunawayBubble"]
+[node name="BubbleRunaway" type="Label" parent="ExitPopup/MenuScroll/ExitInner/StatBubbles/RunawayBubble"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "跑路次数  0"
 horizontal_alignment = 1
 
-[node name="MenuIcons" type="HBoxContainer" parent="ExitPopup/ExitInner"]
+[node name="MenuIcons" type="HBoxContainer" parent="ExitPopup/MenuScroll/ExitInner"]
 layout_mode = 2
 theme_override_constants/separation = 16
 alignment = 1
 
-[node name="DryerSlot" type="Button" parent="ExitPopup/ExitInner/MenuIcons"]
+[node name="DryerSlot" type="Button" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(168, 76)
 layout_mode = 2
@@ -318,7 +325,7 @@ size_flags_horizontal = 3
 theme_type_variation = &"CodexButton"
 text = ""
 
-[node name="DryerRow" type="HBoxContainer" parent="ExitPopup/ExitInner/MenuIcons/DryerSlot"]
+[node name="DryerRow" type="HBoxContainer" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons/DryerSlot"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -333,14 +340,14 @@ mouse_filter = 2
 theme_override_constants/separation = 8
 alignment = 1
 
-[node name="DryerIconClip" type="Control" parent="ExitPopup/ExitInner/MenuIcons/DryerSlot/DryerRow"]
+[node name="DryerIconClip" type="Control" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons/DryerSlot/DryerRow"]
 unique_name_in_owner = true
 clip_contents = true
 custom_minimum_size = Vector2(50, 50)
 layout_mode = 2
 mouse_filter = 2
 
-[node name="DryerIcon" type="TextureRect" parent="ExitPopup/ExitInner/MenuIcons/DryerSlot/DryerRow/DryerIconClip"]
+[node name="DryerIcon" type="TextureRect" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons/DryerSlot/DryerRow/DryerIconClip"]
 unique_name_in_owner = true
 layout_mode = 0
 offset_right = 50.0
@@ -351,14 +358,14 @@ expand_mode = 1
 stretch_mode = 6
 material = SubResource("ShaderMaterial_invkey")
 
-[node name="DryerCaption" type="Label" parent="ExitPopup/ExitInner/MenuIcons/DryerSlot/DryerRow"]
+[node name="DryerCaption" type="Label" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons/DryerSlot/DryerRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 text = "烘干机"
 vertical_alignment = 1
 
-[node name="DrawerSlot" type="Button" parent="ExitPopup/ExitInner/MenuIcons"]
+[node name="DrawerSlot" type="Button" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(168, 76)
 layout_mode = 2
@@ -366,7 +373,7 @@ size_flags_horizontal = 3
 theme_type_variation = &"CoinButton"
 text = ""
 
-[node name="DrawerRow" type="HBoxContainer" parent="ExitPopup/ExitInner/MenuIcons/DrawerSlot"]
+[node name="DrawerRow" type="HBoxContainer" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons/DrawerSlot"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -381,14 +388,14 @@ mouse_filter = 2
 theme_override_constants/separation = 8
 alignment = 1
 
-[node name="DrawerIconClip" type="Control" parent="ExitPopup/ExitInner/MenuIcons/DrawerSlot/DrawerRow"]
+[node name="DrawerIconClip" type="Control" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons/DrawerSlot/DrawerRow"]
 unique_name_in_owner = true
 clip_contents = true
 custom_minimum_size = Vector2(50, 50)
 layout_mode = 2
 mouse_filter = 2
 
-[node name="DrawerIcon" type="TextureRect" parent="ExitPopup/ExitInner/MenuIcons/DrawerSlot/DrawerRow/DrawerIconClip"]
+[node name="DrawerIcon" type="TextureRect" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons/DrawerSlot/DrawerRow/DrawerIconClip"]
 unique_name_in_owner = true
 layout_mode = 0
 offset_right = 50.0
@@ -399,14 +406,14 @@ expand_mode = 1
 stretch_mode = 6
 material = SubResource("ShaderMaterial_invkey")
 
-[node name="DrawerCaption" type="Label" parent="ExitPopup/ExitInner/MenuIcons/DrawerSlot/DrawerRow"]
+[node name="DrawerCaption" type="Label" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons/DrawerSlot/DrawerRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 text = "抽屉"
 vertical_alignment = 1
 
-[node name="PressureWashButton" type="Button" parent="ExitPopup/ExitInner"]
+[node name="PressureWashButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
@@ -414,39 +421,39 @@ theme_type_variation = &"RiskButton"
 text = "能不能给我洗快点"
 autowrap_mode = 3
 
-[node name="MovieButton" type="Button" parent="ExitPopup/ExitInner"]
+[node name="MovieButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
 theme_type_variation = &"CodexButton"
 text = "看电影"
 
-[node name="DinnerButton" type="Button" parent="ExitPopup/ExitInner"]
+[node name="DinnerButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
-theme_type_variation = &"CoinButton"
+theme_type_variation = &"PinkButton"
 text = "约个饭"
 
-[node name="ChatButton" type="Button" parent="ExitPopup/ExitInner"]
+[node name="ChatButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
 theme_type_variation = &"EquipButton"
 text = "聊聊天"
 
-[node name="RechargeButton" type="Button" parent="ExitPopup/ExitInner"]
+[node name="RechargeButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
 theme_type_variation = &"CoinButton"
 text = "充值"
 
-[node name="MenuFooter" type="HBoxContainer" parent="ExitPopup/ExitInner"]
+[node name="MenuFooter" type="HBoxContainer" parent="ExitPopup/MenuScroll/ExitInner"]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="SettingsButton" type="Button" parent="ExitPopup/ExitInner/MenuFooter"]
+[node name="SettingsButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner/MenuFooter"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
@@ -454,7 +461,7 @@ size_flags_horizontal = 3
 theme_type_variation = &"EquipButton"
 text = "设置"
 
-[node name="QuitAppButton" type="Button" parent="ExitPopup/ExitInner/MenuFooter"]
+[node name="QuitAppButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner/MenuFooter"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
@@ -462,49 +469,49 @@ size_flags_horizontal = 3
 theme_type_variation = &"CloseButton"
 text = "晚点再洗"
 
-[node name="SettingsPanel" type="VBoxContainer" parent="ExitPopup/ExitInner"]
+[node name="SettingsPanel" type="VBoxContainer" parent="ExitPopup/MenuScroll/ExitInner"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="PinTopButton" type="Button" parent="ExitPopup/ExitInner/SettingsPanel"]
+[node name="PinTopButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner/SettingsPanel"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"EquipButton"
 text = "固定上层：开"
 
-[node name="SizeLabel" type="Label" parent="ExitPopup/ExitInner/SettingsPanel"]
+[node name="SizeLabel" type="Label" parent="ExitPopup/MenuScroll/ExitInner/SettingsPanel"]
 layout_mode = 2
 text = "Steve体型"
 horizontal_alignment = 1
 
-[node name="SizeRow" type="HBoxContainer" parent="ExitPopup/ExitInner/SettingsPanel"]
+[node name="SizeRow" type="HBoxContainer" parent="ExitPopup/MenuScroll/ExitInner/SettingsPanel"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="SizeSmallButton" type="Button" parent="ExitPopup/ExitInner/SettingsPanel/SizeRow"]
+[node name="SizeSmallButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner/SettingsPanel/SizeRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"CodexButton"
 text = "小"
 
-[node name="SizeMediumButton" type="Button" parent="ExitPopup/ExitInner/SettingsPanel/SizeRow"]
+[node name="SizeMediumButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner/SettingsPanel/SizeRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"CoinButton"
 text = "中"
 
-[node name="SizeLargeButton" type="Button" parent="ExitPopup/ExitInner/SettingsPanel/SizeRow"]
+[node name="SizeLargeButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner/SettingsPanel/SizeRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"RiskButton"
 text = "大"
 
-[node name="SizeHugeButton" type="Button" parent="ExitPopup/ExitInner/SettingsPanel/SizeRow"]
+[node name="SizeHugeButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner/SettingsPanel/SizeRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -644,7 +651,7 @@ visible = false
 custom_minimum_size = Vector2(96, 36)
 layout_mode = 2
 size_flags_vertical = 0
-theme_type_variation = &"EquipButton"
+theme_type_variation = &"CloseButton"
 text = "收拾一下"
 
 [node name="InventoryCloseButton" type="Button" parent="InventoryPopup/InventoryBody/InventoryHeader"]
