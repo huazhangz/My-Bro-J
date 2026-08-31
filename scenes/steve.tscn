@@ -549,8 +549,18 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 0
 mouse_filter = 2
-text = "烘干机"
+text = "0条内裤"
 vertical_alignment = 1
+
+[node name="DryerHintButton" type="Button" parent="InventoryPopup/InventoryBody/InventoryHeader"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(28, 28)
+layout_mode = 2
+size_flags_vertical = 4
+text = "?"
+tooltip_text = "烘干机可能会把内裤烤坏的，烤坏的内裤也能穿，只是品质降低了"
+focus_mode = 0
 
 [node name="HeaderSpacer" type="Control" parent="InventoryPopup/InventoryBody/InventoryHeader"]
 layout_mode = 2
@@ -628,9 +638,9 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 0
-theme_override_constants/h_separation = 8
-theme_override_constants/v_separation = 8
-columns = 5
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
+columns = 4
 
 [node name="InventoryEmpty" type="Label" parent="InventoryPopup/InventoryBody"]
 unique_name_in_owner = true

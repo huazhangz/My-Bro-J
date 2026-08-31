@@ -56,6 +56,16 @@ const QUALITY_COLORS: Dictionary = {
 	Quality.MARTIAN: Color(0.35, 0.95, 0.55),
 }
 
+## 库存格子底板：品质由低到高 → 灰 / 绿 / 蓝 / 紫 / 金 / 红。
+const QUALITY_CARD_COLORS: Dictionary = {
+	Quality.ONEOFF: Color(0.46, 0.47, 0.50, 0.94),
+	Quality.POLYESTER: Color(0.22, 0.58, 0.30, 0.94),
+	Quality.COTTON: Color(0.18, 0.42, 0.78, 0.94),
+	Quality.SILK: Color(0.52, 0.28, 0.76, 0.94),
+	Quality.LUXURY: Color(0.84, 0.64, 0.16, 0.94),
+	Quality.MARTIAN: Color(0.78, 0.16, 0.18, 0.94),
+}
+
 ## 掉率权重（相对值，不必凑成 100）。
 const QUALITY_WEIGHTS: Dictionary = {
 	Quality.ONEOFF: 36.0,
@@ -89,13 +99,15 @@ const WEAR_PREFIXES: PackedStringArray = [
 	"臭的",
 ]
 
-## 库存窗按「横 5 × 竖 6」卡片正好铺满来定尺寸，不跟立绘体型。
-const GRID_COLUMNS: int = 5
-const GRID_VISIBLE_ROWS: int = 6
-const GRID_H_SEP: int = 8
-const GRID_V_SEP: int = 8
-const ITEM_CARD_SIZE: Vector2 = Vector2(110.0, 96.0)
-const ITEM_CARD_SWATCH_H: float = 42.0
+## 库存窗按卡片铺满来定尺寸。贴图相对旧 42px 高放大 1.5 倍后，列数减到 4 以免重叠。
+const GRID_COLUMNS: int = 4
+const GRID_VISIBLE_ROWS: int = 4
+const GRID_H_SEP: int = 10
+const GRID_V_SEP: int = 10
+const ITEM_CARD_SIZE: Vector2 = Vector2(165.0, 136.0)
+const ITEM_CARD_SWATCH_H: float = 63.0
+const UNDERWEAR_NOUN: String = "内裤"
+const INVENTORY_COUNT_TITLE: String = "%d条内裤"
 const INVENTORY_PAD_X: float = 32.0
 const INVENTORY_CHROME_Y: float = 70.0
 const INVENTORY_SCROLL_GUTTER: float = 8.0
@@ -229,6 +241,8 @@ const MOVIE_MUTE_TEXT: String = "♪"
 const MOVIE_UNMUTE_TEXT: String = "x♪"
 const MOVIE_MAX_TEXT: String = "最大化"
 const MOVIE_RESTORE_TEXT: String = "还原"
+const MOVIE_SKIP_TEXT: String = "这部好无聊呀哥哥~"
+const MOVIE_DURATION_RELOAD_SECONDS: float = 2.5
 const MOVIE_LOG_PREFIX: String = "[Steve/Movie] "
 ## 2009 年后、制片方限定美国 / 中国大陆、可公开抓取的非限制级 Theora。
 ## 不含商业院线版权片（Godot 4 只能播 .ogv，且不能去盗链好莱坞 / 内地院线片）。
@@ -262,6 +276,10 @@ const UNDERWEAR_SHEET_COLUMNS: int = 5
 const UNDERWEAR_SHEET_ROWS: int = 5
 const UNDERWEAR_SHEET_CELLS: int = 25
 const UNDERWEAR_ART_SIZE: int = 128
+## 切格内缩，避免把下一行内裤腰边切进来。只作用于内裤表，不改 Steve 抠像。
+const UNDERWEAR_CELL_INSET_X_RATIO: float = 1.0 / 12.0
+const UNDERWEAR_CELL_INSET_TOP_RATIO: float = 1.0 / 16.0
+const UNDERWEAR_CELL_INSET_BOTTOM_RATIO: float = 1.0 / 8.0
 const UNDERWEAR_RES_DIR: String = "res://assets/images/underwear"
 const UNDERWEAR_USER_DIR: String = "user://underwear"
 const USER_BOXERS_SHEET_A: PackedStringArray = [
@@ -300,6 +318,8 @@ const DRAWER_HEADLINE_COLOR: Color = Color(0.85, 0.65, 0.16, 0.94)
 const INVENTORY_HEADLINE_HEIGHT: float = 36.0
 const INVENTORY_HEADLINE_PAD_X: float = 14.0
 const INVENTORY_CLOSE_BUTTON_WIDTH: float = 72.0
+const DRYER_HINT_SIZE: float = 28.0
+const DRYER_HINT_TEXT: String = "烘干机可能会把内裤烤坏的，烤坏的内裤也能穿，只是品质降低了"
 const USER_ASSET_DIRS: PackedStringArray = [
 	USER_PROJECT_DIR,
 	USER_PROJECT_DIR_WSL,
@@ -390,6 +410,8 @@ const AFFINITY_QUALITY_VALUE: Dictionary = {
 
 ## 跑路冷却基础秒数（未穿戴任何内裤时的冷却）。
 const RUNAWAY_BASE_COOLDOWN: float = 120.0
+## 烘干完成时品质降一级：150/1000 = 15%。不低于 ONEOFF。
+const DRY_QUALITY_DOWN_PERMILLE: int = 150
 ## 「能不能给我洗快点」每次点击的跑路判定：155/1000 = 15.5%。
 ## 用千分位整数比较，避免 float 比较或未播种 RNG 造成「每次都跑路」。
 const PRESSURE_RUNAWAY_PERMILLE: int = 155
@@ -522,8 +544,20 @@ func quality_display_name(quality: int) -> String:
 	return String(QUALITY_NAMES_CN.get(quality, "未知"))
 
 
+func quality_item_label(quality: int) -> String:
+	return "%s %s" % [quality_display_name(quality), UNDERWEAR_NOUN]
+
+
+func quality_card_color(quality: int) -> Color:
+	return Color(QUALITY_CARD_COLORS.get(quality, Color(0.46, 0.47, 0.50, 0.94)))
+
+
 func make_display_name(wear: String, quality: int) -> String:
-	return "%s·%s" % [wear, quality_display_name(quality)]
+	return "%s %s %s" % [wear, quality_display_name(quality), UNDERWEAR_NOUN]
+
+
+func inventory_count_title(count: int) -> String:
+	return INVENTORY_COUNT_TITLE % count
 
 
 func roll_art_index() -> int:
@@ -592,6 +626,11 @@ func item_wear_text(item: Dictionary) -> String:
 		var cut: int = display.find("·")
 		if cut >= 0:
 			wear = display.substr(0, cut).strip_edges()
+		else:
+			for prefix: String in WEAR_PREFIXES:
+				if display.begins_with(prefix):
+					wear = prefix
+					break
 	return wear
 
 
@@ -682,6 +721,12 @@ func dry_item(item_id: int) -> bool:
 		return false
 	var item: Dictionary = wet_warehouse[index]
 	wet_warehouse.remove_at(index)
+	var quality: int = int(item.get("quality", Quality.ONEOFF))
+	if quality > Quality.ONEOFF and _rng.randi_range(1, 1000) <= DRY_QUALITY_DOWN_PERMILLE:
+		quality -= 1
+		item["quality"] = quality
+		item["dry_damaged"] = true
+		item["display_name"] = make_display_name(item_wear_text(item), quality)
 	item["dried_at"] = Time.get_unix_time_from_system()
 	dry_collection.append(item)
 	add_coins(int(COIN_REWARD.get(int(item["quality"]), 1)))
@@ -1152,13 +1197,32 @@ func fortune_offline_reply() -> String:
 	]
 
 
-func shuffled_movie_catalog() -> Array:
+func shuffled_movie_catalog(exclude_id: String = "") -> Array:
 	var copy: Array = MOVIE_CATALOG.duplicate(true)
+	if not exclude_id.is_empty() and copy.size() > 1:
+		var filtered: Array = []
+		for entry: Variant in copy:
+			if String((entry as Dictionary).get("id", "")) == exclude_id:
+				continue
+			filtered.append(entry)
+		if not filtered.is_empty():
+			copy = filtered
 	copy.shuffle()
 	copy.sort_custom(func(a: Variant, b: Variant) -> bool:
 		return int((a as Dictionary).get("bytes", MOVIE_MAX_BYTES)) < int((b as Dictionary).get("bytes", MOVIE_MAX_BYTES))
 	)
 	return copy
+
+
+func movie_id_from_path(path: String) -> String:
+	return path.get_file().get_basename()
+
+
+func movie_expected_bytes(movie_id: String) -> int:
+	for entry: Dictionary in MOVIE_CATALOG:
+		if String(entry.get("id", "")) == movie_id:
+			return int(entry.get("bytes", 0))
+	return 0
 
 
 func movie_cache_path(movie_id: String) -> String:
@@ -1574,7 +1638,6 @@ func _normalize_item(entry: Dictionary) -> Dictionary:
 	item["quality"] = quality
 	item["wear"] = wear
 	item["wear_modifier"] = wear
-	if String(item.get("display_name", "")).is_empty():
-		item["display_name"] = make_display_name(wear, quality)
+	item["display_name"] = make_display_name(wear, quality)
 	item["art_index"] = item_art_index(item)
 	return item

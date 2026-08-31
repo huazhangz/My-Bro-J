@@ -89,6 +89,7 @@ var _pet_video: VideoStreamPlayer
 @onready var _inventory_popup: Control = %InventoryPopup
 @onready var _inventory_headline: PanelContainer = %InventoryHeadline
 @onready var _inventory_title: Label = %InventoryTitle
+@onready var _dryer_hint_button: Button = %DryerHintButton
 @onready var _inventory_close_button: Button = %InventoryCloseButton
 @onready var _tidy_button: Button = %TidyButton
 @onready var _tidy_panel: Control = %TidyPanel
@@ -138,6 +139,7 @@ var _movie_player: VideoStreamPlayer
 var _movie_mute_button: Button
 var _movie_max_button: Button
 var _movie_close_button: Button
+var _movie_skip_button: Button
 var _movie_volume: HSlider
 var _movie_seek: HSlider
 var _movie_speed_box: HBoxContainer
@@ -155,6 +157,12 @@ var _movie_resize_edge: Vector2i = Vector2i.ZERO
 var _movie_resize_start_mouse: Vector2i = Vector2i.ZERO
 var _movie_resize_start_pos: Vector2i = Vector2i.ZERO
 var _movie_resize_start_size: Vector2i = Vector2i.ZERO
+var _movie_path: String = ""
+var _movie_id: String = ""
+var _movie_expected_bytes: int = 0
+var _movie_reload_cd: float = 0.0
+var _movie_last_bytes: int = 0
+var _chat_scroll_token: int = 0
 
 var _state: int = State.WASHING
 var _wash_remaining: float = 0.0
@@ -805,8 +813,9 @@ func _process(delta: float) -> void:
 	_tick_tap_speedup_cooldown(delta)
 	if _chat_send_cd > 0.0:
 		_chat_send_cd = maxf(_chat_send_cd - delta, 0.0)
-	if _movie_loading and _movie_client != null and _movie_client.has_method("poll"):
-		_movie_client.poll(delta)
+	if _movie_client != null and _movie_client.has_method("poll"):
+		if _movie_loading or (_movie_open() and _movie_client.is_busy()):
+			_movie_client.poll(delta)
 	_tick_movie_playback(delta)
 	if _state != State.RUNAWAY:
 		GameData.tick_work_presence(delta)
@@ -1071,7 +1080,8 @@ func _rebuild_chat_list() -> void:
 		child.queue_free()
 	for item: Dictionary in GameData.chat_messages:
 		_chat_list.add_child(_make_chat_row(item))
-	call_deferred("_scroll_chat_to_end")
+	_chat_scroll_token += 1
+	_scroll_chat_to_end(_chat_scroll_token)
 
 
 func _make_chat_row(item: Dictionary) -> Control:
@@ -1125,10 +1135,28 @@ func _make_chat_row(item: Dictionary) -> Control:
 	return row
 
 
-func _scroll_chat_to_end() -> void:
-	if not is_instance_valid(_chat_scroll):
+func _scroll_chat_to_end(token: int = -1) -> void:
+	if token < 0:
+		token = _chat_scroll_token
+	if not is_instance_valid(_chat_scroll) or not is_instance_valid(_chat_list):
 		return
-	_chat_scroll.scroll_vertical = int(_chat_scroll.get_v_scroll_bar().max_value)
+	var tree: SceneTree = get_tree()
+	if tree == null:
+		return
+	for _i: int in 8:
+		await tree.process_frame
+		if token != _chat_scroll_token:
+			return
+		if not is_instance_valid(_chat_scroll) or not is_instance_valid(_chat_list):
+			return
+		var bar: ScrollBar = _chat_scroll.get_v_scroll_bar()
+		_chat_scroll.scroll_vertical = int(bar.max_value)
+		if _chat_list.get_child_count() <= 0:
+			continue
+		var last: Control = _chat_list.get_child(_chat_list.get_child_count() - 1) as Control
+		if last != null:
+			_chat_scroll.ensure_control_visible(last)
+		_chat_scroll.scroll_vertical = int(bar.max_value)
 
 
 func _trigger_runaway() -> void:
@@ -2114,7 +2142,7 @@ func _apply_inventory_background(_kind: String) -> void:
 func _apply_inventory_headline(kind: String) -> void:
 	if not is_instance_valid(_inventory_headline) or not is_instance_valid(_inventory_title):
 		return
-	_inventory_title.text = "烘干机" if kind == "dryer" else "抽屉"
+	_refresh_inventory_count_title()
 	var box: StyleBoxFlat = StyleBoxFlat.new()
 	box.bg_color = (
 		GameData.DRYER_HEADLINE_COLOR if kind == "dryer" else GameData.DRAWER_HEADLINE_COLOR
@@ -2129,7 +2157,50 @@ func _apply_inventory_headline(kind: String) -> void:
 	_inventory_headline.add_theme_stylebox_override("panel", box)
 	_inventory_headline.custom_minimum_size.y = GameData.INVENTORY_HEADLINE_HEIGHT
 	_style_inventory_header_buttons()
+	_style_dryer_hint_button(kind == "dryer")
 	_set_tidy_panel_visible(false)
+
+
+func _refresh_inventory_count_title() -> void:
+	if not is_instance_valid(_inventory_title):
+		return
+	var items: Array[Dictionary] = (
+		GameData.wet_warehouse if _inventory_kind == "dryer" else GameData.dry_collection
+	)
+	_inventory_title.text = GameData.inventory_count_title(items.size())
+
+
+func _style_dryer_hint_button(show_hint: bool) -> void:
+	if not is_instance_valid(_dryer_hint_button):
+		return
+	_dryer_hint_button.visible = show_hint
+	_dryer_hint_button.text = "?"
+	_dryer_hint_button.tooltip_text = GameData.DRYER_HINT_TEXT
+	_dryer_hint_button.focus_mode = Control.FOCUS_NONE
+	_dryer_hint_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	_dryer_hint_button.custom_minimum_size = Vector2(GameData.DRYER_HINT_SIZE, GameData.DRYER_HINT_SIZE)
+	var radius: int = int(round(GameData.DRYER_HINT_SIZE * 0.5))
+	var slots: Dictionary = {
+		"normal": Color(0.18, 0.18, 0.22, 0.96),
+		"hover": Color(0.28, 0.28, 0.34, 0.98),
+		"pressed": Color(0.12, 0.12, 0.16, 0.98),
+		"disabled": Color(0.18, 0.18, 0.22, 0.70),
+		"focus": Color(0.28, 0.28, 0.34, 0.98),
+	}
+	for slot: String in slots.keys():
+		var box: StyleBoxFlat = StyleBoxFlat.new()
+		box.bg_color = slots[slot]
+		box.set_corner_radius_all(radius)
+		box.set_border_width_all(2)
+		box.border_color = Color(1.0, 1.0, 1.0, 0.90)
+		box.set_content_margin_all(0.0)
+		_dryer_hint_button.add_theme_stylebox_override(slot, box)
+	_dryer_hint_button.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
+	_dryer_hint_button.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+	_dryer_hint_button.add_theme_color_override("font_hover_color", GameData.UI_FONT_COLOR)
+	_dryer_hint_button.add_theme_color_override("font_pressed_color", GameData.UI_FONT_COLOR)
+	_dryer_hint_button.add_theme_color_override("font_outline_color", GameData.UI_FONT_OUTLINE_COLOR)
+	_dryer_hint_button.add_theme_constant_override("outline_size", GameData.UI_FONT_OUTLINE_SIZE)
 
 
 func _style_inventory_header_buttons() -> void:
@@ -2294,6 +2365,7 @@ func _fill_inventory_grid() -> void:
 		GameData.wet_warehouse if _inventory_kind == "dryer" else GameData.dry_collection
 	)
 	_inventory_empty.visible = items.is_empty()
+	_refresh_inventory_count_title()
 	for item: Dictionary in items:
 		_inventory_grid.add_child(_make_item_card(item))
 
@@ -2301,16 +2373,20 @@ func _fill_inventory_grid() -> void:
 func _make_item_card(item: Dictionary) -> Control:
 	var quality: int = int(item.get("quality", 0))
 	var wear: String = String(item.get("wear", item.get("wear_modifier", "")))
-	var quality_name: String = GameData.quality_display_name(quality)
+	var quality_name: String = GameData.quality_item_label(quality)
+	var card_color: Color = GameData.quality_card_color(quality)
 	var accent: Color = GameData.QUALITY_COLORS.get(quality, Color(0.7, 0.4, 0.9))
 
 	var card: PanelContainer = PanelContainer.new()
 	card.custom_minimum_size = GameData.ITEM_CARD_SIZE
+	card.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	card.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.tooltip_text = String(item.get("display_name", GameData.make_display_name(wear, quality)))
 
 	var box: StyleBoxFlat = StyleBoxFlat.new()
-	box.bg_color = Color(0.42, 0.18, 0.62, 0.88)
-	box.border_color = Color(0.78, 0.42, 1.0, 1.0)
+	box.bg_color = card_color
+	box.border_color = card_color.lightened(0.28)
 	box.set_border_width_all(2)
 	box.set_corner_radius_all(6)
 	box.set_content_margin_all(6)
@@ -2340,8 +2416,8 @@ func _make_item_card(item: Dictionary) -> Control:
 	wear_label.text = wear
 	wear_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	wear_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	wear_label.clip_text = false
-	wear_label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	wear_label.clip_text = true
+	wear_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	wear_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	wear_label.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
 	wear_label.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
@@ -2351,8 +2427,8 @@ func _make_item_card(item: Dictionary) -> Control:
 	quality_label.text = quality_name
 	quality_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	quality_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	quality_label.clip_text = false
-	quality_label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	quality_label.clip_text = true
+	quality_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	quality_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	quality_label.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
 	quality_label.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
@@ -3238,6 +3314,13 @@ func _setup_movie_ui() -> void:
 	_movie_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	headline.add_child(_movie_title)
 	header.add_child(headline)
+	_movie_skip_button = Button.new()
+	_movie_skip_button.text = GameData.MOVIE_SKIP_TEXT
+	_movie_skip_button.theme_type_variation = &"EquipButton"
+	_movie_skip_button.custom_minimum_size = Vector2(160.0, GameData.INVENTORY_HEADLINE_HEIGHT)
+	_movie_skip_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_movie_skip_button.clip_text = true
+	header.add_child(_movie_skip_button)
 	var spacer: Control = Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3306,6 +3389,9 @@ func _setup_movie_ui() -> void:
 	_add_movie_resize_handle(Vector2i(1, 1), Control.CURSOR_FDIAGSIZE, 1.0, 1.0, 1.0, 1.0)
 	_movie_close_button.pressed.connect(func() -> void:
 		_close_movie()
+	)
+	_movie_skip_button.pressed.connect(func() -> void:
+		_skip_current_movie()
 	)
 	_movie_max_button.pressed.connect(func() -> void:
 		_toggle_movie_maximize()
@@ -3431,38 +3517,89 @@ func _cancel_pending_movie_fetch() -> void:
 
 func _on_movie_ready(path: String, title: String) -> void:
 	_reset_movie_button()
+	if is_instance_valid(_movie_skip_button):
+		_movie_skip_button.disabled = false
 	if _state == State.RUNAWAY:
 		return
-	if _movie_open() and is_instance_valid(_movie_player) and _movie_player.is_playing():
+	var same_file: bool = _movie_open() and not _movie_path.is_empty() and path == _movie_path
+	if same_file:
 		if is_instance_valid(_movie_title) and not title.is_empty():
 			_movie_title.text = title
+		_refresh_movie_stream(true)
 		return
 	_hide_speech_bubble()
-	if is_instance_valid(_exit_popup):
-		_exit_popup.visible = false
-	if is_instance_valid(_settings_panel):
-		_settings_panel.visible = false
-	if is_instance_valid(_inventory_popup):
-		_inventory_popup.visible = false
-	if is_instance_valid(_chat_popup):
-		_chat_popup.visible = false
-	if is_instance_valid(_fortune_popup):
-		_fortune_popup.visible = false
-	_inventory_kind = ""
-	_set_pet_layer_visible(false)
-	_movie_maximized = false
-	_expand_overlay_window(GameData.MOVIE_WINDOW_SIZE)
+	if not _movie_open():
+		if is_instance_valid(_exit_popup):
+			_exit_popup.visible = false
+		if is_instance_valid(_settings_panel):
+			_settings_panel.visible = false
+		if is_instance_valid(_inventory_popup):
+			_inventory_popup.visible = false
+		if is_instance_valid(_chat_popup):
+			_chat_popup.visible = false
+		if is_instance_valid(_fortune_popup):
+			_fortune_popup.visible = false
+		_inventory_kind = ""
+		_set_pet_layer_visible(false)
+		_movie_maximized = false
+		_expand_overlay_window(GameData.MOVIE_WINDOW_SIZE)
+		_movie_popup.visible = true
 	if is_instance_valid(_movie_title):
 		_movie_title.text = title
-	_movie_popup.visible = true
 	_play_movie_file(path)
 	print("%s movie play title=%s path=%s" % [VIDEO_LOG_PREFIX, title, path])
 
 
 func _on_movie_failed(reason: String) -> void:
 	_reset_movie_button()
+	if is_instance_valid(_movie_skip_button):
+		_movie_skip_button.disabled = false
 	print("%s movie failed=%s" % [VIDEO_LOG_PREFIX, reason])
+	if _movie_open() and is_instance_valid(_movie_title):
+		_movie_title.text = GameData.MOVIE_FAIL_TEXT
 	_show_notice(GameData.MOVIE_FAIL_TEXT)
+
+
+func _skip_current_movie() -> void:
+	if not _movie_open():
+		return
+	if is_instance_valid(_movie_skip_button) and _movie_skip_button.disabled:
+		return
+	var exclude_id: String = _movie_id
+	if exclude_id.is_empty():
+		exclude_id = GameData.movie_id_from_path(_movie_path)
+	if _movie_client != null and _movie_client.has_method("cancel_fetch"):
+		_movie_client.cancel_fetch()
+	_stop_movie_player()
+	_movie_path = ""
+	_movie_id = ""
+	_movie_expected_bytes = 0
+	_movie_last_bytes = 0
+	_movie_loading = true
+	if is_instance_valid(_movie_skip_button):
+		_movie_skip_button.disabled = true
+	if is_instance_valid(_movie_title):
+		_movie_title.text = GameData.MOVIE_LOADING_TEXT
+	if is_instance_valid(_movie_seek):
+		_movie_seek.value = 0.0
+		_movie_seek.max_value = 1.0
+	if _movie_client != null and _movie_client.has_method("fetch_random"):
+		var captured: String = exclude_id
+		call_deferred("_start_skipped_movie_fetch", captured)
+	else:
+		_on_movie_failed("no_client")
+
+
+func _start_skipped_movie_fetch(exclude_id: String) -> void:
+	if not _movie_open():
+		_reset_movie_button()
+		if is_instance_valid(_movie_skip_button):
+			_movie_skip_button.disabled = false
+		return
+	if _movie_client != null and _movie_client.has_method("fetch_random"):
+		_movie_client.fetch_random(exclude_id)
+	else:
+		_on_movie_failed("no_client")
 
 
 func _play_movie_file(path: String) -> void:
@@ -3473,6 +3610,11 @@ func _play_movie_file(path: String) -> void:
 		_close_movie()
 		_on_movie_failed("not_theora")
 		return
+	_movie_path = path
+	_movie_id = GameData.movie_id_from_path(path)
+	_movie_expected_bytes = GameData.movie_expected_bytes(_movie_id)
+	_movie_last_bytes = GameData.file_byte_count(path)
+	_movie_reload_cd = GameData.MOVIE_DURATION_RELOAD_SECONDS
 	var play_path: String = path
 	if path.begins_with("user://") or path.begins_with("res://"):
 		play_path = ProjectSettings.globalize_path(path)
@@ -3484,10 +3626,7 @@ func _play_movie_file(path: String) -> void:
 	_apply_movie_audio()
 	_movie_player.play()
 	_movie_seeking = false
-	if is_instance_valid(_movie_seek):
-		var length: float = maxf(_movie_player.get_stream_length(), 1.0)
-		_movie_seek.max_value = length
-		_movie_seek.value = 0.0
+	_sync_movie_seek_range(0.0)
 	if _movie_player.get_stream_length() <= 0.0 and not _movie_player.is_playing():
 		print("%s movie player did not start path=%s" % [VIDEO_LOG_PREFIX, play_path])
 
@@ -3496,11 +3635,20 @@ func _stop_movie_player() -> void:
 	if is_instance_valid(_movie_player):
 		_movie_player.stop()
 		_movie_player.stream = null
+	_movie_path = ""
+	_movie_id = ""
+	_movie_expected_bytes = 0
+	_movie_last_bytes = 0
 
 
 func _close_movie() -> void:
 	_stop_movie_player()
 	_movie_maximized = false
+	if _movie_client != null and _movie_client.has_method("cancel_fetch"):
+		_movie_client.cancel_fetch()
+	_reset_movie_button()
+	if is_instance_valid(_movie_skip_button):
+		_movie_skip_button.disabled = false
 	if is_instance_valid(_movie_popup):
 		_movie_popup.visible = false
 	_hide_speech_bubble()
@@ -3588,10 +3736,49 @@ func _set_movie_speed(speed: float) -> void:
 func _seek_movie_to(seconds: float) -> void:
 	if not is_instance_valid(_movie_player) or _movie_player.stream == null:
 		return
-	var length: float = _movie_player.get_stream_length()
+	var length: float = _movie_seek_length()
 	if length <= 0.0:
 		return
 	_movie_player.stream_position = clampf(seconds, 0.0, length)
+
+
+func _movie_seek_length() -> float:
+	var stream_len: float = 0.0
+	if is_instance_valid(_movie_player):
+		stream_len = _movie_player.get_stream_length()
+	var bytes: int = GameData.file_byte_count(_movie_path)
+	if _movie_expected_bytes > 0 and bytes > 0 and bytes < _movie_expected_bytes and stream_len > 0.0:
+		return maxf(stream_len, stream_len * float(_movie_expected_bytes) / float(bytes))
+	return maxf(stream_len, 1.0)
+
+
+func _sync_movie_seek_range(position: float = -1.0) -> void:
+	if not is_instance_valid(_movie_seek):
+		return
+	var length: float = _movie_seek_length()
+	_movie_seek.max_value = length
+	if position >= 0.0:
+		_movie_seek.value = clampf(position, 0.0, length)
+
+
+func _refresh_movie_stream(keep_position: bool) -> void:
+	if not is_instance_valid(_movie_player) or _movie_path.is_empty():
+		return
+	if not GameData.movie_file_is_theora(_movie_path):
+		return
+	var pos: float = _movie_player.stream_position if keep_position else 0.0
+	var play_path: String = _movie_path
+	if play_path.begins_with("user://") or play_path.begins_with("res://"):
+		play_path = ProjectSettings.globalize_path(play_path)
+	var stream: VideoStreamTheora = VideoStreamTheora.new()
+	stream.file = play_path
+	_movie_player.stream = stream
+	_movie_player.play()
+	if keep_position:
+		_movie_player.stream_position = pos
+	_set_movie_speed(_movie_speed)
+	_apply_movie_audio()
+	_sync_movie_seek_range(pos if keep_position else 0.0)
 
 
 func _apply_movie_audio() -> void:
@@ -3611,10 +3798,20 @@ func _tick_movie_playback(delta: float) -> void:
 		return
 	if _movie_player.stream == null:
 		return
-	var length: float = _movie_player.get_stream_length()
-	if is_instance_valid(_movie_seek) and not _movie_seeking and length > 0.0:
-		_movie_seek.max_value = length
-		_movie_seek.value = _movie_player.stream_position
+	if not _movie_path.is_empty() and not _movie_seeking:
+		_movie_reload_cd -= delta
+		var bytes: int = GameData.file_byte_count(_movie_path)
+		var still_loading: bool = (
+			_movie_expected_bytes > 0 and bytes > 0 and bytes < int(float(_movie_expected_bytes) * 0.98)
+		)
+		if still_loading and _movie_reload_cd <= 0.0 and bytes > _movie_last_bytes:
+			_movie_last_bytes = bytes
+			_movie_reload_cd = GameData.MOVIE_DURATION_RELOAD_SECONDS
+			_refresh_movie_stream(true)
+		elif _movie_reload_cd <= 0.0:
+			_movie_reload_cd = GameData.MOVIE_DURATION_RELOAD_SECONDS
+	if is_instance_valid(_movie_seek) and not _movie_seeking:
+		_sync_movie_seek_range(_movie_player.stream_position)
 	if is_equal_approx(_movie_speed, 1.0):
 		return
 	_movie_player.paused = true

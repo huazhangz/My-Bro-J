@@ -38,12 +38,12 @@ func is_busy() -> bool:
 	return _busy
 
 
-func fetch_random() -> void:
+func fetch_random(exclude_id: String = "") -> void:
 	if _busy:
 		return
 	_cancelled = false
-	_queue = GameData.shuffled_movie_catalog()
-	print("%s start catalog=%d" % [GameData.MOVIE_LOG_PREFIX, _queue.size()])
+	_queue = GameData.shuffled_movie_catalog(exclude_id)
+	print("%s start catalog=%d exclude=%s" % [GameData.MOVIE_LOG_PREFIX, _queue.size(), exclude_id])
 	_try_next_movie()
 
 
@@ -226,6 +226,8 @@ func _abandon_current(reason: String) -> void:
 
 func _on_completed(result: int, code: int, body: PackedByteArray) -> void:
 	if _cancelled or _phase == "idle" or _phase.is_empty():
+		return
+	if result == RESULT_REQUEST_FAILED and code == 0:
 		return
 	var dest: String = GameData.movie_cache_path(String(_current.get("id", "")))
 	var title: String = String(_current.get("title", ""))
