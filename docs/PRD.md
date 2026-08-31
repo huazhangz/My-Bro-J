@@ -87,7 +87,7 @@
 | `FORTUNE_WINDOW_SIZE` | `460×640` | 运势对话框；生日只能用年/月/日/时辰选择器 |
 | `MOVIE_WINDOW_SIZE` | `720×480` | 看电影小窗默认尺寸；可拖边框，下限 `420×280` |
 | `MOVIE_SPEEDS` | `0.75 / 1 / 1.5 / 2` | 小窗倍速；非 1× 时静音以免音画错位 |
-| `MOVIE_CATALOG` | CC/公有领域白名单 | Internet Archive Theora；不含限制级；按体积从小到大抓 |
+| `MOVIE_CATALOG` | 2009 年后美/中可公开片 | Pioneer One（2010, US）/ Silent Hall of Fame（2015, US）；不含院线盗链 |
 | `MOVIE_STALL_SECONDS` | `18` | 下载字节不再增加则换片，避免一直停在「给你包场」 |
 | `WHATSAPP_INCOMING_COLOR` | `#FFFFFF` | 对方气泡（Steve） |
 | `WHATSAPP_OUTGOING_COLOR` | `#DCF8C6` | 自己气泡 |
@@ -279,7 +279,7 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
   - 功能按钮顺序：`聊聊天` → `哥来帮你算算运势~` → `看电影` → `约个饭`（粉色） → `充值`
   - `聊聊天`：对话窗 + 输入/发送（Enter）+ 7 天历史；Steve 回复后主界面弹窗；OpenAI 兼容接口；system prompt 为孙哥口吻
   - `哥来帮你算算运势~`：同风格对话框；强制年/月/日/时辰选择器（无自由文本生日）；再交给大模型
-  - `看电影`：从 CC/公有领域白名单自动抓一部非限制级 Theora，小窗播放；加载时按钮文案「给你包场呢妈妈，耐心等等我」
+  - `看电影`：2009 年后美国/中国大陆可公开 Theora；加载文案「给你包场呢妈妈，耐心等等我」；小窗底部可拖进度条，右侧喇叭静音 / 音量 / 倍速
   - Demo（占位）：`约个饭` / `充值`
   - `设置`：展开时菜单窗口加高；滚动条隐藏但仍可用滚轮；固定上层 + Steve 体型（小 / 中 / 大 / 超大）
   - `晚点再洗`：存档后退出
@@ -498,7 +498,7 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 | 点「抽屉」 | 2.5× 弹层，5 列网格展示已晾干收藏 |
 | 点「聊聊天」 | 打开对话窗；口吻为孙哥人设 |
 | 点「哥来帮你算算运势~」 | 打开运势窗；必须用时间选择器提交生日/时辰 |
-| 点「看电影」 | 按钮改为「给你包场呢妈妈，耐心等等我」并显示进度；抓到后弹出可缩放播放小窗 |
+| 点「看电影」 | 按钮显示包场进度；弹出小窗后底部为可拖进度条，右侧喇叭静音 / 音量 / 倍速 |
 | 仅 Steve 在场时的头顶气泡 | WhatsApp 白色来信气泡盖住洗涤水条；点气泡跳转聊天 / 运势；关窗后不残留刚看过的句子 |
 | 点「固定上层」 | 开/关窗口置顶 |
 | 点「晚点再洗」 | 退出程序 |
@@ -539,7 +539,9 @@ Steve (Control, 铺满窗口, theme = steve_theme)
   - [x] 聊聊天主界面 + 7 天历史 + 孙哥 system prompt（sun-skill / sun-yuchen-perspective 蒸馏）；双击加速 5 秒；充值 demo
   - [x] 隐藏全部滚动条 UI，滚轮仍可滚动；烘干机 / 抽屉 / 聊聊天底板加不透明
   - [x] 运势：强制年/月/日/时辰选择器 + 大模型输出
-  - [x] 看电影：Archive metadata 直链 + 卡住换片；白名单免费非限制级 Theora 小窗；拖边框 / 最大化 / 音量 / 静音 / 倍速
+  - [x] 看电影：2009 年后美国/中国大陆可公开 Theora；底部可拖进度条 + 喇叭静音 / 音量 / 倍速
+  - [x] 拒绝 70KB 测试占位 `steve.ogv`（场景不再引用，避免启动 NUL 解析）；FFmpeg / Windows dir 搜 steve3；失败回落 Steve2
+  - [x] 烘干机 / 抽屉菜单图标：仅绿幕四角才抠像，避免把非绿幕贴图抠没
   - [x] 悬停 1s 头顶洗涤水条；立绘命中盒收紧；双击水蓝 flash
   - [x] Steve 发言气泡仅在独在且无菜单时出现，盖住洗涤条；WhatsApp 配色；点气泡跳转会话
   - [x] 45 分钟休息提醒；内裤贴图按 id 生成
@@ -547,7 +549,8 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 - [ ] **Day 4**：换装展示系统 + 跑路冷却与 CD 缩减算法对接
   - [x] `VideoStreamPlayer` 动态立绘：autoplay + loop、宽高比内接、鼠标穿透不影响拖拽、
         跑路隐藏并暂停 / 冷却结束续播、缺素材自动回落几何占位、抠像着色器还原透明背景
-  - [x] 拒绝 70KB 测试占位 `steve.ogv`；仅播 steve3 转出的正规 Theora，失败回落 Steve2
+  - [x] 拒绝 70KB 测试占位 `steve.ogv`（场景不再引用，避免启动 NUL）；Windows dir / FFmpeg 搜转 steve3；失败回落 Steve2
+  - [x] 烘干机 / 抽屉菜单图标仅绿幕四角才抠像，避免把非绿幕贴图抠没
   - [ ] Steve 立绘美术资源替换 ColorRect 占位（需本机 `steve3.mp4` → `assets/videos/steve.ogv`）
   - [ ] 换装面板调用 `GameData.equip_quality()`
   - [ ] 大红品质特效
@@ -563,17 +566,18 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 
 1. UI 字体是完整的源柔 P Bold（约 11 MB），不再做 GB2312 子集。
 2. 动态立绘需自备 `.ogv` 素材（Godot 4 不支持 mp4 / webm）。仓库自带的 70KB
-   `steve.ogv` 是测试占位片，运行时不会播放。启动时会扫仓库根目录 / `assets/videos` /
-   用户主目录与桌面的 `steve3.mp4`，并用本机 PATH 或常见安装路径里的 FFmpeg
-   （Windows 走 `where.exe` / `cmd`）转成 `assets/videos/steve.ogv`。也可双击
-   `convert_video.bat`。失败时显示 `Steve2.jpg` / 几何占位。
+   `steve.ogv` 是测试占位片，场景不再引用它（避免启动时 Unicode NUL 解析错误），
+   运行时也不会播放。启动时会扫仓库根目录 / `assets/videos` / 桌面 / 下载，
+   并用 Windows `dir /s` 与 FFmpeg 转 `steve3.mp4`。失败时显示 `Steve2.jpg`。
+   菜单烘干机 / 抽屉图标只在贴图四角是绿幕时才抠像。
    Theora 无 Alpha 通道，透明背景要靠抠像着色器。
 3. 跑路时用「隐藏内容 + 整窗鼠标穿透」模拟窗口消失，未真正 `hide()` 主窗口；
    为了让玩家知道 Steve 何时回来，保留一条半透明的 `Steve跑路中 CD: xxs` 提示条。
 4. 离线收益未结算：条目已存 `dry_deadline` 时间戳，Day 5 读档时按现实时间补算。
 5. 拖拽已 clamp 在 `screen_get_usable_rect()` 内，多显示器场景待 Day 5 实测。
-6. 看电影只抓 `MOVIE_CATALOG` 里的 CC / 公有领域 Theora（Internet Archive），Godot 4 不能播 mp4。
-   先拉 `archive.org/metadata/{id}` 拿 `d1`+`dir` 直链，避免 `/download/` 跳转挂死；
-   18 秒没有字节增长就换片。首次下载约 26–65MB，缓存在 `user://movies`。
+6. 看电影只抓 2009 年后、制片方为美国或中国大陆、可合法公开的 Theora（Internet Archive）。
+   不包含好莱坞 / 内地院线版权片。当前片单：Pioneer One（2010, US）、
+   Silent Hall of Fame（2015, US）。底部进度条可拖动；右侧喇叭一键静音、音量、倍速。
+   先拉 metadata 直链；18 秒没有字节增长就换片。缓存 `user://movies`。
    聊聊天 / 运势需配置 `STEVE_CHAT_API_URL` 才会走在线大模型。
    聊聊天双方气泡用 WhatsApp 经典配色（对方白 / 自己绿 / 深色字）。

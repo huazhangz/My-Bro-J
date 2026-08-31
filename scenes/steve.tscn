@@ -1,9 +1,8 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/steve.gd" id="1_steve"]
 [ext_resource type="Theme" path="res://assets/fonts/steve_theme.tres" id="2_theme"]
 [ext_resource type="Shader" path="res://assets/shaders/chroma_key.gdshader" id="3_videokey"]
-[ext_resource type="VideoStreamTheora" path="res://assets/videos/steve.ogv" id="4_ogv"]
 [ext_resource type="Texture2D" path="res://assets/images/dryer.jpg" id="5_dryer"]
 [ext_resource type="Texture2D" path="res://assets/images/drawer.jpg" id="6_drawer"]
 [ext_resource type="Texture2D" path="res://assets/images/container.jpg" id="7_basin"]
@@ -95,9 +94,8 @@ offset_top = 5.0
 offset_right = 298.0
 offset_bottom = 413.0
 mouse_filter = 2
-stream = ExtResource("4_ogv")
 volume_db = -80.0
-autoplay = true
+autoplay = false
 expand = true
 loop = true
 

@@ -143,10 +143,12 @@ var _movie_mute_button: Button
 var _movie_max_button: Button
 var _movie_close_button: Button
 var _movie_volume: HSlider
+var _movie_seek: HSlider
 var _movie_speed_box: HBoxContainer
 var _movie_client: HTTPRequest
 var _movie_loading: bool = false
 var _movie_muted: bool = false
+var _movie_seeking: bool = false
 var _movie_volume_linear: float = GameData.MOVIE_VOLUME_DEFAULT
 var _movie_speed: float = 1.0
 var _movie_maximized: bool = false
@@ -299,18 +301,21 @@ func _ingest_user_images() -> void:
 	if _dryer_texture == null and is_instance_valid(_inventory_bg):
 		_dryer_texture = _inventory_bg.texture
 	_drawer_texture = GameData.load_image_texture(GameData.USER_DRAWER_FILE)
-	var drawer_icon_path: String = GameData.first_existing_file(GameData.USER_DRAWER_ICON_FILE)
+	var drawer_icon_path: String = GameData.first_existing_named(GameData.USER_DRAWER_ICON_ALIASES)
 	if not drawer_icon_path.is_empty() and not drawer_icon_path.begins_with("res://assets/images/"):
 		GameData.copy_file(drawer_icon_path, GameData.RES_DRAWER_ICON_PATH)
 	_drawer_icon_texture = GameData.load_image_texture(GameData.USER_DRAWER_ICON_FILE)
+	if _drawer_icon_texture == null and not drawer_icon_path.is_empty():
+		_drawer_icon_texture = GameData.load_image_texture(drawer_icon_path.get_file())
 	if _drawer_icon_texture == null:
 		_drawer_icon_texture = _drawer_texture
+		if drawer_icon_path.is_empty():
+			drawer_icon_path = GameData.first_existing_file(GameData.USER_DRAWER_FILE)
 	if _dryer_texture != null:
 		print("%s dryer bg <- %s" % [VIDEO_LOG_PREFIX, GameData.first_existing_file(GameData.USER_DRYER_FILE)])
 	if _drawer_texture != null:
 		print("%s drawer bg <- %s" % [VIDEO_LOG_PREFIX, GameData.first_existing_file(GameData.USER_DRAWER_FILE)])
-	if _drawer_icon_texture != null:
-		print("%s drawer icon <- %s" % [VIDEO_LOG_PREFIX, drawer_icon_path])
+	print("%s drawer icon <- %s" % [VIDEO_LOG_PREFIX, drawer_icon_path])
 	var container_path: String = GameData.first_existing_file(GameData.USER_CONTAINER_FILE)
 	if not container_path.is_empty() and not container_path.begins_with("res://assets/images/"):
 		GameData.copy_file(container_path, "res://assets/images/container.jpg")
@@ -318,7 +323,7 @@ func _ingest_user_images() -> void:
 	if _container_texture != null and is_instance_valid(_basin_frame):
 		_basin_frame.texture = _container_texture
 		print("%s basin <- %s" % [VIDEO_LOG_PREFIX, container_path])
-	var steve2_path: String = GameData.first_existing_file(GameData.USER_STEVE2_FILE)
+	var steve2_path: String = GameData.first_existing_named(GameData.USER_STEVE2_ALIASES)
 	if not steve2_path.is_empty():
 		print("%s Steve2.jpg found: %s" % [VIDEO_LOG_PREFIX, steve2_path])
 
@@ -646,7 +651,12 @@ func _placeholder_from_still(texture: Texture2D) -> void:
 	_placeholder_visual.visible = false
 	_pet_frame.texture = texture
 	_pet_frame.visible = true
-	_pet_frame.material = null
+	if _texture_has_green_screen(texture):
+		_apply_chroma_material(
+			_pet_frame, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression
+		)
+	else:
+		_pet_frame.material = null
 
 
 func _is_click_on_blocking_ui(global_pos: Vector2) -> bool:
@@ -668,7 +678,8 @@ func _is_click_on_blocking_ui(global_pos: Vector2) -> bool:
 		return true
 	if _movie_open():
 		for control: Control in [
-			_movie_close_button, _movie_max_button, _movie_mute_button, _movie_volume, _movie_speed_box,
+			_movie_close_button, _movie_max_button, _movie_mute_button,
+			_movie_volume, _movie_seek, _movie_speed_box,
 		]:
 			if is_instance_valid(control) and control.get_global_rect().has_point(global_pos):
 				return true
@@ -1293,6 +1304,9 @@ func _on_video_finished() -> void:
 
 
 func _resolve_video_path() -> String:
+	if _is_usable_ogv(USER_CACHE_OGV):
+		print("%s using user cache %s" % [VIDEO_LOG_PREFIX, USER_CACHE_OGV])
+		return USER_CACHE_OGV
 	var ingested: String = _ingest_desktop_source()
 	if _is_usable_ogv(ingested):
 		return ingested
@@ -1335,6 +1349,7 @@ func _ingest_desktop_source() -> String:
 			GameData.USER_PROJECT_DIR,
 			GameData.USER_VIDEO_FILE,
 		])
+		_log_project_video_files()
 		return ""
 	print_rich("[color=#54d18c]%s找到本机素材：%s[/color]" % [VIDEO_LOG_PREFIX, source])
 	if source.get_extension().to_lower() == "ogv":
@@ -1374,7 +1389,10 @@ func _find_desktop_source() -> String:
 		if not path.is_empty():
 			print("%s named hit %s" % [VIDEO_LOG_PREFIX, path])
 			return path
-	return _scan_steve_video_file()
+	var scanned: String = _scan_steve_video_file()
+	if not scanned.is_empty():
+		return scanned
+	return _windows_dir_videos()
 
 
 func _scan_steve_video_file() -> String:
@@ -1392,12 +1410,16 @@ func _scan_dir_for_steve_video(dir_path: String, depth: int) -> String:
 		return ""
 	var files: PackedStringArray = dir.get_files()
 	var mp4_hit: String = ""
+	var project_local: bool = dir_path.begins_with("res://") or _path_is_project(dir_path)
 	for file_name: String in files:
 		var low: String = file_name.to_lower()
-		if not ("steve" in low):
+		var named_steve: bool = "steve" in low or "sun" in low
+		if not named_steve and not project_local:
 			continue
 		var full: String = "%s/%s" % [dir_path.rstrip("/").rstrip("\\"), file_name]
 		if low.ends_with(".mp4") or low.ends_with(".mov") or low.ends_with(".mkv"):
+			if GameData.file_byte_count(full) <= GameData.STUB_VIDEO_MAX_BYTES:
+				continue
 			print("%s scan hit %s" % [VIDEO_LOG_PREFIX, full])
 			if mp4_hit.is_empty() or "steve3" in low:
 				mp4_hit = full
@@ -1418,6 +1440,72 @@ func _scan_dir_for_steve_video(dir_path: String, depth: int) -> String:
 		if not nested.is_empty():
 			return nested
 	return ""
+
+
+func _path_is_project(dir_path: String) -> bool:
+	var root: String = ProjectSettings.globalize_path("res://").replace("\\", "/").trim_suffix("/").to_lower()
+	var clean: String = dir_path.replace("\\", "/").trim_suffix("/").to_lower()
+	return clean == root or clean.begins_with(root + "/")
+
+
+func _windows_dir_videos() -> String:
+	if OS.get_name() != "Windows":
+		return ""
+	var roots: PackedStringArray = PackedStringArray([
+		ProjectSettings.globalize_path("res://"),
+		GameData.USER_PROJECT_DIR,
+	])
+	var profile: String = OS.get_environment("USERPROFILE")
+	if not profile.is_empty():
+		roots.append("%s/Desktop" % profile)
+		roots.append("%s/Downloads" % profile)
+		roots.append("%s/Videos" % profile)
+		roots.append("%s/Documents" % profile)
+	var best: String = ""
+	var best_score: int = -1
+	for root: String in roots:
+		var output: Array = []
+		var pattern: String = "%s\\*.mp4" % root.replace("/", "\\").rstrip("\\")
+		var code: int = OS.execute("cmd.exe", PackedStringArray(["/c", "dir", "/s", "/b", pattern]), output, true)
+		if code != 0:
+			continue
+		for line: Variant in output:
+			for piece: String in String(line).split("\n"):
+				var path: String = piece.strip_edges()
+				if path.is_empty() or not FileAccess.file_exists(path):
+					continue
+				var low: String = path.replace("\\", "/").to_lower()
+				if "/.git/" in low or "/.godot/" in low:
+					continue
+				var bytes: int = GameData.file_byte_count(path)
+				if bytes <= GameData.STUB_VIDEO_MAX_BYTES:
+					continue
+				var score: int = bytes
+				if "steve3" in low:
+					score += 1 << 30
+				elif "steve" in low:
+					score += 1 << 29
+				if score > best_score:
+					best_score = score
+					best = path
+	if not best.is_empty():
+		print("%s windows dir hit %s" % [VIDEO_LOG_PREFIX, best])
+	return best
+
+
+func _log_project_video_files() -> void:
+	var root: String = ProjectSettings.globalize_path("res://")
+	var dir: DirAccess = DirAccess.open(root)
+	if dir == null:
+		return
+	var shown: PackedStringArray = PackedStringArray()
+	for file_name: String in dir.get_files():
+		var low: String = file_name.to_lower()
+		if low.ends_with(".mp4") or low.ends_with(".mov") or low.ends_with(".mkv") or low.ends_with(".ogv"):
+			shown.append("%s (%d)" % [file_name, GameData.file_byte_count("%s/%s" % [root.rstrip("/"), file_name])])
+	print("%s project-root videos: %s" % [
+		VIDEO_LOG_PREFIX, ", ".join(shown) if not shown.is_empty() else "(none)",
+	])
 
 
 func _ffmpeg_bin() -> String:
@@ -1515,7 +1603,7 @@ func _video_dir_files() -> PackedStringArray:
 func _describe_video_dir() -> String:
 	var shown: PackedStringArray = PackedStringArray()
 	for file_name: String in _video_dir_files():
-		if file_name.get_extension().to_lower() in ["uid", "import", "remap", "md"]:
+		if file_name.get_extension().to_lower() in ["uid", "import", "remap", "md", "gdshader", "gitkeep"]:
 			continue
 		if file_name.begins_with("."):
 			continue
@@ -1600,7 +1688,12 @@ func _fail_video(reason: String, hint: String = "") -> void:
 		_pet_video.stop()
 		_pet_video.stream = null
 	_refresh_visual_swap()
-	var still: Texture2D = GameData.load_image_texture(GameData.USER_STEVE2_FILE)
+	var still: Texture2D = null
+	var steve2_name: String = GameData.first_existing_named(GameData.USER_STEVE2_ALIASES)
+	if not steve2_name.is_empty():
+		still = GameData.load_image_texture(steve2_name.get_file())
+	if still == null:
+		still = GameData.load_image_texture(GameData.USER_STEVE2_FILE)
 	if still != null:
 		_placeholder_from_still(still)
 		print_rich("[color=#ff8b6a]%s未启用动态立绘，已回落到 Steve2 静帧。[/color]" % VIDEO_LOG_PREFIX)
@@ -1722,15 +1815,56 @@ func _apply_chroma_material(rect: TextureRect, similarity: float, smoothness: fl
 	key_material.set_shader_parameter("spill_suppression", clampf(spill, 0.0, 1.0))
 
 
+func _texture_has_green_screen(texture: Texture2D) -> bool:
+	if texture == null:
+		return false
+	var image: Image = texture.get_image()
+	if image == null:
+		return false
+	var w: int = image.get_width()
+	var h: int = image.get_height()
+	if w < 4 or h < 4:
+		return false
+	var samples: Array[Color] = [
+		image.get_pixel(1, 1),
+		image.get_pixel(w - 2, 1),
+		image.get_pixel(1, h - 2),
+		image.get_pixel(w - 2, h - 2),
+	]
+	var hits: int = 0
+	for color: Color in samples:
+		if color.g > 0.55 and color.g > color.r + 0.18 and color.g > color.b + 0.18:
+			hits += 1
+	return hits >= 3
+
+
+func _apply_smart_chroma(rect: TextureRect, similarity: float, smoothness: float, spill: float) -> void:
+	if not is_instance_valid(rect):
+		return
+	if rect.texture != null and _texture_has_green_screen(rect.texture):
+		_apply_chroma_material(rect, similarity, smoothness, spill)
+	else:
+		rect.material = null
+
+
 func _apply_video_key() -> void:
 	if not chroma_key_enabled:
+		if is_instance_valid(_pet_frame):
+			_pet_frame.material = null
+		if is_instance_valid(_dryer_icon):
+			_dryer_icon.material = null
+		if is_instance_valid(_drawer_icon):
+			_drawer_icon.material = null
 		return
-	_apply_chroma_material(_pet_frame, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
-	_apply_chroma_material(_inventory_bg, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
-	_apply_chroma_material(_dryer_icon, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
-	_apply_chroma_material(_drawer_icon, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
+	if _video_enabled:
+		_apply_chroma_material(_pet_frame, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
+	else:
+		_apply_smart_chroma(_pet_frame, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
+	_apply_smart_chroma(_inventory_bg, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
+	_apply_smart_chroma(_dryer_icon, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
+	_apply_smart_chroma(_drawer_icon, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
 	if is_instance_valid(_basin_frame) and _basin_frame.visible:
-		_apply_chroma_material(_basin_frame, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
+		_apply_smart_chroma(_basin_frame, chroma_key_similarity, chroma_key_smoothness, chroma_spill_suppression)
 
 
 func _log_chroma_key_state() -> void:
@@ -3169,18 +3303,24 @@ func _setup_movie_ui() -> void:
 	var bar: HBoxContainer = HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 8)
 	body.add_child(bar)
+	_movie_seek = HSlider.new()
+	_movie_seek.min_value = 0.0
+	_movie_seek.max_value = 1.0
+	_movie_seek.step = 0.05
+	_movie_seek.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_movie_seek.custom_minimum_size = Vector2(160.0, 28.0)
+	bar.add_child(_movie_seek)
 	_movie_mute_button = Button.new()
 	_movie_mute_button.text = GameData.MOVIE_MUTE_TEXT
 	_movie_mute_button.theme_type_variation = &"CodexButton"
-	_movie_mute_button.custom_minimum_size = Vector2(72.0, 36.0)
+	_movie_mute_button.custom_minimum_size = Vector2(44.0, 36.0)
 	bar.add_child(_movie_mute_button)
 	_movie_volume = HSlider.new()
 	_movie_volume.min_value = 0.0
 	_movie_volume.max_value = 1.0
 	_movie_volume.step = 0.01
 	_movie_volume.value = _movie_volume_linear
-	_movie_volume.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_movie_volume.custom_minimum_size.x = 80.0
+	_movie_volume.custom_minimum_size = Vector2(88.0, 28.0)
 	bar.add_child(_movie_volume)
 	_movie_speed_box = HBoxContainer.new()
 	_movie_speed_box.add_theme_constant_override("separation", 4)
@@ -3220,6 +3360,19 @@ func _setup_movie_ui() -> void:
 		if value > 0.001:
 			_movie_muted = false
 		_apply_movie_audio()
+	)
+	_movie_seek.drag_started.connect(func() -> void:
+		_movie_seeking = true
+	)
+	_movie_seek.drag_ended.connect(func(_changed: bool) -> void:
+		_seek_movie_to(_movie_seek.value)
+		_movie_seeking = false
+	)
+	_movie_seek.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton:
+			var mb: InputEventMouseButton = event
+			if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+				_movie_seeking = true
 	)
 	_movie_popup.gui_input.connect(func(event: InputEvent) -> void:
 		_process_drag_input(event)
@@ -3357,6 +3510,11 @@ func _play_movie_file(path: String) -> void:
 	_set_movie_speed(1.0)
 	_apply_movie_audio()
 	_movie_player.play()
+	_movie_seeking = false
+	if is_instance_valid(_movie_seek):
+		var length: float = maxf(_movie_player.get_stream_length(), 1.0)
+		_movie_seek.max_value = length
+		_movie_seek.value = 0.0
 	if _movie_player.get_stream_length() <= 0.0 and not _movie_player.is_playing():
 		print("%s movie player did not start path=%s" % [VIDEO_LOG_PREFIX, play_path])
 
@@ -3454,6 +3612,15 @@ func _set_movie_speed(speed: float) -> void:
 	_apply_movie_audio()
 
 
+func _seek_movie_to(seconds: float) -> void:
+	if not is_instance_valid(_movie_player) or _movie_player.stream == null:
+		return
+	var length: float = _movie_player.get_stream_length()
+	if length <= 0.0:
+		return
+	_movie_player.stream_position = clampf(seconds, 0.0, length)
+
+
 func _apply_movie_audio() -> void:
 	if not is_instance_valid(_movie_player):
 		return
@@ -3469,9 +3636,13 @@ func _apply_movie_audio() -> void:
 func _tick_movie_playback(delta: float) -> void:
 	if not _movie_open() or not is_instance_valid(_movie_player):
 		return
-	if is_equal_approx(_movie_speed, 1.0):
-		return
 	if _movie_player.stream == null:
+		return
+	var length: float = _movie_player.get_stream_length()
+	if is_instance_valid(_movie_seek) and not _movie_seeking and length > 0.0:
+		_movie_seek.max_value = length
+		_movie_seek.value = _movie_player.stream_position
+	if is_equal_approx(_movie_speed, 1.0):
 		return
 	_movie_player.paused = true
 	_movie_player.stream_position = _movie_player.stream_position + delta * _movie_speed

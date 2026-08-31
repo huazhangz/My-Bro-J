@@ -118,7 +118,19 @@ const USER_DRYER_FILE: String = "dryer.jpg"
 const USER_DRAWER_FILE: String = "drawer.jpg"
 const USER_DRAWER_ICON_FILE: String = "drawer1.jpg"
 const RES_DRAWER_ICON_PATH: String = "res://assets/images/drawer1.jpg"
+const USER_DRAWER_ICON_ALIASES: PackedStringArray = [
+	"drawer1.jpg",
+	"Drawer1.jpg",
+	"drawer_icon.jpg",
+	"drawer-icon.jpg",
+]
 const USER_STEVE2_FILE: String = "Steve2.jpg"
+const USER_STEVE2_ALIASES: PackedStringArray = [
+	"Steve2.jpg",
+	"steve2.jpg",
+	"STEVE2.jpg",
+	"Steve2.JPG",
+]
 const USER_CONTAINER_FILE: String = "container.jpg"
 const USER_UI_FONT_FILE: String = "YuanRou-P-Bold.ttf"
 const USER_UI_FONT_ZIP: String = "YuanRou-P-Bold.zip"
@@ -213,60 +225,38 @@ const MOVIE_RESIZE_EDGE: int = 10
 const MOVIE_VOLUME_DEFAULT: float = 0.8
 const MOVIE_SPEEDS: PackedFloat32Array = [0.75, 1.0, 1.5, 2.0]
 const MOVIE_CACHE_DIR: String = "user://movies"
-const MOVIE_MAX_BYTES: int = 120000000
+const MOVIE_MAX_BYTES: int = 130000000
+const MOVIE_YEAR_MIN: int = 2009
 const MOVIE_FAIL_TEXT: String = "这场包场黄了，换一部或稍后再试。"
-const MOVIE_MUTE_TEXT: String = "静音"
-const MOVIE_UNMUTE_TEXT: String = "声开"
+const MOVIE_MUTE_TEXT: String = "♪"
+const MOVIE_UNMUTE_TEXT: String = "x♪"
 const MOVIE_MAX_TEXT: String = "最大化"
 const MOVIE_RESTORE_TEXT: String = "还原"
 const MOVIE_LOG_PREFIX: String = "[Steve/Movie] "
-## 仅收录可公开抓取、非限制级的 CC / 公有领域影片（Godot 只播 Theora/ogv）。
-## bytes 用于优先抓小文件，避免一直停在「给你包场」。
+## 2009 年后、制片方限定美国 / 中国大陆、可公开抓取的非限制级 Theora。
+## 不含商业院线版权片（Godot 4 只能播 .ogv，且不能去盗链好莱坞 / 内地院线片）。
 const MOVIE_CATALOG: Array = [
 	{
-		"id": "kid_auto_races",
-		"title": "Kid Auto Races at Venice",
-		"license": "Public Domain",
-		"rating": "G",
-		"archive_id": "TheKidAutoRaceinVenice",
-		"file": "The_Kid_Auto_Race_In_Venice.ogv",
-		"bytes": 26026632,
-	},
-	{
-		"id": "elephants_dream",
-		"title": "Elephants Dream",
-		"license": "CC-BY",
+		"id": "pioneer_one_s01e01",
+		"title": "Pioneer One S01E01",
+		"license": "CC BY-NC-SA",
 		"rating": "PG",
-		"archive_id": "ElephantsDream",
-		"file": "ed_1024.ogv",
-		"bytes": 45617852,
+		"year": 2010,
+		"region": "US",
+		"archive_id": "PioneerOneS01E01720pHD",
+		"file": "Content/Pioneer.One.S01E01.REFIX.720p.x264-VODO.ogv",
+		"bytes": 78002295,
 	},
 	{
-		"id": "big_buck_bunny_640",
-		"title": "Big Buck Bunny",
-		"license": "CC-BY",
+		"id": "silent_hall_of_fame",
+		"title": "Silent Hall of Fame",
+		"license": "CC BY-NC-ND",
 		"rating": "G",
-		"archive_id": "BigBuckBunny_310",
-		"file": "big_buck_bunny_640.ogv",
-		"bytes": 45627697,
-	},
-	{
-		"id": "chaplin_barroom_floor",
-		"title": "The Face on the Barroom Floor",
-		"license": "Public Domain",
-		"rating": "G",
-		"archive_id": "THEFACEONTHEBARROOMFLOOR1914CharlieChaplin",
-		"file": "THE FACE ON THE BARROOM FLOOR (1914)  -- Charlie Chaplin.ogv",
-		"bytes": 52000000,
-	},
-	{
-		"id": "sintel",
-		"title": "Sintel",
-		"license": "CC-BY",
-		"rating": "PG",
-		"archive_id": "Sintel_201809",
-		"file": "Sintel.ogv",
-		"bytes": 69000000,
+		"year": 2015,
+		"region": "US",
+		"archive_id": "SilentHallOfFameDocumentary",
+		"file": "Silent-Hall-of-Fame-documentary.ogv",
+		"bytes": 116630287,
 	},
 ]
 const UNDERWEAR_EMOJI: String = "🩲"
@@ -1138,9 +1128,7 @@ func fortune_offline_reply() -> String:
 
 func shuffled_movie_catalog() -> Array:
 	var copy: Array = MOVIE_CATALOG.duplicate(true)
-	copy.sort_custom(func(a, b) -> bool:
-		return int((a as Dictionary).get("bytes", 1 << 30)) < int((b as Dictionary).get("bytes", 1 << 30))
-	)
+	copy.shuffle()
 	return copy
 
 
@@ -1170,8 +1158,18 @@ func archive_metadata_url(archive_id: String) -> String:
 	return "https://archive.org/metadata/%s" % archive_id.uri_encode()
 
 
+func encode_archive_path(file_name: String) -> String:
+	var parts: PackedStringArray = file_name.split("/")
+	var encoded: PackedStringArray = PackedStringArray()
+	for part: String in parts:
+		if part.is_empty():
+			continue
+		encoded.append(part.uri_encode())
+	return "/".join(encoded)
+
+
 func archive_download_url(archive_id: String, file_name: String) -> String:
-	return "https://archive.org/download/%s/%s" % [archive_id.uri_encode(), file_name.uri_encode()]
+	return "https://archive.org/download/%s/%s" % [archive_id.uri_encode(), encode_archive_path(file_name)]
 
 
 func archive_item_file_url(host: String, directory: String, file_name: String) -> String:
@@ -1181,7 +1179,7 @@ func archive_item_file_url(host: String, directory: String, file_name: String) -
 	var dir_clean: String = directory.strip_edges()
 	if not dir_clean.begins_with("/"):
 		dir_clean = "/" + dir_clean
-	return "https://%s%s/%s" % [host_clean, dir_clean.rstrip("/"), file_name.uri_encode()]
+	return "https://%s%s/%s" % [host_clean, dir_clean.rstrip("/"), encode_archive_path(file_name)]
 
 
 func parse_archive_download_urls(body: PackedByteArray, archive_id: String, wanted_file: String) -> PackedStringArray:
@@ -1229,7 +1227,7 @@ func pick_archive_ogv(files: Array) -> Dictionary:
 		var is_ogv: bool = low.ends_with(".ogv") or fmt == "ogg video" or "theora" in fmt
 		if not is_ogv:
 			continue
-		if "vp8" in low or "vp9" in low:
+		if "vp8" in low or "vp9" in low or "sample" in low:
 			continue
 		if size < best_size:
 			best_size = size
