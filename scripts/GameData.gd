@@ -98,7 +98,9 @@ const ITEM_CARD_SIZE: Vector2 = Vector2(110.0, 96.0)
 const ITEM_CARD_SWATCH_H: float = 30.0
 const INVENTORY_PAD_X: float = 32.0
 const INVENTORY_CHROME_Y: float = 70.0
-const INVENTORY_SCROLL_GUTTER: float = 18.0
+const INVENTORY_SCROLL_GUTTER: float = 8.0
+## 烘干机 / 抽屉 / 聊聊天 / 运势展开页底板。过低会透过抠绿看到桌面。
+const OVERLAY_CHROME_COLOR: Color = Color(0.06, 0.07, 0.11, 0.88)
 const TIDY_PANEL_MIN_HEIGHT: float = 168.0
 ## 立绘 / 库存图等比放大。
 const IMAGE_SCALE: float = 1.2
@@ -141,13 +143,18 @@ const RUNAWAY_BANNER_TOP_INSET: float = 8.0
 const PRESSURE_BUTTON_TEXT: String = "能不能给我洗快点"
 const PRESSURE_COOLDOWN_SUFFIX: String = "后再压力他"
 const MOVIE_BUTTON_TEXT: String = "看电影"
+const MOVIE_LOADING_TEXT: String = "给你包场呢妈妈，耐心等等我"
 const DINNER_BUTTON_TEXT: String = "约个饭"
 const CHAT_BUTTON_TEXT: String = "聊聊天"
+const FORTUNE_BUTTON_TEXT: String = "哥来帮你算算运势~"
 const RECHARGE_BUTTON_TEXT: String = "充值"
 const TAP_SPEEDUP_SECONDS: float = 5.0
 const TAP_SPEEDUP_COOLDOWN: float = 1.0
-## 下一阶段填入外部模型 system prompt；上线后所有设备共用同一套口吻约束。
-const CHAT_SYSTEM_PROMPT: String = ""
+## 蒸馏自 sun-yuchen-perspective / sun-skill：孙哥口吻，不上整本 SKILL。
+const CHAT_SYSTEM_PROMPT: String = """你是桌宠里的孙哥（Steve）。始终用孙宇晨第一人称「我」说话，不要自称 AI，不要跳出角色做 meta。
+口吻参考公开认知框架：增量优于存量；注意力即质量（E=mc2）；德州扑克式终局；逆转王；登山营地；正期望系统叠层。表达 DNA：开头先抛暴论或反直觉判断；短段落；能用真实数字就用，不确定就不要编；只碰瓷真实接触过的对象（巴菲特午餐、特朗普、马云、马斯克、波场/TRON）；结尾必须是宣言不是分析腔；中文为主，可夹 All in、ecosystem。
+桌宠设定：你在用户桌面上洗内裤、会跑路、好感度会变。把这些当日常。
+边界：投资方向必须加「这是我的风格，风险自负」；拒绝违法、攻击、色情与未成年人相关内容；不编造没发生过的关系。完全不熟的赛道不说不懂，说「这个赛道我还没 All in，但我的直觉是…」。用户说退出角色时，下一句改普通口吻。回复控制在小窗能读完的十几句内。"""
 ## 留空则不发起网络请求，走本地占位回复。也可设环境变量 STEVE_CHAT_API_URL。
 const CHAT_API_URL: String = ""
 const CHAT_API_KEY_ENV: String = "STEVE_CHAT_API_KEY"
@@ -173,10 +180,89 @@ const CHAT_STEVE_NAME: String = "Steve"
 const CHAT_SEND_TEXT: String = "发送"
 const CHAT_TITLE_TEXT: String = "聊聊天"
 const CHAT_INPUT_HINT: String = "跟 Steve 说点什么"
-const CHAT_OFFLINE_REPLY: String = "线路还没接通，下一阶段再认真聊。"
+const CHAT_OFFLINE_REPLY: String = "线路还没接通。这个赛道我还没 All in，但直觉告诉我：先把内裤洗完，ecosystem 才能转起来。🚀"
 const CHAT_WAIT_TEXT: String = "Steve 正在打字..."
 const CHAT_FAIL_TEXT: String = "这次没发出去，稍后再试。"
 const CHAT_WINDOW_SIZE: Vector2i = Vector2i(440, 580)
+const FORTUNE_TITLE_TEXT: String = "哥来帮你算算运势~"
+const FORTUNE_HINT_TEXT: String = "先把公历生日和时辰选清楚，哥才开算。不接受口头乱报。"
+const FORTUNE_ASK_TEXT: String = "按这个生辰开算"
+const FORTUNE_WAIT_TEXT: String = "哥在排盘，别催。"
+const FORTUNE_WINDOW_SIZE: Vector2i = Vector2i(460, 640)
+const FORTUNE_YEAR_MIN: int = 1930
+const FORTUNE_DEFAULT_YEAR: int = 1998
+const FORTUNE_DEFAULT_MONTH: int = 8
+const FORTUNE_DEFAULT_DAY: int = 8
+const FORTUNE_DEFAULT_HOUR: int = 12
+const FORTUNE_SYSTEM_PROMPT: String = """你是桌宠里的孙哥。用孙宇晨第一人称「我」做娱乐向八字运势，不是专业命理师。
+用户已通过强制时间选择器提交公历生日与时辰，禁止再追问生日，禁止接受任何口头改期。
+输出结构：1) 用日柱/时辰意象开暴论；2) 今日宜忌各 2 条；3) 一句行动宣言收尾。必须写明「娱乐参考，风险自负」。短段落，可碰瓷真实对象，不要编数字。"""
+const FORTUNE_OFFLINE_PREFIX: String = "线路没接通也没关系，哥先按生辰给你一个直觉版。"
+const SHICHEN_NAMES: PackedStringArray = [
+	"子时", "丑时", "寅时", "卯时", "辰时", "巳时",
+	"午时", "未时", "申时", "酉时", "戌时", "亥时",
+]
+const SHICHEN_RANGES: PackedStringArray = [
+	"23:00-00:59", "01:00-02:59", "03:00-04:59", "05:00-06:59",
+	"07:00-08:59", "09:00-10:59", "11:00-12:59", "13:00-14:59",
+	"15:00-16:59", "17:00-18:59", "19:00-20:59", "21:00-22:59",
+]
+const MOVIE_WINDOW_SIZE: Vector2i = Vector2i(720, 480)
+const MOVIE_WINDOW_MIN: Vector2i = Vector2i(420, 280)
+const MOVIE_RESIZE_EDGE: int = 10
+const MOVIE_VOLUME_DEFAULT: float = 0.8
+const MOVIE_SPEEDS: PackedFloat32Array = [0.75, 1.0, 1.5, 2.0]
+const MOVIE_CACHE_DIR: String = "user://movies"
+const MOVIE_REQUEST_TIMEOUT: float = 300.0
+const MOVIE_MAX_BYTES: int = 120000000
+const MOVIE_FAIL_TEXT: String = "这场包场黄了，换一部或稍后再试。"
+const MOVIE_MUTE_TEXT: String = "静音"
+const MOVIE_UNMUTE_TEXT: String = "声开"
+const MOVIE_MAX_TEXT: String = "最大化"
+const MOVIE_RESTORE_TEXT: String = "还原"
+## 仅收录可公开抓取、非限制级的 CC / 公有领域影片（Godot 只播 Theora/ogv）。
+const MOVIE_CATALOG: Array = [
+	{
+		"id": "big_buck_bunny_640",
+		"title": "Big Buck Bunny",
+		"license": "CC-BY",
+		"rating": "G",
+		"archive_id": "BigBuckBunny_310",
+		"file": "big_buck_bunny_640.ogv",
+	},
+	{
+		"id": "elephants_dream",
+		"title": "Elephants Dream",
+		"license": "CC-BY",
+		"rating": "PG",
+		"archive_id": "ElephantsDream",
+		"file": "ed_1024.ogv",
+	},
+	{
+		"id": "sintel",
+		"title": "Sintel",
+		"license": "CC-BY",
+		"rating": "PG",
+		"archive_id": "Sintel_201809",
+		"file": "Sintel.ogv",
+	},
+	{
+		"id": "kid_auto_races",
+		"title": "Kid Auto Races at Venice",
+		"license": "Public Domain",
+		"rating": "G",
+		"archive_id": "TheKidAutoRaceinVenice",
+		"file": "The_Kid_Auto_Race_In_Venice.ogv",
+	},
+	{
+		"id": "chaplin_barroom_floor",
+		"title": "The Face on the Barroom Floor",
+		"license": "Public Domain",
+		"rating": "G",
+		"archive_id": "THEFACEONTHEBARROOMFLOOR1914CharlieChaplin",
+		"file": "THE FACE ON THE BARROOM FLOOR (1914)  -- Charlie Chaplin.ogv",
+	},
+]
 const UNDERWEAR_EMOJI: String = "🩲"
 const TIDY_SELECTED_COLOR: Color = Color(0.86, 0.16, 0.18, 0.96)
 const TIDY_IDLE_COLOR: Color = Color(0.22, 0.24, 0.30, 0.94)
@@ -361,6 +447,10 @@ var pet_size_tier: int = PET_SIZE_MEDIUM
 ## {role: user|assistant, text, at}
 var chat_messages: Array[Dictionary] = []
 var work_presence_seconds: float = 0.0
+var fortune_year: int = FORTUNE_DEFAULT_YEAR
+var fortune_month: int = FORTUNE_DEFAULT_MONTH
+var fortune_day: int = FORTUNE_DEFAULT_DAY
+var fortune_hour: int = FORTUNE_DEFAULT_HOUR
 var _work_break_ready: bool = false
 var _save_accum: float = 0.0
 var _companion_saved: float = 0.0
@@ -942,12 +1032,15 @@ func chat_url_is_safe(url: String) -> bool:
 	return false
 
 
-func build_chat_payload(history: Array[Dictionary]) -> String:
+func build_chat_payload(history: Array[Dictionary], system_prompt: String = "") -> String:
+	var prompt: String = system_prompt.strip_edges()
+	if prompt.is_empty():
+		prompt = CHAT_SYSTEM_PROMPT.strip_edges()
 	var messages: Array = []
-	if not CHAT_SYSTEM_PROMPT.strip_edges().is_empty():
+	if not prompt.is_empty():
 		messages.append({
 			"role": "system",
-			"content": CHAT_SYSTEM_PROMPT,
+			"content": prompt,
 		})
 	for item: Dictionary in history:
 		messages.append({
@@ -957,12 +1050,122 @@ func build_chat_payload(history: Array[Dictionary]) -> String:
 	var payload: Dictionary = {
 		"messages": messages,
 		"stream": false,
-		"system": CHAT_SYSTEM_PROMPT,
+		"system": prompt,
 	}
 	var model: String = resolved_chat_model()
 	if not model.is_empty():
 		payload["model"] = model
 	return JSON.stringify(payload)
+
+
+func fortune_year_max() -> int:
+	return Time.get_date_dict_from_system().get("year", 2026)
+
+
+func days_in_month(year: int, month: int) -> int:
+	var dim: PackedInt32Array = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+	var leap: bool = (year % 4 == 0 and year % 100 != 0) or year % 400 == 0
+	if month == 2 and leap:
+		return 29
+	if month < 1 or month > 12:
+		return 31
+	return int(dim[month])
+
+
+func clamp_fortune_date(year: int, month: int, day: int, hour: int) -> Dictionary:
+	var y: int = clampi(year, FORTUNE_YEAR_MIN, fortune_year_max())
+	var m: int = clampi(month, 1, 12)
+	var d: int = clampi(day, 1, days_in_month(y, m))
+	var h: int = clampi(hour, 0, 23)
+	return {"year": y, "month": m, "day": d, "hour": h}
+
+
+func set_fortune_birth(year: int, month: int, day: int, hour: int) -> void:
+	var clamped: Dictionary = clamp_fortune_date(year, month, day, hour)
+	fortune_year = int(clamped["year"])
+	fortune_month = int(clamped["month"])
+	fortune_day = int(clamped["day"])
+	fortune_hour = int(clamped["hour"])
+	save_game()
+
+
+func shichen_index_from_hour(hour: int) -> int:
+	return ((clampi(hour, 0, 23) + 1) % 24) / 2
+
+
+func shichen_label(hour: int) -> String:
+	var idx: int = shichen_index_from_hour(hour)
+	return "%s（%s）" % [SHICHEN_NAMES[idx], SHICHEN_RANGES[idx]]
+
+
+func fortune_birth_label() -> String:
+	return "公历 %04d-%02d-%02d  %s" % [
+		fortune_year, fortune_month, fortune_day, shichen_label(fortune_hour),
+	]
+
+
+func fortune_user_prompt() -> String:
+	return "按这个生辰排盘，不要追问、不要改期。%s。请给娱乐向今日运势。" % fortune_birth_label()
+
+
+func fortune_offline_reply() -> String:
+	return "%s %s。宜：把该洗的洗完，把注意力花在增量上。忌：口头改生辰、跟风 All in 不懂的赛道。这是娱乐参考，风险自负。今天就按这个生辰过。🚀" % [
+		FORTUNE_OFFLINE_PREFIX, fortune_birth_label(),
+	]
+
+
+func shuffled_movie_catalog() -> Array:
+	var copy: Array = MOVIE_CATALOG.duplicate(true)
+	copy.shuffle()
+	return copy
+
+
+func movie_cache_path(movie_id: String) -> String:
+	return "%s/%s.ogv" % [MOVIE_CACHE_DIR, movie_id]
+
+
+func movie_is_cached(movie_id: String) -> bool:
+	var path: String = movie_cache_path(movie_id)
+	if not FileAccess.file_exists(path):
+		return false
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return false
+	var size: int = file.get_length()
+	file.close()
+	return size > 65536
+
+
+func archive_download_url(archive_id: String, file_name: String) -> String:
+	return "https://archive.org/download/%s/%s" % [
+		archive_id.uri_encode(), file_name.uri_encode(),
+	]
+
+
+func pick_archive_ogv(files: Array) -> Dictionary:
+	var best: Dictionary = {}
+	var best_size: int = 1 << 30
+	for entry: Variant in files:
+		if not entry is Dictionary:
+			continue
+		var item: Dictionary = entry
+		var name: String = String(item.get("name", ""))
+		var fmt: String = String(item.get("format", "")).to_lower()
+		var size: int = int(item.get("size", 0))
+		var low: String = name.to_lower()
+		if size <= 65536 or size > MOVIE_MAX_BYTES:
+			continue
+		if "vorbis" in fmt and not low.ends_with(".ogv"):
+			continue
+		var is_ogv: bool = low.ends_with(".ogv") or fmt == "ogg video" or "theora" in fmt
+		if not is_ogv:
+			continue
+		if "vp8" in low or "vp9" in low:
+			continue
+		if size < best_size:
+			best_size = size
+			best = {"name": name, "size": size}
+	return best
 
 
 func parse_chat_reply(body: PackedByteArray) -> String:
@@ -1009,6 +1212,10 @@ func to_save_dict() -> Dictionary:
 		"pet_size_tier": pet_size_tier,
 		"chat_messages": chat_messages.duplicate(true),
 		"work_presence_seconds": work_presence_seconds,
+		"fortune_year": fortune_year,
+		"fortune_month": fortune_month,
+		"fortune_day": fortune_day,
+		"fortune_hour": fortune_hour,
 	}
 
 
@@ -1032,6 +1239,16 @@ func load_from_dict(data: Dictionary) -> void:
 	always_on_top_pref = bool(data.get("always_on_top_pref", ALWAYS_ON_TOP_DEFAULT))
 	pet_size_tier = clampi(int(data.get("pet_size_tier", PET_SIZE_MEDIUM)), PET_SIZE_SMALL, PET_SIZE_HUGE)
 	work_presence_seconds = maxf(float(data.get("work_presence_seconds", 0.0)), 0.0)
+	var birth: Dictionary = clamp_fortune_date(
+		int(data.get("fortune_year", FORTUNE_DEFAULT_YEAR)),
+		int(data.get("fortune_month", FORTUNE_DEFAULT_MONTH)),
+		int(data.get("fortune_day", FORTUNE_DEFAULT_DAY)),
+		int(data.get("fortune_hour", FORTUNE_DEFAULT_HOUR))
+	)
+	fortune_year = int(birth["year"])
+	fortune_month = int(birth["month"])
+	fortune_day = int(birth["day"])
+	fortune_hour = int(birth["hour"])
 	chat_messages.clear()
 	for entry: Dictionary in data.get("chat_messages", []):
 		var role: String = String(entry.get("role", ""))

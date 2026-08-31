@@ -20,13 +20,20 @@ func is_busy() -> bool:
 	return _pending
 
 
-func send_history(history: Array[Dictionary]) -> void:
+func send_history(
+	history: Array[Dictionary],
+	system_prompt: String = "",
+	offline_reply: String = ""
+) -> void:
 	if _pending:
 		chat_failed.emit("busy")
 		return
 	var url: String = GameData.resolved_chat_api_url()
 	if url.is_empty():
-		chat_replied.emit(GameData.CHAT_OFFLINE_REPLY)
+		var fallback: String = offline_reply.strip_edges()
+		if fallback.is_empty():
+			fallback = GameData.CHAT_OFFLINE_REPLY
+		chat_replied.emit(fallback)
 		return
 	if not GameData.chat_url_is_safe(url):
 		chat_failed.emit("unsafe_url")
@@ -36,7 +43,9 @@ func send_history(history: Array[Dictionary]) -> void:
 	if not key.is_empty():
 		headers.append("Authorization: Bearer %s" % key)
 	_pending = true
-	var err: Error = request(url, headers, HTTPClient.METHOD_POST, GameData.build_chat_payload(history))
+	var err: Error = request(
+		url, headers, HTTPClient.METHOD_POST, GameData.build_chat_payload(history, system_prompt)
+	)
 	if err != OK:
 		_pending = false
 		chat_failed.emit("request_error")

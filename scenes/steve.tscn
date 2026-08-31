@@ -239,7 +239,7 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
-vertical_scroll_mode = 2
+vertical_scroll_mode = 3
 
 [node name="ExitInner" type="VBoxContainer" parent="ExitPopup/MenuScroll"]
 layout_mode = 2
@@ -428,6 +428,14 @@ custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
 theme_type_variation = &"EquipButton"
 text = "聊聊天"
+
+[node name="FortuneButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 66)
+layout_mode = 2
+theme_type_variation = &"CodexButton"
+text = "哥来帮你算算运势~"
+autowrap_mode = 3
 
 [node name="MovieButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
 unique_name_in_owner = true
@@ -652,7 +660,7 @@ visible = false
 custom_minimum_size = Vector2(96, 36)
 layout_mode = 2
 size_flags_vertical = 0
-theme_type_variation = &"CloseButton"
+theme_type_variation = &"EquipButton"
 text = "收拾一下"
 
 [node name="InventoryCloseButton" type="Button" parent="InventoryPopup/InventoryBody/InventoryHeader"]
@@ -710,7 +718,7 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
-vertical_scroll_mode = 2
+vertical_scroll_mode = 3
 
 [node name="InventoryGrid" type="GridContainer" parent="InventoryPopup/InventoryBody/InventoryScroll"]
 unique_name_in_owner = true
@@ -797,7 +805,7 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
-vertical_scroll_mode = 2
+vertical_scroll_mode = 3
 
 [node name="ChatList" type="VBoxContainer" parent="ChatPopup/ChatBody/ChatScroll"]
 unique_name_in_owner = true

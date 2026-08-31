@@ -2,7 +2,7 @@
 
 > Steam Project · 单机基础版
 > 引擎：Godot Engine **4.7.2 stable** · 语言：GDScript (Godot 4.x 语法)
-> 最后更新：2026-08-30
+> 最后更新：2026-08-31
 
 ---
 
@@ -80,9 +80,14 @@
 | `CHROMA_KEY_SIMILARITY` | `0.81` | 当前扣色容差 |
 | `CHROMA_KEY_SMOOTHNESS` | `0.15` | 当前边缘羽化 |
 | `DRYER_BG_ZOOM` | `1.36` | 烘干机 / 抽屉库存背景从中心放大（裁边） |
-| `CHAT_SYSTEM_PROMPT` | `""` | 外部模型 system prompt 预留位，下一阶段填入 |
+| `OVERLAY_CHROME_COLOR` | `0.06,0.07,0.11,0.88` | 烘干机 / 抽屉 / 聊聊天 / 运势展开页底板（抠绿后不再过透） |
+| `CHAT_SYSTEM_PROMPT` | 孙哥口吻 | 蒸馏 `sun-yuchen-perspective` / `sun-skill`，不上整本 SKILL |
 | `CHAT_CONFIG_FILE` | `user://chat_config.json` | 可选：url / key / model；环境变量优先 |
 | `CHAT_HISTORY_SECONDS` | `604800` | 聊聊天历史保留 7 天 |
+| `FORTUNE_WINDOW_SIZE` | `460×640` | 运势对话框；生日只能用年/月/日/时辰选择器 |
+| `MOVIE_WINDOW_SIZE` | `720×480` | 看电影小窗默认尺寸；可拖边框，下限 `420×280` |
+| `MOVIE_SPEEDS` | `0.75 / 1 / 1.5 / 2` | 小窗倍速；非 1× 时静音以免音画错位 |
+| `MOVIE_CATALOG` | CC/公有领域白名单 | Internet Archive Theora；不含限制级 |
 | `TAP_SPEEDUP_SECONDS` | `5` | 双击 Steve 扣减的洗涤秒数；冷却 1 秒且不显示 |
 | `DRYER_HEADLINE_COLOR` | CodexButton 紫 | 烘干机标题条底色 |
 | `DRAWER_HEADLINE_COLOR` | CoinButton 金 | 抽屉标题条底色 |
@@ -266,21 +271,25 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
   - 菜单图标相对按钮框下移：烘干机 `DRYER_ICON_NUDGE_Y=5`、抽屉 `DRAWER_ICON_NUDGE_Y=8`
   - 好感度：品质 log 高权重 + 陪伴 log（满值时间 ×260%）最多 15%；每次跑路 −25，最低 0
   - `能不能给我洗快点`：随机扣洗涤时间（1s~12h）；冷却灰显读秒
-  - 功能按钮顺序：`聊聊天` → `看电影` → `约个饭`（粉色） → `充值`
-  - `聊聊天`：对话窗 + 输入/发送（Enter）+ 7 天历史；Steve 回复后主界面弹窗；OpenAI 兼容接口
-  - Demo（占位）：`看电影` / `约个饭` / `充值`
-  - `设置`：展开时菜单窗口加高并允许滚动，避免边框裁切；固定上层 + Steve 体型（小 / 中 / 大 / 超大）
+  - 功能按钮顺序：`聊聊天` → `哥来帮你算算运势~` → `看电影` → `约个饭`（粉色） → `充值`
+  - `聊聊天`：对话窗 + 输入/发送（Enter）+ 7 天历史；Steve 回复后主界面弹窗；OpenAI 兼容接口；system prompt 为孙哥口吻
+  - `哥来帮你算算运势~`：同风格对话框；强制年/月/日/时辰选择器（无自由文本生日）；再交给大模型
+  - `看电影`：从 CC/公有领域白名单自动抓一部非限制级 Theora，小窗播放；加载时按钮文案「给你包场呢妈妈，耐心等等我」
+  - Demo（占位）：`约个饭` / `充值`
+  - `设置`：展开时菜单窗口加高；滚动条隐藏但仍可用滚轮；固定上层 + Steve 体型（小 / 中 / 大 / 超大）
   - `晚点再洗`：存档后退出
   - 右上角 `×`：关闭并还原窗口
   - 跑路时立绘换成按比例内接的 `container.jpg` 空盆；「已跑路...」居中贴在画面顶部，z 低于菜单
   - 点弹窗外 / `ESC` / `×`：关闭菜单
-- **InventoryPopup**（全屏，默认隐藏）：烘干机用 `dryer.jpg` 中心 ×1.36；抽屉空白底；顶栏「收拾一下 / 关闭」统一 CloseButton 风格
+- **InventoryPopup**（全屏，默认隐藏）：烘干机用 `dryer.jpg` 中心 ×1.36；抽屉空白底；底板 `OVERLAY_CHROME_COLOR` 提高不透明度
   - 窗口按 **横 5 × 竖 6** 卡片刚好铺满计算（`inventory_window_size()`，不跟 Steve 体型）
   - 左上角标题带 headline 色条（烘干机紫 / 抽屉金，与右键按钮底色一致），高度不超过第一件库存
-  - 右上角「关闭」与标题条同高；烘干机 / 抽屉关闭左侧都有「收拾一下」
+  - 右上角「关闭」与标题条同高；「收拾一下」为绿色 EquipButton
   - 「收拾一下」：品质从高到低；只勾一组删该组，两边都勾只删同时符合的；勾选变红；不减生涯计数
-  - 背景统一 `dryer.jpg` 从中心 ×1.36 并裁边
-- **ChatPopup**：底部输入框 + 发送（设备 Enter / 发送键）；左侧 Steve、右侧「你」；历史 7 天；未配置 API 时本地占位回复
+  - 背景统一 `dryer.jpg` 从中心 ×1.36 并裁边；`ScrollContainer` 隐藏滚动条，滚轮仍可滚动
+- **ChatPopup**：底部输入框 + 发送；左侧 Steve、右侧「你」；历史 7 天；底板加不透明；隐藏滚动条
+- **FortunePopup**：强制公历年/月/日 + 时辰选择器，禁止口头报生日；结果区只读
+- **MoviePopup**：Internet Archive 白名单 Theora；拖边框缩放、最大化/关闭、音量、静音、0.75/1/1.5/2 倍速
 - 立绘上 **双击** 加速洗涤 5 秒，冷却 1 秒且不显示冷却
   - `ScrollContainer` + `GridContainer`：5 列 × 6 行可见，卡片完整显示；多于 30 件才滚动
   - 卡片为紫色描边占位框，显示磨损前缀 + 品质中文名（尚无内裤贴图）
@@ -416,7 +425,8 @@ My-Bro-J/
 │   └── steve.tscn      # 主场景：根节点 Control，全屏铺满，背景全透明
 ├── scripts/
 │   ├── steve.gd        # 窗口拖拽 + 洗涤/晾干/跑路状态机 + 右键菜单 / 库存网格
-│   ├── chat_client.gd  # 聊聊天 HTTP 接入（无 URL 时本地占位）
+│   ├── chat_client.gd  # 聊聊天 / 运势 HTTP 接入（无 URL 时本地占位）
+│   ├── movie_client.gd # 白名单免费电影抓取（Internet Archive Theora）
 │   ├── underwear_art.gd # 按条目 id 烘焙内裤贴图
 │   └── GameData.gd         # 全局数据单例（常量、仓库、磨损、CD 算法、存档接口）
 ├── assets/
@@ -451,21 +461,23 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 │   └── PlaceholderVisual (Control)
 │       └── Head / EyeLeft / EyeRight / Body / Basin
 ├── ExitPopup (圆角 PanelContainer, 默认隐藏, 铺满放大窗口)
-│   └── ExitInner
+│   └── MenuScroll → ExitInner
 │       ├── MenuHeader（×）
 │       ├── StatBubbles（好感 / 内裤 / 陪伴 / 跑路）
 │       ├── MenuIcons（左图标右文字的 Button）
 │       ├── 能不能给我洗快点
+│       ├── 聊聊天 / 哥来帮你算算运势~ / 看电影 / 约个饭 / 充值
 │       ├── 设置 / 晚点再洗
 │       └── SettingsPanel（固定上层）
 ├── RunawayBanner（贴在空盆画面顶部正中，「已跑路...」）
-└── InventoryPopup (Control, 默认隐藏, 全屏)
-    ├── InventoryBgClip → InventoryBg（烘干机中心 ×1.36）
-    ├── InventoryMask (ColorRect 0,0,0,0.6)
-    └── InventoryBody
-        ├── InventoryHeader（左标题色条 + 右关闭，同高）
-        ├── InventoryScroll → InventoryGrid (columns = 5)
-        └── InventoryEmpty
+├── InventoryPopup (Control, 默认隐藏, 全屏)
+│   ├── InventoryChrome（加不透明底板）
+│   ├── InventoryBgClip → InventoryBg（烘干机中心 ×1.36）
+│   └── InventoryBody
+│       ├── InventoryHeader（左标题色条 + 绿色收拾一下 + 关闭）
+│       ├── InventoryScroll（隐藏滚动条）→ InventoryGrid (columns = 5)
+│       └── InventoryEmpty
+├── ChatPopup / FortunePopup / MoviePopup（运行时补齐运势选择器与电影小窗）
 ```
 
 ---
@@ -479,10 +491,13 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 | 在立绘上右键 | 打开 4 倍圆角菜单（图标打开烘干机/抽屉；气泡统计；设置里固定上层） |
 | 点「烘干机」 | 2.5× 弹层，5 列网格展示未晾干仓库 |
 | 点「抽屉」 | 2.5× 弹层，5 列网格展示已晾干收藏 |
+| 点「聊聊天」 | 打开对话窗；口吻为孙哥人设 |
+| 点「哥来帮你算算运势~」 | 打开运势窗；必须用时间选择器提交生日/时辰 |
+| 点「看电影」 | 按钮改为「给你包场呢妈妈，耐心等等我」，抓取后弹出可缩放播放小窗 |
 | 点「固定上层」 | 开/关窗口置顶 |
 | 点「晚点再洗」 | 退出程序 |
 | 点「关闭」/ 弹窗外 / 库存上再右键 | 关闭对应弹层并还原窗口 |
-| `ESC` | 先关库存，再关菜单，否则退出 |
+| `ESC` | 先关电影 / 运势 / 库存 / 聊天，再关菜单，否则退出 |
 | 命令行加 `-- --petlog` | 输出状态机日志 |
 
 > 洗涤/闲置时画面上不常驻交互按钮，避免挡住立绘。
@@ -514,8 +529,11 @@ Steve (Control, 铺满窗口, theme = steve_theme)
   - [x] 右键菜单右上角悬浮 `×` 关闭；全界面白字加粗、字号统一 16
   - [x] 每次压力点击 15.5% 跑路：空盆 `container.jpg` 抠绿幕 + 红色「已跑路...」
   - [x] `InventoryPopup`：烘干机 / 抽屉统一 `dryer.jpg` ×1.36 + 5×6 可见网格；标题色条与菜单按钮同色
-  - [x] 烘干机 / 抽屉「收拾一下」：品质从高到低；单组全删、双组交集；勾选变红；删除不减生涯计数
-  - [x] 聊聊天主界面 + 7 天历史 + 外部 LLM 预留；双击加速 5 秒；充值 demo
+  - [x] 烘干机 / 抽屉「收拾一下」：绿色 EquipButton；品质从高到低；单组全删、双组交集；勾选变红；删除不减生涯计数
+  - [x] 聊聊天主界面 + 7 天历史 + 孙哥 system prompt（sun-skill / sun-yuchen-perspective 蒸馏）；双击加速 5 秒；充值 demo
+  - [x] 隐藏全部滚动条 UI，滚轮仍可滚动；烘干机 / 抽屉 / 聊聊天底板加不透明
+  - [x] 运势：强制年/月/日/时辰选择器 + 大模型输出
+  - [x] 看电影：Archive 白名单免费非限制级 Theora 小窗；拖边框 / 最大化 / 音量 / 静音 / 倍速
   - [x] 悬停 1s 头顶洗涤水条；立绘命中盒收紧；双击水蓝 flash
   - [x] Steve 发言主界面弹窗；45 分钟休息提醒；内裤贴图按 id 生成
   - [x] 品质重构为一次性 / 涤纶 / 纯棉 / 真丝 / 奢华 / 火星科技，并附加 8 档磨损前缀
@@ -545,3 +563,5 @@ Steve (Control, 铺满窗口, theme = steve_theme)
    为了让玩家知道 Steve 何时回来，保留一条半透明的 `Steve跑路中 CD: xxs` 提示条。
 4. 离线收益未结算：条目已存 `dry_deadline` 时间戳，Day 5 读档时按现实时间补算。
 5. 拖拽已 clamp 在 `screen_get_usable_rect()` 内，多显示器场景待 Day 5 实测。
+6. 看电影只抓 `MOVIE_CATALOG` 里的 CC / 公有领域 Theora（Internet Archive），Godot 4 不能播 mp4。
+   首次下载约 20–65MB，缓存在 `user://movies`。聊聊天 / 运势需配置 `STEVE_CHAT_API_URL` 才会走在线大模型。
