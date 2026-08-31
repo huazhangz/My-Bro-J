@@ -235,6 +235,7 @@ grow_vertical = 2
 theme_type_variation = &"SolidPanel"
 
 [node name="MenuScroll" type="ScrollContainer" parent="ExitPopup"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
@@ -421,6 +422,13 @@ theme_type_variation = &"RiskButton"
 text = "能不能给我洗快点"
 autowrap_mode = 3
 
+[node name="ChatButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 66)
+layout_mode = 2
+theme_type_variation = &"EquipButton"
+text = "聊聊天"
+
 [node name="MovieButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 66)
@@ -434,13 +442,6 @@ custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
 theme_type_variation = &"PinkButton"
 text = "约个饭"
-
-[node name="ChatButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 66)
-layout_mode = 2
-theme_type_variation = &"EquipButton"
-text = "聊聊天"
 
 [node name="RechargeButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
 unique_name_in_owner = true

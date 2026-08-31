@@ -115,6 +115,7 @@ var _pet_video: VideoStreamPlayer
 @onready var _chat_list: VBoxContainer = %ChatList
 @onready var _chat_input: LineEdit = %ChatInput
 @onready var _chat_send_button: Button = %ChatSendButton
+@onready var _menu_scroll: ScrollContainer = %MenuScroll
 
 var _state: int = State.WASHING
 var _wash_remaining: float = 0.0
@@ -149,6 +150,13 @@ var _container_texture: Texture2D
 var _layout_area: Rect2 = GameData.PET_AREA
 var _pressure_cd: float = 0.0
 var _pressure_cd_text: String = ""
+var _notice_panel: PanelContainer
+var _notice_label: Label
+var _notice_tween: Tween
+var _flash_panel: PanelContainer
+var _flash_label: Label
+var _flash_tween: Tween
+var _pending_steve_notice: String = ""
 
 
 func _ready() -> void:
@@ -169,6 +177,7 @@ func _ready() -> void:
 	_apply_video_key()
 	_apply_menu_icons()
 	_setup_chat_client()
+	_ensure_notice_nodes()
 	_connect_exit_popup()
 	_refresh_pressure_button()
 	_refresh_stat_bubbles()
@@ -612,10 +621,11 @@ func _process_drag_input(event: InputEvent) -> void:
 		if mb.pressed:
 			if _is_click_on_blocking_ui(mb.global_position):
 				return
-			if _inventory_popup.visible:
-				pass
-			elif _exit_popup.visible:
-				pass
+			var overlay_open: bool = (
+				_inventory_popup.visible or _exit_popup.visible or _chat_popup.visible
+			)
+			if not overlay_open and not _is_pointer_on_pet(get_local_mouse_position()):
+				return
 			if not _can_move_window():
 				return
 			_dragging = true
@@ -691,6 +701,10 @@ func _process(delta: float) -> void:
 	_tick_tap_speedup_cooldown(delta)
 	if _chat_send_cd > 0.0:
 		_chat_send_cd = maxf(_chat_send_cd - delta, 0.0)
+	if _state != State.RUNAWAY:
+		GameData.tick_work_presence(delta)
+		if GameData.consume_work_break():
+			_show_notice(GameData.WORK_BREAK_TEXT)
 	GameData.tick_companion(delta)
 	if _exit_popup.visible:
 		_refresh_stat_bubbles()
@@ -827,6 +841,7 @@ func _try_tap_speedup() -> void:
 	if _state != State.WASHING:
 		return
 	_wash_remaining = maxf(_wash_remaining - GameData.TAP_SPEEDUP_SECONDS, 0.0)
+	_show_speed_flash()
 
 
 func _tick_tap_speedup_cooldown(delta: float) -> void:
@@ -892,6 +907,7 @@ func _close_chat() -> void:
 	_restore_overlay_window_if_idle()
 	if not _exit_popup.visible and not _inventory_popup.visible and _state != State.RUNAWAY:
 		_set_pet_layer_visible(true)
+	_flush_steve_notice()
 
 
 func _submit_chat() -> void:
@@ -921,6 +937,7 @@ func _on_chat_replied(text: String) -> void:
 		reply = GameData.CHAT_FAIL_TEXT
 	GameData.append_chat_message("assistant", reply)
 	_rebuild_chat_list()
+	_queue_steve_notice(reply)
 	_set_chat_composer_enabled(true)
 	if is_instance_valid(_chat_input):
 		_chat_input.grab_focus()
@@ -1677,7 +1694,14 @@ func _set_hover_hud_visible(show_hud: bool, animate: bool) -> void:
 
 
 func _is_pointer_on_pet(local_pos: Vector2) -> bool:
-	return _current_pet_rect().has_point(local_pos)
+	return _pet_hit_rect().has_point(local_pos)
+
+
+func _pet_hit_rect() -> Rect2:
+	var raw: Rect2 = _current_pet_rect()
+	if _state == State.RUNAWAY:
+		return raw
+	return GameData.pet_hit_rect(raw)
 
 
 func _open_exit_popup() -> void:
@@ -1966,11 +1990,20 @@ func _make_item_card(item: Dictionary) -> Control:
 	col.add_theme_constant_override("separation", 4)
 	card.add_child(col)
 
-	var icon: ColorRect = ColorRect.new()
+	var icon: TextureRect = TextureRect.new()
 	icon.custom_minimum_size = Vector2(0.0, GameData.ITEM_CARD_SWATCH_H)
-	icon.color = Color(accent.r, accent.g, accent.b, 0.85)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture = UnderwearArt.texture_for(item)
+	icon.modulate = Color(1.0, 1.0, 1.0, 1.0)
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(icon)
+	if icon.texture == null:
+		var fallback: ColorRect = ColorRect.new()
+		fallback.custom_minimum_size = Vector2(0.0, GameData.ITEM_CARD_SWATCH_H)
+		fallback.color = Color(accent.r, accent.g, accent.b, 0.85)
+		fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		col.add_child(fallback)
 
 	var wear_label: Label = Label.new()
 	wear_label.text = wear
@@ -2033,6 +2066,7 @@ func _apply_round_chrome() -> void:
 		_inventory_mask.visible = false
 	_apply_menu_control_heights()
 	_style_stat_bubbles()
+	_style_scrollbars()
 
 
 func _style_stat_bubbles() -> void:
@@ -2270,6 +2304,133 @@ func _refresh_stat_bubbles() -> void:
 		_bubble_companion.text = "⏰  陪伴时长  %s" % GameData.format_companion_clock()
 	if is_instance_valid(_bubble_runaway):
 		_bubble_runaway.text = "🏃  跑路次数  %d" % GameData.runaway_count
+
+
+func _ensure_notice_nodes() -> void:
+	if _notice_panel == null:
+		_notice_panel = PanelContainer.new()
+		_notice_panel.visible = false
+		_notice_panel.z_index = 40
+		_notice_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_notice_label = Label.new()
+		_notice_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_notice_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_notice_label.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
+		_notice_label.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+		_notice_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_notice_panel.add_child(_notice_label)
+		add_child(_notice_panel)
+		_style_notice_panel(_notice_panel, Color(0.08, 0.09, 0.14, 0.94), Color(1.0, 0.85, 0.42, 0.9))
+	if _flash_panel == null:
+		_flash_panel = PanelContainer.new()
+		_flash_panel.visible = false
+		_flash_panel.z_index = 18
+		_flash_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_flash_label = Label.new()
+		_flash_label.text = GameData.TAP_FLASH_TEXT
+		_flash_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_flash_label.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
+		_flash_label.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+		_flash_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_flash_panel.add_child(_flash_label)
+		add_child(_flash_panel)
+		_style_notice_panel(_flash_panel, GameData.TAP_FLASH_COLOR, Color(0.75, 0.95, 1.0, 0.85))
+
+
+func _style_notice_panel(panel: PanelContainer, fill: Color, border: Color) -> void:
+	var box: StyleBoxFlat = StyleBoxFlat.new()
+	box.bg_color = fill
+	box.set_corner_radius_all(GameData.BUBBLE_CORNER_RADIUS)
+	box.set_content_margin_all(12.0)
+	box.set_border_width_all(2)
+	box.border_color = border
+	panel.add_theme_stylebox_override("panel", box)
+
+
+func _style_scrollbars() -> void:
+	var scrolls: Array[ScrollContainer] = [_menu_scroll, _inventory_scroll, _chat_scroll]
+	for scroll: ScrollContainer in scrolls:
+		if not is_instance_valid(scroll):
+			continue
+		var bar: VScrollBar = scroll.get_v_scroll_bar()
+		if bar == null:
+			continue
+		var grabber: StyleBoxFlat = StyleBoxFlat.new()
+		grabber.bg_color = Color(0.42, 0.76, 0.96, 0.78)
+		grabber.set_corner_radius_all(6)
+		var track: StyleBoxFlat = StyleBoxFlat.new()
+		track.bg_color = Color(0.08, 0.10, 0.14, 0.55)
+		track.set_corner_radius_all(6)
+		bar.add_theme_stylebox_override("grabber", grabber)
+		bar.add_theme_stylebox_override("grabber_highlight", grabber)
+		bar.add_theme_stylebox_override("grabber_pressed", grabber)
+		bar.add_theme_stylebox_override("scroll", track)
+		bar.custom_minimum_size.x = 10
+
+
+func _queue_steve_notice(text: String) -> void:
+	var excerpt: String = GameData.notice_excerpt(text)
+	if excerpt.is_empty():
+		return
+	_pending_steve_notice = "Steve：%s" % excerpt
+	if not _chat_popup.visible and not _exit_popup.visible and not _inventory_popup.visible:
+		_flush_steve_notice()
+
+
+func _flush_steve_notice() -> void:
+	if _pending_steve_notice.is_empty():
+		return
+	var text: String = _pending_steve_notice
+	_pending_steve_notice = ""
+	_show_notice(text)
+
+
+func _show_notice(text: String) -> void:
+	_ensure_notice_nodes()
+	if not is_instance_valid(_notice_panel) or not is_instance_valid(_notice_label):
+		return
+	_notice_label.text = GameData.notice_excerpt(text) if not text.begins_with("Steve") else text
+	_notice_panel.visible = true
+	_notice_panel.modulate.a = 0.0
+	var width: float = clampf(size.x - 24.0, 160.0, 360.0)
+	_notice_panel.size = Vector2(width, 0.0)
+	_notice_panel.position = Vector2((size.x - width) * 0.5, 10.0)
+	if is_instance_valid(_notice_tween):
+		_notice_tween.kill()
+	_notice_tween = create_tween()
+	_notice_tween.tween_property(_notice_panel, "modulate:a", 1.0, 0.18)
+	_notice_tween.tween_interval(GameData.NOTICE_SECONDS)
+	_notice_tween.tween_property(_notice_panel, "modulate:a", 0.0, 0.25)
+	_notice_tween.finished.connect(func() -> void:
+		if is_instance_valid(_notice_panel):
+			_notice_panel.visible = false
+	)
+
+
+func _show_speed_flash() -> void:
+	_ensure_notice_nodes()
+	if not is_instance_valid(_flash_panel) or not is_instance_valid(_flash_label):
+		return
+	_flash_label.text = GameData.TAP_FLASH_TEXT
+	var hit: Rect2 = _pet_hit_rect()
+	var width: float = clampf(hit.size.x * 0.72, 88.0, 180.0)
+	_flash_panel.visible = true
+	_flash_panel.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	_flash_panel.position = Vector2(
+		hit.position.x + (hit.size.x - width) * 0.5,
+		hit.position.y + hit.size.y * 0.28
+	)
+	_flash_panel.size = Vector2(width, 36.0)
+	if is_instance_valid(_flash_tween):
+		_flash_tween.kill()
+	_flash_tween = create_tween()
+	_flash_tween.tween_property(_flash_panel, "modulate:a", 1.0, 0.08)
+	_flash_tween.tween_interval(GameData.TAP_FLASH_SECONDS)
+	_flash_tween.tween_property(_flash_panel, "modulate:a", 0.0, 0.2)
+	_flash_tween.finished.connect(func() -> void:
+		if is_instance_valid(_flash_panel):
+			_flash_panel.visible = false
+	)
 
 
 func _log(message: String) -> void:

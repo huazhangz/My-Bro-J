@@ -232,7 +232,17 @@ const DRY_DURATION: float = DRY_DURATION_BASE
 const WAREHOUSE_CAPACITY: int = 10
 
 ## 鼠标在立绘上停留这么久才弹出洗涤进度条。
-const HOVER_SHOW_DELAY: float = 1.5
+const HOVER_SHOW_DELAY: float = 1.0
+const PET_HIT_PAD_X: float = 0.26
+const PET_HIT_PAD_TOP: float = 0.20
+const PET_HIT_PAD_BOTTOM: float = 0.12
+const WORK_BREAK_SECONDS: float = 2700.0
+const WORK_BREAK_TEXT: String = "你又工作45分钟了哦，注意休息~"
+const TAP_FLASH_TEXT: String = "加速 -5秒"
+const TAP_FLASH_SECONDS: float = 1.15
+const TAP_FLASH_COLOR: Color = Color(0.32, 0.78, 0.96, 0.72)
+const NOTICE_SECONDS: float = 3.6
+const NOTICE_MAX_CHARS: int = 48
 ## 进度条淡入 / 淡出时长。
 const HOVER_FADE_SECONDS: float = 0.35
 const WASH_PROGRESS_MAX: int = 100
@@ -350,6 +360,8 @@ var always_on_top_pref: bool = ALWAYS_ON_TOP_DEFAULT
 var pet_size_tier: int = PET_SIZE_MEDIUM
 ## {role: user|assistant, text, at}
 var chat_messages: Array[Dictionary] = []
+var work_presence_seconds: float = 0.0
+var _work_break_ready: bool = false
 var _save_accum: float = 0.0
 var _companion_saved: float = 0.0
 var _companion_anchor_unix: float = 0.0
@@ -724,6 +736,43 @@ func pet_layout_area() -> Rect2:
 	return area
 
 
+func pet_hit_rect(layout: Rect2) -> Rect2:
+	var pad_x: float = layout.size.x * PET_HIT_PAD_X
+	var pad_top: float = layout.size.y * PET_HIT_PAD_TOP
+	var pad_bottom: float = layout.size.y * PET_HIT_PAD_BOTTOM
+	return Rect2(
+		layout.position + Vector2(pad_x, pad_top),
+		Vector2(
+			maxf(layout.size.x - pad_x * 2.0, 24.0),
+			maxf(layout.size.y - pad_top - pad_bottom, 32.0)
+		)
+	)
+
+
+func tick_work_presence(delta: float) -> void:
+	if delta <= 0.0:
+		return
+	work_presence_seconds += delta
+	if work_presence_seconds >= WORK_BREAK_SECONDS:
+		work_presence_seconds = fmod(work_presence_seconds, WORK_BREAK_SECONDS)
+		_work_break_ready = true
+
+
+func consume_work_break() -> bool:
+	if not _work_break_ready:
+		return false
+	_work_break_ready = false
+	save_game()
+	return true
+
+
+func notice_excerpt(raw: String) -> String:
+	var text: String = sanitize_chat_output(raw)
+	if text.length() > NOTICE_MAX_CHARS:
+		return text.substr(0, NOTICE_MAX_CHARS) + "..."
+	return text
+
+
 func inventory_grid_size() -> Vector2:
 	return Vector2(
 		float(GRID_COLUMNS) * ITEM_CARD_SIZE.x + float(GRID_COLUMNS - 1) * float(GRID_H_SEP),
@@ -959,6 +1008,7 @@ func to_save_dict() -> Dictionary:
 		"always_on_top_pref": always_on_top_pref,
 		"pet_size_tier": pet_size_tier,
 		"chat_messages": chat_messages.duplicate(true),
+		"work_presence_seconds": work_presence_seconds,
 	}
 
 
@@ -981,6 +1031,7 @@ func load_from_dict(data: Dictionary) -> void:
 	affinity_quality_sum = float(data.get("affinity_quality_sum", 0.0))
 	always_on_top_pref = bool(data.get("always_on_top_pref", ALWAYS_ON_TOP_DEFAULT))
 	pet_size_tier = clampi(int(data.get("pet_size_tier", PET_SIZE_MEDIUM)), PET_SIZE_SMALL, PET_SIZE_HUGE)
+	work_presence_seconds = maxf(float(data.get("work_presence_seconds", 0.0)), 0.0)
 	chat_messages.clear()
 	for entry: Dictionary in data.get("chat_messages", []):
 		var role: String = String(entry.get("role", ""))

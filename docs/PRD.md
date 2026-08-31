@@ -57,7 +57,7 @@
 | `PET_SIZE_HUGE_SHIFT_X` | `6` | 超大档 Steve 再向右偏 6 格（累计两次各 3 格） |
 | `DRYER_ICON_NUDGE_Y` | `5` | 烘干机图标在按钮内下移 5 格（按钮位置不变） |
 | `DRAWER_ICON_NUDGE_Y` | `8` | 抽屉图标在按钮内下移 8 格（按钮位置不变） |
-| `HOVER_SHOW_DELAY` | `1.5` 秒 | 鼠标在立绘上停留后显示洗涤水条 |
+| `HOVER_SHOW_DELAY` | `1.0` 秒 | 鼠标在立绘命中盒上停留后显示洗涤水条 |
 | `WAREHOUSE_CAPACITY` | `10` | 未晾干仓库容量上限，满即暂停洗涤 |
 | `RUNAWAY_BASE_COOLDOWN` | `120.0` 秒 | 跑路后回归的基础冷却（品质/收藏会再缩减） |
 | `PRESSURE_WASH_REDUCTION_MIN` | `1.0` 秒 | 压力按钮随机扣时下限 |
@@ -266,8 +266,9 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
   - 菜单图标相对按钮框下移：烘干机 `DRYER_ICON_NUDGE_Y=5`、抽屉 `DRAWER_ICON_NUDGE_Y=8`
   - 好感度：品质 log 高权重 + 陪伴 log（满值时间 ×260%）最多 15%；每次跑路 −25，最低 0
   - `能不能给我洗快点`：随机扣洗涤时间（1s~12h）；冷却灰显读秒
-  - `聊聊天`：对话窗 + 输入/发送（Enter）+ 7 天历史；OpenAI 兼容接口（`user://chat_config.json` / 环境变量）；`CHAT_SYSTEM_PROMPT` 预留
-  - Demo（占位）：`看电影` / `约个饭`（粉色） / `充值`
+  - 功能按钮顺序：`聊聊天` → `看电影` → `约个饭`（粉色） → `充值`
+  - `聊聊天`：对话窗 + 输入/发送（Enter）+ 7 天历史；Steve 回复后主界面弹窗；OpenAI 兼容接口
+  - Demo（占位）：`看电影` / `约个饭` / `充值`
   - `设置`：展开时菜单窗口加高并允许滚动，避免边框裁切；固定上层 + Steve 体型（小 / 中 / 大 / 超大）
   - `晚点再洗`：存档后退出
   - 右上角 `×`：关闭并还原窗口
@@ -284,7 +285,10 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
   - `ScrollContainer` + `GridContainer`：5 列 × 6 行可见，卡片完整显示；多于 30 件才滚动
   - 卡片为紫色描边占位框，显示磨损前缀 + 品质中文名（尚无内裤贴图）
   - `关闭` / `ESC` / 再右键：还原窗口尺寸并关闭弹层
-- 鼠标在立绘上停留 **1.5 秒**后，头顶淡入水色进度条（默认再下移 9 格）与右对齐文案 `洗涤进度（n/100）`
+- 鼠标在立绘**收紧命中盒**上停留 **1 秒**后，头顶淡入水色进度条（默认再下移 9 格）
+- 双击加速：水蓝色透明 flash 显示「加速 -5秒」
+- Steve 每本地停留 45 分钟弹窗：「你又工作45分钟了哦，注意休息~」
+- 库存卡片用按条目 id 烘焙的内裤贴图，不再用纯色占位
 - 左键拖拽仍走根 `Control` + `DisplayServer`，与右键互不抢事件
 - 洗涤 / 仓库 / 跑路在后台继续跑，不再有常驻 HUD
 
@@ -297,7 +301,7 @@ DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_positi
 | `warehouse_changed` | `_try_resume_wash()`；烘干机网格打开时重填 |
 | `collection_changed` | 抽屉网格打开时重填 |
 | `item_washed` / `item_dried` | `--petlog` 日志 |
-| 悬停 1.5s | 头顶水条 `洗涤进度（n/100）` |
+| 悬停 1s | 头顶水条 `洗涤进度（n/100）` |
 
 ---
 
@@ -413,6 +417,7 @@ My-Bro-J/
 ├── scripts/
 │   ├── steve.gd        # 窗口拖拽 + 洗涤/晾干/跑路状态机 + 右键菜单 / 库存网格
 │   ├── chat_client.gd  # 聊聊天 HTTP 接入（无 URL 时本地占位）
+│   ├── underwear_art.gd # 按条目 id 烘焙内裤贴图
 │   └── GameData.gd         # 全局数据单例（常量、仓库、磨损、CD 算法、存档接口）
 ├── assets/
 │   ├── icon.svg            # 应用图标
@@ -470,7 +475,7 @@ Steve (Control, 铺满窗口, theme = steve_theme)
 | 操作 | 效果 |
 |------|------|
 | 在桌宠/空白处按住左键拖动 | 移动桌宠窗口 |
-| 鼠标在立绘上停留 1.5 秒 | 头顶显示洗涤水条与 `洗涤进度（n/100）` |
+| 鼠标在立绘命中盒上停留 1 秒 | 头顶显示洗涤水条与 `洗涤进度（n/100）` |
 | 在立绘上右键 | 打开 4 倍圆角菜单（图标打开烘干机/抽屉；气泡统计；设置里固定上层） |
 | 点「烘干机」 | 2.5× 弹层，5 列网格展示未晾干仓库 |
 | 点「抽屉」 | 2.5× 弹层，5 列网格展示已晾干收藏 |
@@ -511,7 +516,8 @@ Steve (Control, 铺满窗口, theme = steve_theme)
   - [x] `InventoryPopup`：烘干机 / 抽屉统一 `dryer.jpg` ×1.36 + 5×6 可见网格；标题色条与菜单按钮同色
   - [x] 烘干机 / 抽屉「收拾一下」：品质从高到低；单组全删、双组交集；勾选变红；删除不减生涯计数
   - [x] 聊聊天主界面 + 7 天历史 + 外部 LLM 预留；双击加速 5 秒；充值 demo
-  - [x] 悬停 1.5s 头顶洗涤水条
+  - [x] 悬停 1s 头顶洗涤水条；立绘命中盒收紧；双击水蓝 flash
+  - [x] Steve 发言主界面弹窗；45 分钟休息提醒；内裤贴图按 id 生成
   - [x] 品质重构为一次性 / 涤纶 / 纯棉 / 真丝 / 奢华 / 火星科技，并附加 8 档磨损前缀
 - [ ] **Day 4**：换装展示系统 + 跑路冷却与 CD 缩减算法对接
   - [x] `VideoStreamPlayer` 动态立绘：autoplay + loop、宽高比内接、鼠标穿透不影响拖拽、
