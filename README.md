@@ -32,7 +32,7 @@
 | `💦 能不能给我洗快点` | 随机扣 1 秒~12 小时；15.5% 跑路；冷却读秒 |
 | `💬 聊聊天` | 孙哥口吻对话；白字黑边；发/回自动滚底 |
 | `🔮 哥来帮你算算运势~` | 强制年/月/日/时辰选择器 |
-| `🎬 哥请你看个电影吧` | 直接加载 Kepler；关菜单即停下载；「这部好无聊呀哥哥~」展开 .ogv 网址框 |
+| `🎬 哥请你看个电影吧` | 直接加载 Kepler；关菜单即停下载；「这部好无聊呀哥哥~」展开网址框（.ogv 或网页） |
 | `💎 充值` | 一行 demo 提示，待重做 |
 | 立绘上双击 | 加速洗涤 5 秒 |
 | `ESC` | 先关弹层，否则退出 |
@@ -56,7 +56,8 @@ My-Bro-J/
 │   ├── GameData.gd            # Autoload 单例：常量、仓库、存档
 │   ├── underwear_art.gd       # 50 张内裤切图加载与表切片
 │   ├── chat_client.gd         # 聊聊天 / 运势 HTTP
-│   └── movie_client.gd        # Archive Theora + 用户 .ogv 直链
+│   ├── movie_client.gd        # Archive Theora + 用户 .ogv 直链
+│   └── web_movie_embed.gd     # 网页片源：Windows 内嵌 Edge/Chrome
 ├── assets/
 │   ├── icon.svg
 │   ├── images/
@@ -71,6 +72,7 @@ My-Bro-J/
 │   ├── shaders/chroma_key.gdshader
 │   └── videos/README.md
 ├── tools/slice_boxers.py      # 本机 bx1.png / bx2.png 绝对切格
+├── tools/web_movie_host.ps1   # Windows 把浏览器窗嵌进桌宠 HWND
 └── docs/PRD.md
 ```
 
@@ -108,6 +110,7 @@ My-Bro-J/
 | `DRY_QUALITY_DOWN_PERMILLE` | 150 | 烘干 15% 降一级 |
 | `MOVIE_PLAY_AFTER_BYTES` | 2.5 MB | 电影先播阈值 |
 | `MOVIE_SKIP_TEXT` | 这部好无聊呀哥哥~ | 电影顶栏粉按钮，展开网址框 |
+| `MOVIE_WEB_OPEN_TEXT` | 用系统浏览器打开 | 网页内嵌失败/超时后的回退 |
 | `MOVIE_BUTTON_TEXT` | 🎬 哥请你看个电影吧 | 菜单按钮 |
 | `CHAT_BUTTON_TEXT` | 💬 聊聊天 | 菜单按钮 |
 | `RECHARGE_DEMO_TEXT` | 充值功能演示中，待重做。 | 菜单只弹这一句 |

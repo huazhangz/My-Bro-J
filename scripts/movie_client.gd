@@ -1,6 +1,7 @@
 extends HTTPRequest
 
 ## 从 Internet Archive 抓取白名单内的免费非限制级 Theora 影片。
+## 用户粘贴的 .ogv / .ogg 直链也走这里。网页站（爱一帆等）由 steve 切到内嵌浏览器，不进本客户端。
 ## 先读 metadata 拿直链（d1/dir），避免 archive.org/download 跳转把请求挂死。
 ## 文件阶段写到磁盘后，先达到可播阈值就开播，剩余继续写入同一文件。
 ## 关闭右键菜单会 cancel_fetch()，未开播的下载立刻停掉。
@@ -58,10 +59,6 @@ func fetch_url(url: String) -> void:
 	var clean: String = url.strip_edges()
 	if not GameData.movie_url_is_http(clean):
 		movie_failed.emit("bad_url")
-		return
-	if GameData.movie_url_is_site_page(clean):
-		print("%s reject site page %s" % [GameData.MOVIE_LOG_PREFIX, clean])
-		movie_failed.emit("not_theora")
 		return
 	_cancelled = false
 	_queue = [GameData.movie_custom_entry(clean)]

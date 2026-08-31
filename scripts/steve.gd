@@ -165,6 +165,14 @@ var _movie_last_bytes: int = 0
 var _movie_url_row: HBoxContainer
 var _movie_url_input: LineEdit
 var _movie_url_load_button: Button
+var _movie_stage: Control
+var _movie_web_panel: Panel
+var _movie_web_status: Label
+var _movie_web_open_button: Button
+var _web_embed: WebMovieEmbed
+var _movie_web_mode: bool = false
+var _movie_last_url: String = ""
+var _movie_web_wait: float = 0.0
 var _chat_scroll_token: int = 0
 var _dryer_hint_bubble: PanelContainer
 var _dryer_hint_label: Label
@@ -825,6 +833,7 @@ func _process(delta: float) -> void:
 		if _movie_loading or (_movie_open() and _movie_client.is_busy()):
 			_movie_client.poll(delta)
 	_tick_movie_playback(delta)
+	_tick_movie_web(delta)
 	if _state != State.RUNAWAY:
 		GameData.tick_work_presence(delta)
 		if _can_show_speech_bubble() and GameData.consume_work_break():
@@ -2564,6 +2573,8 @@ func _apply_round_chrome() -> void:
 		_fortune_chrome.add_theme_stylebox_override("panel", inv_box)
 	if is_instance_valid(_movie_chrome):
 		_movie_chrome.add_theme_stylebox_override("panel", inv_box)
+	if is_instance_valid(_movie_web_panel):
+		_movie_web_panel.add_theme_stylebox_override("panel", inv_box)
 	if is_instance_valid(_inventory_mask):
 		_inventory_mask.visible = false
 	_apply_menu_control_heights()
@@ -3140,6 +3151,8 @@ func _hide_fortune_and_movie() -> void:
 		if _movie_client != null and _movie_client.has_method("cancel_fetch"):
 			_movie_client.cancel_fetch()
 		_stop_movie_player()
+		_stop_web_movie()
+		_movie_last_url = ""
 		_movie_popup.visible = false
 		_movie_maximized = false
 		_reset_movie_button()
@@ -3493,13 +3506,46 @@ func _setup_movie_ui() -> void:
 	_movie_url_load_button.theme_type_variation = &"EquipButton"
 	_movie_url_load_button.custom_minimum_size = Vector2(72.0, 36.0)
 	_movie_url_row.add_child(_movie_url_load_button)
+	_movie_stage = Control.new()
+	_movie_stage.name = "MovieStage"
+	_movie_stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_movie_stage.custom_minimum_size = Vector2(320.0, 180.0)
+	_movie_stage.clip_contents = true
+	body.add_child(_movie_stage)
 	_movie_player = VideoStreamPlayer.new()
 	_movie_player.name = "MoviePlayer"
 	_movie_player.expand = true
 	_movie_player.loop = false
-	_movie_player.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_movie_player.custom_minimum_size = Vector2(320.0, 180.0)
-	body.add_child(_movie_player)
+	_movie_player.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_movie_stage.add_child(_movie_player)
+	_movie_web_panel = Panel.new()
+	_movie_web_panel.name = "MovieWebPanel"
+	_movie_web_panel.visible = false
+	_movie_web_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_movie_stage.add_child(_movie_web_panel)
+	var web_body: VBoxContainer = VBoxContainer.new()
+	web_body.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	web_body.offset_left = 16.0
+	web_body.offset_top = 16.0
+	web_body.offset_right = -16.0
+	web_body.offset_bottom = -16.0
+	web_body.add_theme_constant_override("separation", 12)
+	web_body.alignment = BoxContainer.ALIGNMENT_CENTER
+	_movie_web_panel.add_child(web_body)
+	_movie_web_status = Label.new()
+	_movie_web_status.text = GameData.MOVIE_WEB_LOADING_TEXT
+	_movie_web_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_movie_web_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_movie_web_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_movie_web_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	web_body.add_child(_movie_web_status)
+	_movie_web_open_button = Button.new()
+	_movie_web_open_button.text = GameData.MOVIE_WEB_OPEN_TEXT
+	_movie_web_open_button.theme_type_variation = &"EquipButton"
+	_movie_web_open_button.custom_minimum_size = Vector2(220.0, 40.0)
+	_movie_web_open_button.visible = false
+	_movie_web_open_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	web_body.add_child(_movie_web_open_button)
 	var bar: HBoxContainer = HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 8)
 	body.add_child(bar)
@@ -3556,6 +3602,17 @@ func _setup_movie_ui() -> void:
 	)
 	_movie_url_input.text_submitted.connect(func(_text: String) -> void:
 		_load_movie_from_url()
+	)
+	_movie_web_open_button.pressed.connect(func() -> void:
+		_open_movie_in_system_browser()
+	)
+	_web_embed = WebMovieEmbed.new()
+	add_child(_web_embed)
+	_web_embed.embedding_ready.connect(func() -> void:
+		_on_web_movie_ready()
+	)
+	_web_embed.embedding_failed.connect(func() -> void:
+		_on_web_movie_failed()
 	)
 	_movie_max_button.pressed.connect(func() -> void:
 		_toggle_movie_maximize()
@@ -3682,6 +3739,8 @@ func _start_builtin_movie() -> void:
 	if is_instance_valid(_movie_popup):
 		_movie_popup.visible = true
 	_hide_movie_url_row()
+	_movie_last_url = ""
+	_stop_web_movie()
 	if is_instance_valid(_movie_title):
 		_movie_title.text = GameData.MOVIE_LOADING_TEXT
 	_movie_loading = true
@@ -3753,6 +3812,9 @@ func _on_movie_failed(reason: String) -> void:
 	if is_instance_valid(_movie_skip_button):
 		_movie_skip_button.disabled = false
 	print("%s movie failed=%s" % [VIDEO_LOG_PREFIX, reason])
+	if reason == "not_theora" and not _movie_last_url.is_empty():
+		_start_web_movie(_movie_last_url)
+		return
 	var fail_text: String = GameData.MOVIE_FAIL_TEXT
 	if reason == "not_theora":
 		fail_text = GameData.MOVIE_URL_NOT_THEORA_TEXT
@@ -3791,14 +3853,14 @@ func _load_movie_from_url() -> void:
 		if is_instance_valid(_movie_title):
 			_movie_title.text = GameData.MOVIE_URL_BAD_TEXT
 		return
-	if GameData.movie_url_is_site_page(url):
-		if is_instance_valid(_movie_title):
-			_movie_title.text = GameData.MOVIE_URL_NOT_THEORA_TEXT
-		print("%s custom url rejected host/ext url=%s" % [VIDEO_LOG_PREFIX, url])
+	_movie_last_url = url
+	if GameData.movie_url_is_web_page(url):
+		_start_web_movie(url)
 		return
 	if _movie_client != null and _movie_client.has_method("cancel_fetch"):
 		_movie_client.cancel_fetch()
 	_stop_movie_player()
+	_stop_web_movie()
 	_movie_loading = true
 	if is_instance_valid(_movie_url_load_button):
 		_movie_url_load_button.disabled = true
@@ -3813,14 +3875,155 @@ func _load_movie_from_url() -> void:
 		_on_movie_failed("no_client")
 
 
+func _start_web_movie(url: String) -> void:
+	if _movie_client != null and _movie_client.has_method("cancel_fetch"):
+		_movie_client.cancel_fetch()
+	_stop_movie_player()
+	if is_instance_valid(_web_embed):
+		_web_embed.stop()
+	_movie_last_url = url.strip_edges()
+	_movie_web_mode = true
+	_movie_web_wait = 0.0
+	_reset_movie_button()
+	if is_instance_valid(_movie_player):
+		_movie_player.visible = false
+	if is_instance_valid(_movie_web_panel):
+		_movie_web_panel.visible = true
+	if is_instance_valid(_movie_web_status):
+		_movie_web_status.text = GameData.MOVIE_WEB_LOADING_TEXT
+	if is_instance_valid(_movie_web_open_button):
+		_movie_web_open_button.visible = false
+	if is_instance_valid(_movie_title):
+		_movie_title.text = GameData.movie_web_title(_movie_last_url)
+	_set_movie_transport_enabled(false)
+	if not is_instance_valid(_web_embed):
+		_show_web_movie_fallback()
+		return
+	if get_tree() != null:
+		await get_tree().process_frame
+	if not _movie_web_mode or not _movie_open():
+		return
+	_web_embed.start(
+		_movie_last_url,
+		_movie_parent_hwnd(),
+		_web_embed_rect(),
+		_movie_volume_linear,
+		_movie_muted
+	)
+
+
+func _stop_web_movie() -> void:
+	var was_web: bool = _movie_web_mode
+	_movie_web_mode = false
+	_movie_web_wait = 0.0
+	if is_instance_valid(_web_embed):
+		_web_embed.stop()
+	if is_instance_valid(_movie_web_panel):
+		_movie_web_panel.visible = false
+	if is_instance_valid(_movie_web_open_button):
+		_movie_web_open_button.visible = false
+	if is_instance_valid(_movie_web_status):
+		_movie_web_status.text = GameData.MOVIE_WEB_LOADING_TEXT
+	if is_instance_valid(_movie_player) and was_web:
+		_movie_player.visible = true
+	_set_movie_transport_enabled(true)
+
+
+func _tick_movie_web(delta: float) -> void:
+	if not _movie_web_mode:
+		return
+	if is_instance_valid(_web_embed) and _web_embed.is_active():
+		_web_embed.update_placement(
+			_movie_parent_hwnd(),
+			_web_embed_rect(),
+			_movie_volume_linear,
+			_movie_muted
+		)
+	if is_instance_valid(_web_embed) and _web_embed.is_embedded():
+		if is_instance_valid(_movie_web_panel):
+			_movie_web_panel.visible = false
+		return
+	_movie_web_wait += delta
+	if _movie_web_wait >= GameData.MOVIE_WEB_TIMEOUT_SECONDS:
+		_show_web_movie_fallback()
+
+
+func _web_embed_rect() -> Rect2i:
+	if not is_instance_valid(_movie_stage):
+		return Rect2i(0, 0, 64, 64)
+	var area: Rect2 = _movie_stage.get_global_rect()
+	return Rect2i(
+		Vector2i(int(round(area.position.x)), int(round(area.position.y))),
+		Vector2i(maxi(int(round(area.size.x)), 64), maxi(int(round(area.size.y)), 64))
+	)
+
+
+func _movie_parent_hwnd() -> int:
+	return int(DisplayServer.window_get_native_handle(DisplayServer.WINDOW_HANDLE))
+
+
+func _set_movie_transport_enabled(enabled: bool) -> void:
+	var fade: Color = Color.WHITE if enabled else Color(1.0, 1.0, 1.0, 0.4)
+	if is_instance_valid(_movie_seek):
+		_movie_seek.editable = enabled
+		_movie_seek.modulate = fade
+	if not is_instance_valid(_movie_speed_box):
+		return
+	_movie_speed_box.modulate = fade
+	for child: Node in _movie_speed_box.get_children():
+		var button: Button = child as Button
+		if button != null:
+			button.disabled = not enabled
+
+
+func _on_web_movie_ready() -> void:
+	if not _movie_web_mode:
+		return
+	if is_instance_valid(_movie_web_panel):
+		_movie_web_panel.visible = false
+	if is_instance_valid(_movie_web_open_button):
+		_movie_web_open_button.visible = false
+	if is_instance_valid(_movie_title):
+		_movie_title.text = GameData.movie_web_title(_movie_last_url)
+
+
+func _on_web_movie_failed() -> void:
+	if not _movie_web_mode:
+		return
+	_show_web_movie_fallback()
+
+
+func _show_web_movie_fallback() -> void:
+	if is_instance_valid(_movie_web_panel):
+		_movie_web_panel.visible = true
+	if is_instance_valid(_movie_web_status):
+		_movie_web_status.text = GameData.MOVIE_WEB_FAIL_TEXT
+	if is_instance_valid(_movie_web_open_button):
+		_movie_web_open_button.visible = true
+	if is_instance_valid(_movie_title):
+		_movie_title.text = GameData.MOVIE_WEB_FAIL_TEXT
+	_reset_movie_button()
+
+
+func _open_movie_in_system_browser() -> void:
+	var url: String = _movie_last_url.strip_edges()
+	if url.is_empty() and is_instance_valid(_web_embed):
+		url = _web_embed.current_url()
+	if url.is_empty() or not GameData.movie_url_is_http(url):
+		return
+	OS.shell_open(url)
+
+
 func _play_movie_file(path: String) -> void:
 	if not is_instance_valid(_movie_player):
 		return
 	if not GameData.movie_file_is_theora(path):
 		print("%s movie file rejected path=%s" % [VIDEO_LOG_PREFIX, path])
-		_close_movie()
+		_stop_movie_player()
 		_on_movie_failed("not_theora")
 		return
+	_stop_web_movie()
+	_movie_player.visible = true
 	_movie_path = path
 	_movie_id = GameData.movie_id_from_path(path)
 	_movie_expected_bytes = GameData.movie_expected_bytes(_movie_id)
@@ -3853,7 +4056,9 @@ func _stop_movie_player() -> void:
 
 
 func _close_movie() -> void:
+	_stop_web_movie()
 	_stop_movie_player()
+	_movie_last_url = ""
 	_movie_maximized = false
 	if _movie_client != null and _movie_client.has_method("cancel_fetch"):
 		_movie_client.cancel_fetch()
@@ -3937,6 +4142,8 @@ func _set_movie_speed(speed: float) -> void:
 		if button == null:
 			continue
 		button.button_pressed = is_equal_approx(float(button.get_meta("speed", 1.0)), speed)
+	if _movie_web_mode:
+		return
 	if is_instance_valid(_movie_player):
 		if is_equal_approx(speed, 1.0):
 			_movie_player.paused = false
@@ -3946,6 +4153,8 @@ func _set_movie_speed(speed: float) -> void:
 
 
 func _seek_movie_to(seconds: float) -> void:
+	if _movie_web_mode:
+		return
 	if not is_instance_valid(_movie_player) or _movie_player.stream == null:
 		return
 	var length: float = _movie_seek_length()
@@ -3994,11 +4203,13 @@ func _refresh_movie_stream(keep_position: bool) -> void:
 
 
 func _apply_movie_audio() -> void:
-	if not is_instance_valid(_movie_player):
-		return
-	var muted: bool = _movie_muted or not is_equal_approx(_movie_speed, 1.0)
 	if is_instance_valid(_movie_mute_button):
 		_movie_mute_button.text = GameData.MOVIE_UNMUTE_TEXT if _movie_muted else GameData.MOVIE_MUTE_TEXT
+	if _movie_web_mode and is_instance_valid(_web_embed):
+		_web_embed.set_audio(_movie_volume_linear, _movie_muted)
+	if not is_instance_valid(_movie_player):
+		return
+	var muted: bool = _movie_web_mode or _movie_muted or not is_equal_approx(_movie_speed, 1.0)
 	if muted or _movie_volume_linear <= 0.001:
 		_movie_player.volume_db = -80.0
 	else:
@@ -4006,6 +4217,8 @@ func _apply_movie_audio() -> void:
 
 
 func _tick_movie_playback(delta: float) -> void:
+	if _movie_web_mode:
+		return
 	if not _movie_open() or not is_instance_valid(_movie_player):
 		return
 	if _movie_player.stream == null:

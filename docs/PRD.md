@@ -31,7 +31,7 @@
 | 7 | 跑路空盆 `container.jpg` 抠绿 + 「已跑路...」 | ✅ |
 | 8 | 右键 4 倍菜单；聊聊天及下方按钮均带 Emoji | ✅ |
 | 9 | 聊聊天（白字黑边，发/回自动滚底）+ 运势选择器 | ✅ |
-| 10 | 看电影：点按钮直接加载 Kepler；顶栏粉按钮展开网址框（仅 .ogv） | ✅ |
+| 10 | 看电影：Kepler Theora；网址框双模式（.ogv 原生平 / 网页内嵌浏览器） | ✅ |
 | 11 | 动态立绘 Theora + 色度键；失败回落 Steve2 | ✅ |
 | 12 | `user://save_data.json` | ✅ 已接 |
 | 13 | 付费加速 / 图鉴换装 UI | ⬜ 已禁用 |
@@ -77,7 +77,9 @@
 | `SETTINGS_BUTTON_TEXT` | `⚙️ 设置` |
 | `QUIT_BUTTON_TEXT` | `🚪 晚点再洗` |
 | `MOVIE_SKIP_TEXT` | `这部好无聊呀哥哥~` |
-| `MOVIE_URL_HINT` | 粘贴想看的电影链接（需 HTTPS 直链 .ogv） |
+| `MOVIE_URL_HINT` | 粘贴想看的电影链接（网页或 .ogv 直链都可以） |
+| `MOVIE_WEB_OPEN_TEXT` | 用系统浏览器打开 |
+| `MOVIE_WEB_TIMEOUT_SECONDS` | 10 |
 | `MOVIE_PLAY_AFTER_BYTES` | 2 500 000 |
 | `MOVIE_STALL_SECONDS` | 18 |
 | `DRY_QUALITY_DOWN_PERMILLE` | 150（烘干 15% 降一级） |
@@ -161,7 +163,9 @@
 
 - 聊聊天：7 天历史；OpenAI 兼容；`CHAT_SYSTEM_PROMPT` 孙哥口吻；发/回自动滚底
 - 运势：强制公历年/月/日/时辰，禁止口头改期
-- 电影：点「哥请你看个电影吧」直接加载内置 Kepler Supernova Simulation（Archive Theora）。关菜单未开播则取消。顶栏「这部好无聊呀哥哥~」为粉色，点击展开网址输入框（不再随机换片）。只接受 HTTPS `.ogv` / Ogg Theora 直链。爱一帆 / iyf.tv 等网页或 HLS 会提示接不了。
+- 电影：点「哥请你看个电影吧」直接加载内置 Kepler Supernova Simulation（Archive Theora）。关菜单未开播则取消。顶栏「这部好无聊呀哥哥~」为粉色，点击展开网址输入框（不再随机换片）。弹窗 chrome（顶栏、拖边、关闭、粉按钮、音量/静音）保持不变。
+  - **直链模式**：`.ogv` / `.ogg` 走 `VideoStreamPlayer`（Theora）。
+  - **网页模式**：爱一帆 / iyf.tv 及其它站点链接切到内嵌 Edge/Chrome（Windows `SetParent`）。10 秒内嵌失败则显示「用系统浏览器打开」（`OS.shell_open`）。非 Windows 直接走该回退。
 - 头顶气泡：按文案尺寸布局并挂 YuanRou；空摘录不显示，避免灰框无字。
 
 ### 充值
@@ -193,6 +197,7 @@ My-Bro-J/
 ├── scripts/underwear_art.gd
 ├── scripts/chat_client.gd
 ├── scripts/movie_client.gd
+├── scripts/web_movie_embed.gd
 ├── assets/images/container.jpg
 ├── assets/images/steve2.jpg
 ├── assets/images/underwear/01.png … 50.png
@@ -203,6 +208,7 @@ My-Bro-J/
 ├── assets/shaders/chroma_key.gdshader
 ├── assets/videos/README.md
 ├── tools/slice_boxers.py
+├── tools/web_movie_host.ps1
 └── docs/PRD.md
 ```
 
@@ -229,7 +235,7 @@ Steve (Control, theme = steve_theme)
 | 立绘悬停 1s | 洗涤水条 |
 | 立绘右键 | 菜单 |
 | 🧺 烘干机 / 🗄️ 抽屉 | 库存；标题 xx条内裤；烘干机「?」自建气泡 |
-| 🎬 哥请你看个电影吧 | 直接加载 Kepler；顶栏粉按钮展开 .ogv 网址框 |
+| 🎬 哥请你看个电影吧 | 直接加载 Kepler；顶栏粉按钮展开网址框（.ogv 或网页） |
 | 💬 聊聊天 | 白字黑边会话，发/回滚到底 |
 | 💎 充值 | 一行 demo 提示，待重做 |
 | ESC | 先关弹层否则退出 |
@@ -244,6 +250,7 @@ Steve (Control, theme = steve_theme)
 - [x] 聊聊天 / 运势 / 电影 / 50 款内裤切图 / Emoji 菜单按钮
 - [x] 聊聊天滚底、电影进度随加载、库存品质底色 / 1.5× 贴图、烘干 15% 降品
 - [x] 内裤绝对切格（bx1/bx2）、电影 Kepler + 网址框、头顶空气泡修复、充值改 demo
+- [x] 电影双模式：Theora 直链 + Windows 内嵌网页播放；10 秒回退系统浏览器
 - [x] 存档 `save_data.json`
 - [ ] 离线烘干补算
 - [ ] Windows 导出与打包
@@ -257,6 +264,6 @@ Steve (Control, theme = steve_theme)
 1. Godot 4 只播 Ogg Theora。电影「边下边播」依赖播放器读取仍在增长的缓存文件；下完后会重开 stream 以刷新时长，下载中用字节比估算进度条上限。
 2. `bx1.png` / `bx2.png` 若未放进 `assets/images/` 或本机目录，使用仓库内已提交的 50 张切图。绝对切格 + 边角 flood-fill，不改 Steve 全局抠像。
 3. 70KB 级 `steve.ogv` 占位片一律拒绝。需要本机 `steve3.mp4` + FFmpeg。
-4. 看电影内置只留 Kepler Supernova Simulation。用户可粘贴 HTTPS Theora 直链。爱一帆等 HTML/HLS 站不适配 Godot VideoStreamTheora。
+4. 看电影内置只留 Kepler Supernova Simulation。`.ogv` 直链走 `VideoStreamPlayer`。爱一帆等网页站在 Windows 上内嵌 Edge/Chrome；失败或非 Windows 显示「用系统浏览器打开」。Godot 4 仍不能原生播 HLS/MP4。
 5. 聊聊天 / 运势无 `STEVE_CHAT_API_URL` 时走本地占位回复。
 6. 充值仅 demo 提示，待重做。

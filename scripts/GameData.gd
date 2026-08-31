@@ -245,11 +245,31 @@ const MOVIE_RESTORE_TEXT: String = "还原"
 const MOVIE_SKIP_TEXT: String = "这部好无聊呀哥哥~"
 const MOVIE_DURATION_RELOAD_SECONDS: float = 2.5
 const MOVIE_LOG_PREFIX: String = "[Steve/Movie] "
-## 顶栏粉按钮展开后的网址行。Godot 4 只播 Ogg Theora（.ogv）。
-const MOVIE_URL_HINT: String = "粘贴想看的电影链接（需 HTTPS 直链 .ogv）"
+## 顶栏粉按钮展开后的网址行。直链 .ogv 走 VideoStreamPlayer；网页站走内嵌浏览器。
+const MOVIE_URL_HINT: String = "粘贴想看的电影链接（网页或 .ogv 直链都可以）"
 const MOVIE_URL_LOAD_TEXT: String = "加载"
-const MOVIE_URL_NOT_THEORA_TEXT: String = "Godot 只能播 .ogv。爱一帆这类网页 / HLS 接不了，换一条 Theora 直链吧。"
+const MOVIE_URL_NOT_THEORA_TEXT: String = "这条直链不是 Theora，改用网页播放器试试。"
 const MOVIE_URL_BAD_TEXT: String = "这个链接打不开，检查一下再贴。"
+const MOVIE_WEB_OPEN_TEXT: String = "用系统浏览器打开"
+const MOVIE_WEB_LOADING_TEXT: String = "网页片源加载中，耐心等等我"
+const MOVIE_WEB_FAIL_TEXT: String = "这个站不让内嵌。用系统浏览器看吧。"
+const MOVIE_WEB_TIMEOUT_SECONDS: float = 10.0
+const MOVIE_WEB_CMD_PATH: String = "user://web_movie_cmd.json"
+const MOVIE_WEB_STATUS_PATH: String = "user://web_movie_status.json"
+const MOVIE_WEB_SCRIPT: String = "res://tools/web_movie_host.ps1"
+const MOVIE_WEB_HOST_USER: String = "user://web_movie_host.ps1"
+const MOVIE_WEB_HOSTS: PackedStringArray = [
+	"aiyifan.tv",
+	"iyf.tv",
+	"youtube.com",
+	"youtu.be",
+	"bilibili.com",
+	"iqiyi.com",
+	"youku.com",
+	"v.qq.com",
+	"mgtv.com",
+	"netflix.com",
+]
 ## 内置片库只留 Kepler。其它片由用户粘贴 Theora 直链加载。
 const MOVIE_CATALOG: Array = [
 	{
@@ -274,8 +294,9 @@ const UNDERWEAR_ART_SIZE: int = 128
 ## 实际表按宽高比缩放。只作用于内裤表，不改 Steve 抠像。
 const UNDERWEAR_SHEET_REF_W: int = 1536
 const UNDERWEAR_SHEET_REF_H: int = 975
-const UNDERWEAR_SHEET_X: PackedInt32Array = PackedInt32Array([0, 290, 610, 925, 1225, 1536])
-const UNDERWEAR_SHEET_Y: PackedInt32Array = PackedInt32Array([0, 190, 380, 565, 760, 975])
+## 必须用字面量。PackedInt32Array(...) 构造不是常量表达式。
+const UNDERWEAR_SHEET_X: PackedInt32Array = [0, 290, 610, 925, 1225, 1536]
+const UNDERWEAR_SHEET_Y: PackedInt32Array = [0, 190, 380, 565, 760, 975]
 ## 内裤 flood-fill 抠底阈值。略收，减轻把浅色布料抠穿。
 const UNDERWEAR_KEY_DIST: float = 0.045
 const UNDERWEAR_KEY_GREEN_DIST: float = 0.085
@@ -1255,29 +1276,26 @@ func movie_url_path_extension(url: String) -> String:
 	return clean.get_extension().to_lower()
 
 
-func movie_url_is_site_page(url: String) -> bool:
+func movie_url_is_direct_theora(url: String) -> bool:
+	var ext: String = movie_url_path_extension(url)
+	return ext == "ogv" or ext == "ogg"
+
+
+func movie_url_is_web_page(url: String) -> bool:
+	if movie_url_is_direct_theora(url):
+		return false
 	var lower: String = url.strip_edges().to_lower()
-	var blocked: PackedStringArray = PackedStringArray([
-		"aiyifan.tv",
-		"iyf.tv",
-		"youtube.com",
-		"youtu.be",
-		"bilibili.com",
-		"iqiyi.com",
-		"youku.com",
-		"v.qq.com",
-		"mgtv.com",
-		"netflix.com",
-	])
-	for host: String in blocked:
+	for host: String in MOVIE_WEB_HOSTS:
 		if lower.contains(host):
 			return true
 	var ext: String = movie_url_path_extension(url)
-	var bad_ext: PackedStringArray = PackedStringArray([
+	var page_ext: PackedStringArray = [
 		"html", "htm", "php", "asp", "aspx", "jsp",
 		"m3u8", "mpd", "mp4", "mkv", "webm", "avi", "mov", "m4v",
-	])
-	return bad_ext.has(ext)
+	]
+	if page_ext.has(ext):
+		return true
+	return ext.is_empty()
 
 
 func movie_id_from_url(url: String) -> String:
@@ -1296,6 +1314,22 @@ func movie_title_from_url(url: String) -> String:
 	if file_name.is_empty() or not file_name.contains("."):
 		return "自定义影片"
 	return file_name.get_basename()
+
+
+func movie_web_title(url: String) -> String:
+	var clean: String = url.strip_edges()
+	var host: String = clean
+	var scheme: int = host.find("://")
+	if scheme >= 0:
+		host = host.substr(scheme + 3)
+	var slash: int = host.find("/")
+	if slash >= 0:
+		host = host.substr(0, slash)
+	if host.begins_with("www."):
+		host = host.substr(4)
+	if host.is_empty():
+		return "网页影片"
+	return host
 
 
 func movie_custom_entry(url: String) -> Dictionary:
