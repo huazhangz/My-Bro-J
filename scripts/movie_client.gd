@@ -38,17 +38,36 @@ func is_busy() -> bool:
 	return _busy
 
 
-func fetch_random(exclude_id: String = "", genre: String = "") -> void:
+func fetch_random(exclude_id: String = "") -> void:
 	if _busy:
 		return
 	_cancelled = false
-	_queue = GameData.shuffled_movie_catalog(exclude_id, genre)
-	print("%s start catalog=%d exclude=%s genre=%s" % [
-		GameData.MOVIE_LOG_PREFIX, _queue.size(), exclude_id, genre,
+	_queue = GameData.shuffled_movie_catalog(exclude_id)
+	print("%s start catalog=%d exclude=%s" % [
+		GameData.MOVIE_LOG_PREFIX, _queue.size(), exclude_id,
 	])
 	if _queue.is_empty():
-		movie_failed.emit("empty_genre")
+		movie_failed.emit("empty_catalog")
 		return
+	_try_next_movie()
+
+
+func fetch_url(url: String) -> void:
+	if _busy:
+		return
+	var clean: String = url.strip_edges()
+	if not GameData.movie_url_is_http(clean):
+		movie_failed.emit("bad_url")
+		return
+	if GameData.movie_url_is_site_page(clean):
+		print("%s reject site page %s" % [GameData.MOVIE_LOG_PREFIX, clean])
+		movie_failed.emit("not_theora")
+		return
+	_cancelled = false
+	_queue = [GameData.movie_custom_entry(clean)]
+	print("%s start url=%s id=%s" % [
+		GameData.MOVIE_LOG_PREFIX, clean, String((_queue[0] as Dictionary).get("id", "")),
+	])
 	_try_next_movie()
 
 
@@ -275,6 +294,13 @@ func _on_completed(result: int, code: int, body: PackedByteArray) -> void:
 			_phase = ""
 			return
 		_cleanup_partial(dest)
+		if String(_current.get("direct_url", "")).strip_edges() != "" and String(_current.get("archive_id", "")).is_empty():
+			_busy = false
+			_phase = ""
+			_queue.clear()
+			_url_queue.clear()
+			movie_failed.emit("not_theora")
+			return
 		call_deferred("_try_next_url")
 		return
 	_busy = false

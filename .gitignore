@@ -25,3 +25,5 @@ chat_config.json
 # 系统垃圾
 .DS_Store
 Thumbs.db
+__pycache__/
+*.pyc

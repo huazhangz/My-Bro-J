@@ -2,7 +2,7 @@
 
 仓库内 `01.png` … `50.png` 为库存卡片用的 128×128 抠图。
 
-- 本机原表请放到 `sheets/boxers.png` 与 `sheets/boxers1.png`（各 5×5）。启动时或运行 `tools/slice_boxers.py` 会把截图窗口整体上移、底部多裁，再从边角 flood-fill 抠底。
+- 本机原表请放到 `assets/images/bx1.png` 与 `assets/images/bx2.png`（或 `sheets/`）。切格按绝对像素表（参考 1536×975：列 0/290/610/925/1225/1536，行 0/190/380/565/760/975），再从边角 flood-fill 抠底。
 - **不要**把 Steve 立绘的 `chroma_key.gdshader` 套到这些 PNG 上。
-- 没有原表时脚本会烘焙 50 款独立剪影（圆角裤脚，不截平、不带下一行腰边）。
-- 本目录只保留编号切图与说明；原表进 `sheets/`。
+- 没有原表时保留仓库内已提交的 50 张切图；`tools/slice_boxers.py` 也可烘焙剪影兜底。
+- 本目录只保留编号切图与说明；原表进 `sheets/` 或 `assets/images/`。

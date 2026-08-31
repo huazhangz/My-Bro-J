@@ -162,21 +162,13 @@ var _movie_id: String = ""
 var _movie_expected_bytes: int = 0
 var _movie_reload_cd: float = 0.0
 var _movie_last_bytes: int = 0
-var _movie_genre: String = GameData.MOVIE_GENRE_ALL
-var _movie_pick_popup: Control
-var _movie_pick_chrome: Panel
+var _movie_url_row: HBoxContainer
+var _movie_url_input: LineEdit
+var _movie_url_load_button: Button
 var _chat_scroll_token: int = 0
 var _dryer_hint_bubble: PanelContainer
 var _dryer_hint_label: Label
 var _dryer_hint_wired: bool = false
-var _recharge_popup: Control
-var _recharge_chrome: Panel
-var _recharge_status: Label
-var _recharge_notes: Label
-var _recharge_sku_box: HBoxContainer
-var _recharge_region_box: HBoxContainer
-var _recharge_region: String = GameData.RECHARGE_REGION_US
-var _recharge_client: RefCounted
 
 var _state: int = State.WASHING
 var _wash_remaining: float = 0.0
@@ -241,7 +233,6 @@ func _ready() -> void:
 	_setup_chat_client()
 	_setup_fortune_ui()
 	_setup_movie_ui()
-	_setup_recharge_ui()
 	_ensure_notice_nodes()
 	_connect_exit_popup()
 	_refresh_pressure_button()
@@ -530,7 +521,7 @@ func _connect_exit_popup() -> void:
 			_open_fortune()
 		)
 	_recharge_button.pressed.connect(func() -> void:
-		_open_recharge()
+		_on_recharge_pressed()
 	)
 	_quit_app_button.pressed.connect(func() -> void:
 		GameData.save_game()
@@ -633,14 +624,6 @@ func _gui_input(event: InputEvent) -> void:
 				_close_chat()
 				accept_event()
 				return
-			if _movie_pick_open():
-				_close_movie_pick()
-				accept_event()
-				return
-			if _recharge_open():
-				_close_recharge()
-				accept_event()
-				return
 			if _fortune_open():
 				_close_fortune()
 				accept_event()
@@ -667,10 +650,6 @@ func _input(event: InputEvent) -> void:
 		if key.keycode == KEY_ESCAPE:
 			if _movie_open():
 				_close_movie()
-			elif _movie_pick_open():
-				_close_movie_pick()
-			elif _recharge_open():
-				_close_recharge()
 			elif _fortune_open():
 				_close_fortune()
 			elif _inventory_popup.visible:
@@ -2330,7 +2309,11 @@ func _apply_header_button_colors(button: Button) -> void:
 
 
 func _style_dinner_button() -> void:
-	if not is_instance_valid(_dinner_button):
+	_style_pink_button(_dinner_button)
+
+
+func _style_pink_button(button: Button) -> void:
+	if not is_instance_valid(button):
 		return
 	var slots: Dictionary = {
 		"normal": GameData.DINNER_BUTTON_COLOR,
@@ -2346,10 +2329,12 @@ func _style_dinner_button() -> void:
 		box.set_content_margin_all(10.0)
 		box.set_border_width_all(2)
 		box.border_color = Color(1.0, 1.0, 1.0, 0.55)
-		_dinner_button.add_theme_stylebox_override(slot, box)
-	_dinner_button.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
-	_dinner_button.add_theme_color_override("font_hover_color", GameData.UI_FONT_COLOR)
-	_dinner_button.add_theme_color_override("font_pressed_color", GameData.UI_FONT_COLOR)
+		button.add_theme_stylebox_override(slot, box)
+	button.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
+	button.add_theme_color_override("font_hover_color", GameData.UI_FONT_COLOR)
+	button.add_theme_color_override("font_pressed_color", GameData.UI_FONT_COLOR)
+	button.add_theme_color_override("font_disabled_color", GameData.UI_FONT_COLOR)
+	button.add_theme_color_override("font_focus_color", GameData.UI_FONT_COLOR)
 
 
 func _refresh_context_menu_window() -> void:
@@ -2579,10 +2564,6 @@ func _apply_round_chrome() -> void:
 		_fortune_chrome.add_theme_stylebox_override("panel", inv_box)
 	if is_instance_valid(_movie_chrome):
 		_movie_chrome.add_theme_stylebox_override("panel", inv_box)
-	if is_instance_valid(_movie_pick_chrome):
-		_movie_pick_chrome.add_theme_stylebox_override("panel", inv_box)
-	if is_instance_valid(_recharge_chrome):
-		_recharge_chrome.add_theme_stylebox_override("panel", inv_box)
 	if is_instance_valid(_inventory_mask):
 		_inventory_mask.visible = false
 	_apply_menu_control_heights()
@@ -2844,15 +2825,17 @@ func _ensure_notice_nodes() -> void:
 		_notice_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 		_notice_label = Label.new()
 		_notice_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_notice_label.max_lines_visible = 2
+		_notice_label.max_lines_visible = GameData.SPEECH_MAX_LINES
 		_notice_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		_notice_label.clip_text = true
+		_notice_label.clip_text = false
 		_notice_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		_notice_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		_notice_label.add_theme_font_size_override("font_size", GameData.UI_FONT_SIZE)
 		_notice_label.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
 		_notice_label.add_theme_color_override("font_outline_color", GameData.UI_FONT_OUTLINE_COLOR)
 		_notice_label.add_theme_constant_override("outline_size", GameData.UI_FONT_OUTLINE_SIZE)
 		_notice_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_notice_panel.clip_contents = false
 		_notice_panel.add_child(_notice_label)
 		add_child(_notice_panel)
 		_style_notice_panel(
@@ -2881,6 +2864,7 @@ func _ensure_notice_nodes() -> void:
 					_on_speech_clicked()
 					_notice_panel.accept_event()
 		)
+	_apply_notice_fonts()
 
 
 func _style_notice_panel(panel: PanelContainer, fill: Color, border: Color) -> void:
@@ -2956,31 +2940,71 @@ func _speech_visible() -> bool:
 	return is_instance_valid(_notice_panel) and _notice_panel.visible
 
 
+func _apply_notice_fonts() -> void:
+	if theme == null or not (theme.default_font is FontFile):
+		return
+	var font: FontFile = theme.default_font as FontFile
+	if is_instance_valid(_notice_label):
+		_unify_control_text(_notice_label, font)
+	if is_instance_valid(_flash_label):
+		_unify_control_text(_flash_label, font)
+	if is_instance_valid(_notice_panel):
+		_unify_control_text(_notice_panel, font)
+	if is_instance_valid(_flash_panel):
+		_unify_control_text(_flash_panel, font)
+
+
 func _speech_rect() -> Rect2:
 	var pet: Rect2 = _current_pet_rect()
-	var bar_w: float = clampf(pet.size.x * 0.78, 72.0, pet.size.x)
-	var hud_h: float = clampf(pet.size.x * 0.22, HOVER_HUD_HEIGHT + 8.0, 72.0)
-	var x: float = pet.position.x + (pet.size.x - bar_w) * 0.5
-	var y: float = pet.position.y - hud_h - HOVER_GAP
+	var text: String = ""
+	if is_instance_valid(_notice_label):
+		text = _notice_label.text.strip_edges()
+	if text.is_empty():
+		text = _pending_steve_notice.strip_edges()
+	var max_w: float = clampf(pet.size.x * 0.92, GameData.SPEECH_MIN_WIDTH, GameData.SPEECH_MAX_WIDTH)
+	var font: Font = null
+	var font_size: int = GameData.UI_FONT_SIZE
+	if is_instance_valid(_notice_label):
+		font = _notice_label.get_theme_font("font")
+		font_size = _notice_label.get_theme_font_size("font_size")
+	if font == null and theme != null:
+		font = theme.default_font
+	if font == null:
+		font = ThemeDB.fallback_font
+	var wrap_w: float = maxf(max_w - GameData.SPEECH_PAD_X * 2.0, 48.0)
+	var text_size: Vector2 = font.get_multiline_string_size(
+		text, HORIZONTAL_ALIGNMENT_LEFT, wrap_w, font_size
+	)
+	var width: float = clampf(text_size.x + GameData.SPEECH_PAD_X * 2.0, GameData.SPEECH_MIN_WIDTH, max_w)
+	var height: float = clampf(
+		text_size.y + GameData.SPEECH_PAD_Y * 2.0, GameData.SPEECH_MIN_HEIGHT, GameData.SPEECH_MAX_HEIGHT
+	)
+	var x: float = pet.position.x + (pet.size.x - width) * 0.5
+	var y: float = pet.position.y - height - HOVER_GAP
 	if y < 2.0:
 		y = pet.position.y + HOVER_GAP
 	y += GameData.WASH_BAR_SHIFT_Y
-	return Rect2(x, y, bar_w, hud_h)
+	return Rect2(x, y, width, height)
 
 
 func _layout_speech_bubble() -> void:
 	if not _speech_visible():
 		return
+	if is_instance_valid(_notice_label) and _notice_label.text.strip_edges().is_empty():
+		_hide_speech_bubble()
+		return
 	var area: Rect2 = _speech_rect()
 	_notice_panel.position = area.position
 	_notice_panel.size = area.size
+	if is_instance_valid(_notice_label):
+		_notice_label.custom_minimum_size = Vector2(maxf(area.size.x - GameData.SPEECH_PAD_X * 2.0, 48.0), 0.0)
 
 
 func _try_show_speech() -> void:
 	if not _can_show_speech_bubble():
 		_hide_speech_bubble()
 		return
-	if _pending_steve_notice.is_empty():
+	if _pending_steve_notice.strip_edges().is_empty():
 		return
 	_show_speech_bubble()
 
@@ -2996,11 +3020,13 @@ func _hide_speech_bubble() -> void:
 func _show_speech_bubble() -> void:
 	if not _can_show_speech_bubble():
 		return
-	if _pending_steve_notice.is_empty():
+	if _pending_steve_notice.strip_edges().is_empty():
+		_hide_speech_bubble()
 		return
 	_ensure_notice_nodes()
 	if not is_instance_valid(_notice_panel) or not is_instance_valid(_notice_label):
 		return
+	_apply_notice_fonts()
 	_set_hover_hud_visible(false, false)
 	_notice_label.text = _pending_steve_notice
 	_notice_label.add_theme_color_override("font_color", GameData.UI_FONT_COLOR)
@@ -3037,7 +3063,10 @@ func _on_speech_clicked() -> void:
 
 
 func _show_notice(text: String) -> void:
-	_pending_steve_notice = GameData.notice_excerpt(text)
+	var excerpt: String = GameData.notice_excerpt(text)
+	if excerpt.is_empty():
+		return
+	_pending_steve_notice = excerpt
 	_speech_target = ""
 	if not _can_show_speech_bubble():
 		return
@@ -3084,8 +3113,6 @@ func _any_overlay_open() -> bool:
 		or (is_instance_valid(_chat_popup) and _chat_popup.visible)
 		or _fortune_open()
 		or _movie_open()
-		or _movie_pick_open()
-		or _recharge_open()
 	)
 
 
@@ -3095,8 +3122,6 @@ func _any_content_overlay_open() -> bool:
 		or (is_instance_valid(_chat_popup) and _chat_popup.visible)
 		or _fortune_open()
 		or _movie_open()
-		or _movie_pick_open()
-		or _recharge_open()
 	)
 
 
@@ -3108,21 +3133,9 @@ func _movie_open() -> bool:
 	return is_instance_valid(_movie_popup) and _movie_popup.visible
 
 
-func _movie_pick_open() -> bool:
-	return is_instance_valid(_movie_pick_popup) and _movie_pick_popup.visible
-
-
-func _recharge_open() -> bool:
-	return is_instance_valid(_recharge_popup) and _recharge_popup.visible
-
-
 func _hide_fortune_and_movie() -> void:
 	if is_instance_valid(_fortune_popup):
 		_fortune_popup.visible = false
-	if is_instance_valid(_movie_pick_popup):
-		_movie_pick_popup.visible = false
-	if is_instance_valid(_recharge_popup):
-		_recharge_popup.visible = false
 	if is_instance_valid(_movie_popup) and _movie_popup.visible:
 		if _movie_client != null and _movie_client.has_method("cancel_fetch"):
 			_movie_client.cancel_fetch()
@@ -3130,6 +3143,7 @@ func _hide_fortune_and_movie() -> void:
 		_movie_popup.visible = false
 		_movie_maximized = false
 		_reset_movie_button()
+		_hide_movie_url_row()
 
 
 func _headline_box(color: Color) -> StyleBoxFlat:
@@ -3338,10 +3352,6 @@ func _open_fortune() -> void:
 		_inventory_popup.visible = false
 	if is_instance_valid(_chat_popup):
 		_chat_popup.visible = false
-	if is_instance_valid(_movie_pick_popup):
-		_movie_pick_popup.visible = false
-	if is_instance_valid(_recharge_popup):
-		_recharge_popup.visible = false
 	if _movie_open():
 		_hide_fortune_and_movie()
 	_inventory_kind = ""
@@ -3416,6 +3426,8 @@ func _setup_movie_ui() -> void:
 	_movie_client.movie_progress.connect(func(text: String) -> void:
 		if _movie_loading and is_instance_valid(_movie_button):
 			_movie_button.text = text
+		if _movie_open() and is_instance_valid(_movie_title):
+			_movie_title.text = text
 	)
 	_movie_popup = Control.new()
 	_movie_popup.name = "MoviePopup"
@@ -3448,8 +3460,8 @@ func _setup_movie_ui() -> void:
 	header.add_child(headline)
 	_movie_skip_button = Button.new()
 	_movie_skip_button.text = GameData.MOVIE_SKIP_TEXT
-	_movie_skip_button.theme_type_variation = &"EquipButton"
-	_movie_skip_button.custom_minimum_size = Vector2(160.0, GameData.INVENTORY_HEADLINE_HEIGHT)
+	_movie_skip_button.theme_type_variation = &"PinkButton"
+	_movie_skip_button.custom_minimum_size = Vector2(188.0, GameData.INVENTORY_HEADLINE_HEIGHT)
 	_movie_skip_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_movie_skip_button.clip_text = true
 	header.add_child(_movie_skip_button)
@@ -3467,6 +3479,20 @@ func _setup_movie_ui() -> void:
 	_movie_close_button.theme_type_variation = &"CloseButton"
 	_movie_close_button.custom_minimum_size = Vector2(72.0, GameData.INVENTORY_HEADLINE_HEIGHT)
 	header.add_child(_movie_close_button)
+	_movie_url_row = HBoxContainer.new()
+	_movie_url_row.visible = false
+	_movie_url_row.add_theme_constant_override("separation", 8)
+	body.add_child(_movie_url_row)
+	_movie_url_input = LineEdit.new()
+	_movie_url_input.placeholder_text = GameData.MOVIE_URL_HINT
+	_movie_url_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_movie_url_input.custom_minimum_size = Vector2(0.0, 36.0)
+	_movie_url_row.add_child(_movie_url_input)
+	_movie_url_load_button = Button.new()
+	_movie_url_load_button.text = GameData.MOVIE_URL_LOAD_TEXT
+	_movie_url_load_button.theme_type_variation = &"EquipButton"
+	_movie_url_load_button.custom_minimum_size = Vector2(72.0, 36.0)
+	_movie_url_row.add_child(_movie_url_load_button)
 	_movie_player = VideoStreamPlayer.new()
 	_movie_player.name = "MoviePlayer"
 	_movie_player.expand = true
@@ -3523,7 +3549,13 @@ func _setup_movie_ui() -> void:
 		_close_movie()
 	)
 	_movie_skip_button.pressed.connect(func() -> void:
-		_skip_current_movie()
+		_toggle_movie_url_row()
+	)
+	_movie_url_load_button.pressed.connect(func() -> void:
+		_load_movie_from_url()
+	)
+	_movie_url_input.text_submitted.connect(func(_text: String) -> void:
+		_load_movie_from_url()
 	)
 	_movie_max_button.pressed.connect(func() -> void:
 		_toggle_movie_maximize()
@@ -3556,8 +3588,8 @@ func _setup_movie_ui() -> void:
 	)
 	_set_movie_speed(1.0)
 	_apply_movie_audio()
+	_style_pink_button(_movie_skip_button)
 	_restyle_new_overlay(_movie_popup)
-	_setup_movie_pick_ui()
 
 
 func _restyle_new_overlay(root: Control) -> void:
@@ -3565,6 +3597,7 @@ func _restyle_new_overlay(root: Control) -> void:
 	_style_scrollbars()
 	if theme != null and theme.default_font is FontFile:
 		_unify_control_text(root, theme.default_font as FontFile)
+	_style_pink_button(_movie_skip_button)
 
 
 func _add_movie_resize_handle(
@@ -3616,78 +3649,20 @@ func _add_movie_resize_handle(
 	_movie_popup.add_child(handle)
 
 
-func _setup_movie_pick_ui() -> void:
-	_movie_pick_popup = Control.new()
-	_movie_pick_popup.name = "MoviePickPopup"
-	_movie_pick_popup.visible = false
-	_movie_pick_popup.z_index = 23
-	_movie_pick_popup.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(_movie_pick_popup)
-	_movie_pick_chrome = Panel.new()
-	_movie_pick_chrome.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_movie_pick_chrome.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_movie_pick_popup.add_child(_movie_pick_chrome)
-	var body: VBoxContainer = VBoxContainer.new()
-	body.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	body.offset_left = 16.0
-	body.offset_top = 12.0
-	body.offset_right = -16.0
-	body.offset_bottom = -12.0
-	body.add_theme_constant_override("separation", 10)
-	_movie_pick_popup.add_child(body)
-	var header: HBoxContainer = HBoxContainer.new()
-	header.custom_minimum_size.y = GameData.INVENTORY_HEADLINE_HEIGHT
-	header.add_theme_constant_override("separation", 8)
-	body.add_child(header)
-	var headline: PanelContainer = PanelContainer.new()
-	headline.add_theme_stylebox_override("panel", _headline_box(GameData.DRYER_HEADLINE_COLOR))
-	var title: Label = Label.new()
-	title.text = GameData.MOVIE_PICK_TITLE
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	headline.add_child(title)
-	header.add_child(headline)
-	var spacer: Control = Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	header.add_child(spacer)
-	var close_button: Button = Button.new()
-	close_button.text = "关闭"
-	close_button.theme_type_variation = &"CloseButton"
-	close_button.custom_minimum_size = Vector2(72.0, GameData.INVENTORY_HEADLINE_HEIGHT)
-	close_button.pressed.connect(func() -> void:
-		_close_movie_pick()
-	)
-	header.add_child(close_button)
-	var hint: Label = Label.new()
-	hint.text = GameData.MOVIE_PICK_HINT
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	body.add_child(hint)
-	var grid: HFlowContainer = HFlowContainer.new()
-	grid.add_theme_constant_override("h_separation", 8)
-	grid.add_theme_constant_override("v_separation", 8)
-	body.add_child(grid)
-	for entry: Dictionary in GameData.MOVIE_GENRES:
-		var genre_id: String = String(entry.get("id", GameData.MOVIE_GENRE_ALL))
-		var button: Button = Button.new()
-		button.text = String(entry.get("label", genre_id))
-		button.theme_type_variation = &"CodexButton"
-		button.custom_minimum_size = Vector2(140.0, 48.0)
-		var captured: String = genre_id
-		button.pressed.connect(func() -> void:
-			_start_movie_for_genre(captured)
-		)
-		grid.add_child(button)
-	_movie_pick_popup.gui_input.connect(func(event: InputEvent) -> void:
-		_process_drag_input(event)
-	)
-	_restyle_new_overlay(_movie_pick_popup)
+func _on_movie_pressed() -> void:
+	if _movie_loading or (_movie_client != null and _movie_client.has_method("is_busy") and _movie_client.is_busy()):
+		return
+	if _movie_open():
+		return
+	_start_builtin_movie()
 
 
-func _open_movie_pick() -> void:
+func _start_builtin_movie() -> void:
 	if _state == State.RUNAWAY:
 		return
-	if _movie_loading or _movie_open():
+	if _movie_loading or (_movie_client != null and _movie_client.has_method("is_busy") and _movie_client.is_busy()):
+		return
+	if _movie_open():
 		return
 	_hide_speech_bubble()
 	if is_instance_valid(_exit_popup):
@@ -3700,65 +3675,23 @@ func _open_movie_pick() -> void:
 		_chat_popup.visible = false
 	if is_instance_valid(_fortune_popup):
 		_fortune_popup.visible = false
-	if is_instance_valid(_recharge_popup):
-		_recharge_popup.visible = false
 	_inventory_kind = ""
 	_set_pet_layer_visible(false)
-	_expand_overlay_window(GameData.MOVIE_PICK_WINDOW_SIZE)
-	if is_instance_valid(_movie_pick_popup):
-		_movie_pick_popup.visible = true
-
-
-func _close_movie_pick() -> void:
-	if is_instance_valid(_movie_pick_popup):
-		_movie_pick_popup.visible = false
-	_hide_speech_bubble()
-	_restore_overlay_window_if_idle()
-	if not _any_overlay_open() and _state != State.RUNAWAY:
-		_set_pet_layer_visible(true)
-	call_deferred("_try_show_speech")
-
-
-func _start_movie_for_genre(genre: String) -> void:
-	if _movie_loading or (_movie_client != null and _movie_client.has_method("is_busy") and _movie_client.is_busy()):
-		return
-	if _movie_open():
-		return
-	_movie_genre = genre.strip_edges()
-	if _movie_genre.is_empty():
-		_movie_genre = GameData.MOVIE_GENRE_ALL
-	if GameData.shuffled_movie_catalog("", _movie_genre).is_empty():
-		var empty_text: String = (
-			GameData.MOVIE_CN_EMPTY_TEXT if _movie_genre == "cn" else GameData.MOVIE_EMPTY_GENRE_TEXT
-		)
-		_show_notice(empty_text)
-		return
-	if is_instance_valid(_movie_pick_popup):
-		_movie_pick_popup.visible = false
-	_set_pet_layer_visible(false)
+	_movie_maximized = false
 	_expand_overlay_window(GameData.MOVIE_WINDOW_SIZE)
 	if is_instance_valid(_movie_popup):
 		_movie_popup.visible = true
+	_hide_movie_url_row()
 	if is_instance_valid(_movie_title):
 		_movie_title.text = GameData.MOVIE_LOADING_TEXT
-	if is_instance_valid(_movie_skip_button):
-		_movie_skip_button.disabled = true
 	_movie_loading = true
 	if is_instance_valid(_movie_button):
 		_movie_button.disabled = true
 		_movie_button.text = GameData.MOVIE_LOADING_TEXT
 	if _movie_client != null and _movie_client.has_method("fetch_random"):
-		_movie_client.fetch_random("", _movie_genre)
+		_movie_client.fetch_random("")
 	else:
 		_on_movie_failed("no_client")
-
-
-func _on_movie_pressed() -> void:
-	if _movie_loading or (_movie_client != null and _movie_client.has_method("is_busy") and _movie_client.is_busy()):
-		return
-	if _movie_open():
-		return
-	_open_movie_pick()
 
 
 func _reset_movie_button() -> void:
@@ -3766,6 +3699,8 @@ func _reset_movie_button() -> void:
 	if is_instance_valid(_movie_button):
 		_movie_button.disabled = false
 		_movie_button.text = GameData.MOVIE_BUTTON_TEXT
+	if is_instance_valid(_movie_url_load_button):
+		_movie_url_load_button.disabled = false
 
 
 func _cancel_pending_movie_fetch() -> void:
@@ -3819,53 +3754,61 @@ func _on_movie_failed(reason: String) -> void:
 		_movie_skip_button.disabled = false
 	print("%s movie failed=%s" % [VIDEO_LOG_PREFIX, reason])
 	var fail_text: String = GameData.MOVIE_FAIL_TEXT
-	if reason == "empty_genre":
-		fail_text = (
-			GameData.MOVIE_CN_EMPTY_TEXT if _movie_genre == "cn" else GameData.MOVIE_EMPTY_GENRE_TEXT
-		)
+	if reason == "not_theora":
+		fail_text = GameData.MOVIE_URL_NOT_THEORA_TEXT
+	elif reason == "bad_url":
+		fail_text = GameData.MOVIE_URL_BAD_TEXT
 	if _movie_open() and is_instance_valid(_movie_title):
 		_movie_title.text = fail_text
-	_show_notice(fail_text)
+	else:
+		_show_notice(fail_text)
 
 
-func _skip_current_movie() -> void:
-	if not _movie_open():
+func _toggle_movie_url_row() -> void:
+	if not _movie_open() or not is_instance_valid(_movie_url_row):
 		return
-	if is_instance_valid(_movie_skip_button) and _movie_skip_button.disabled:
+	_movie_url_row.visible = true
+	if is_instance_valid(_movie_url_input):
+		_movie_url_input.grab_focus()
+
+
+func _hide_movie_url_row() -> void:
+	if is_instance_valid(_movie_url_row):
+		_movie_url_row.visible = false
+	if is_instance_valid(_movie_url_input):
+		_movie_url_input.text = ""
+
+
+func _load_movie_from_url() -> void:
+	if not _movie_open() or not is_instance_valid(_movie_url_input):
 		return
-	var exclude_id: String = _movie_id
-	if exclude_id.is_empty():
-		exclude_id = GameData.movie_id_from_path(_movie_path)
+	var url: String = _movie_url_input.text.strip_edges()
+	if url.is_empty():
+		if is_instance_valid(_movie_title):
+			_movie_title.text = GameData.MOVIE_URL_HINT
+		return
+	if not GameData.movie_url_is_http(url):
+		if is_instance_valid(_movie_title):
+			_movie_title.text = GameData.MOVIE_URL_BAD_TEXT
+		return
+	if GameData.movie_url_is_site_page(url):
+		if is_instance_valid(_movie_title):
+			_movie_title.text = GameData.MOVIE_URL_NOT_THEORA_TEXT
+		print("%s custom url rejected host/ext url=%s" % [VIDEO_LOG_PREFIX, url])
+		return
 	if _movie_client != null and _movie_client.has_method("cancel_fetch"):
 		_movie_client.cancel_fetch()
 	_stop_movie_player()
-	_movie_path = ""
-	_movie_id = ""
-	_movie_expected_bytes = 0
-	_movie_last_bytes = 0
 	_movie_loading = true
-	if is_instance_valid(_movie_skip_button):
-		_movie_skip_button.disabled = true
+	if is_instance_valid(_movie_url_load_button):
+		_movie_url_load_button.disabled = true
 	if is_instance_valid(_movie_title):
 		_movie_title.text = GameData.MOVIE_LOADING_TEXT
 	if is_instance_valid(_movie_seek):
 		_movie_seek.value = 0.0
 		_movie_seek.max_value = 1.0
-	if _movie_client != null and _movie_client.has_method("fetch_random"):
-		var captured: String = exclude_id
-		call_deferred("_start_skipped_movie_fetch", captured)
-	else:
-		_on_movie_failed("no_client")
-
-
-func _start_skipped_movie_fetch(exclude_id: String) -> void:
-	if not _movie_open():
-		_reset_movie_button()
-		if is_instance_valid(_movie_skip_button):
-			_movie_skip_button.disabled = false
-		return
-	if _movie_client != null and _movie_client.has_method("fetch_random"):
-		_movie_client.fetch_random(exclude_id, _movie_genre)
+	if _movie_client != null and _movie_client.has_method("fetch_url"):
+		_movie_client.fetch_url(url)
 	else:
 		_on_movie_failed("no_client")
 
@@ -3919,6 +3862,7 @@ func _close_movie() -> void:
 		_movie_skip_button.disabled = false
 	if is_instance_valid(_movie_popup):
 		_movie_popup.visible = false
+	_hide_movie_url_row()
 	_hide_speech_bubble()
 	_restore_overlay_window_if_idle()
 	if not _any_overlay_open() and _state != State.RUNAWAY:
@@ -4086,186 +4030,12 @@ func _tick_movie_playback(delta: float) -> void:
 	_movie_player.stream_position = _movie_player.stream_position + delta * _movie_speed
 
 
-func _setup_recharge_ui() -> void:
-	_recharge_client = preload("res://scripts/recharge_client.gd").new()
-	_recharge_popup = Control.new()
-	_recharge_popup.name = "RechargePopup"
-	_recharge_popup.visible = false
-	_recharge_popup.z_index = 23
-	_recharge_popup.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(_recharge_popup)
-	_recharge_chrome = Panel.new()
-	_recharge_chrome.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_recharge_chrome.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_recharge_popup.add_child(_recharge_chrome)
-	var body: VBoxContainer = VBoxContainer.new()
-	body.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	body.offset_left = 16.0
-	body.offset_top = 12.0
-	body.offset_right = -16.0
-	body.offset_bottom = -12.0
-	body.add_theme_constant_override("separation", 10)
-	_recharge_popup.add_child(body)
-	var header: HBoxContainer = HBoxContainer.new()
-	header.custom_minimum_size.y = GameData.INVENTORY_HEADLINE_HEIGHT
-	header.add_theme_constant_override("separation", 8)
-	body.add_child(header)
-	var headline: PanelContainer = PanelContainer.new()
-	headline.add_theme_stylebox_override("panel", _headline_box(GameData.DRAWER_HEADLINE_COLOR))
-	var title: Label = Label.new()
-	title.text = GameData.RECHARGE_TITLE_TEXT
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	headline.add_child(title)
-	header.add_child(headline)
-	var spacer: Control = Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	header.add_child(spacer)
-	var close_button: Button = Button.new()
-	close_button.text = "关闭"
-	close_button.theme_type_variation = &"CloseButton"
-	close_button.custom_minimum_size = Vector2(72.0, GameData.INVENTORY_HEADLINE_HEIGHT)
-	close_button.pressed.connect(func() -> void:
-		_close_recharge()
-	)
-	header.add_child(close_button)
-	_recharge_status = Label.new()
-	_recharge_status.text = GameData.RECHARGE_STATUS_TEXT
-	_recharge_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_recharge_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	body.add_child(_recharge_status)
-	_recharge_region_box = HBoxContainer.new()
-	_recharge_region_box.add_theme_constant_override("separation", 8)
-	body.add_child(_recharge_region_box)
-	for entry: Dictionary in GameData.RECHARGE_REGIONS:
-		var region_id: String = String(entry.get("id", GameData.RECHARGE_REGION_US))
-		var region_button: Button = Button.new()
-		region_button.toggle_mode = true
-		region_button.text = String(entry.get("label", region_id))
-		region_button.set_meta("region", region_id)
-		region_button.custom_minimum_size = Vector2(120.0, 40.0)
-		region_button.theme_type_variation = &"CoinButton"
-		var captured: String = region_id
-		region_button.pressed.connect(func() -> void:
-			_set_recharge_region(captured)
-		)
-		_recharge_region_box.add_child(region_button)
-	_recharge_sku_box = HBoxContainer.new()
-	_recharge_sku_box.add_theme_constant_override("separation", 8)
-	body.add_child(_recharge_sku_box)
-	var notes_scroll: ScrollContainer = ScrollContainer.new()
-	notes_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	notes_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	notes_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	body.add_child(notes_scroll)
-	_recharge_notes = Label.new()
-	_recharge_notes.text = GameData.RECHARGE_NOTES
-	_recharge_notes.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_recharge_notes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_recharge_notes.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	notes_scroll.add_child(_recharge_notes)
-	_recharge_popup.gui_input.connect(func(event: InputEvent) -> void:
-		_process_drag_input(event)
-	)
-	_rebuild_recharge_skus()
-	_refresh_recharge_region_buttons()
-	_restyle_new_overlay(_recharge_popup)
-
-
-func _set_recharge_region(region: String) -> void:
-	if region != GameData.RECHARGE_REGION_US and region != GameData.RECHARGE_REGION_CN:
-		return
-	_recharge_region = region
-	_rebuild_recharge_skus()
-	_refresh_recharge_region_buttons()
-
-
-func _refresh_recharge_region_buttons() -> void:
-	if not is_instance_valid(_recharge_region_box):
-		return
-	for child: Node in _recharge_region_box.get_children():
-		var button: Button = child as Button
-		if button == null:
-			continue
-		button.button_pressed = String(button.get_meta("region", "")) == _recharge_region
-
-
-func _rebuild_recharge_skus() -> void:
-	if not is_instance_valid(_recharge_sku_box) or _recharge_client == null:
-		return
-	while _recharge_sku_box.get_child_count() > 0:
-		var child: Node = _recharge_sku_box.get_child(0)
-		_recharge_sku_box.remove_child(child)
-		child.free()
-	for entry: Dictionary in GameData.RECHARGE_SKUS:
-		var sku_id: String = String(entry.get("id", ""))
-		var coins: int = int(entry.get("coins", 0))
-		var price: String = String(_recharge_client.price_label(entry, _recharge_region))
-		var sku_button: Button = Button.new()
-		sku_button.text = "%d  %s" % [coins, price]
-		sku_button.theme_type_variation = &"EquipButton"
-		sku_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		sku_button.custom_minimum_size = Vector2(0.0, 48.0)
-		var captured: String = sku_id
-		sku_button.pressed.connect(func() -> void:
-			_try_recharge_sku(captured)
-		)
-		_recharge_sku_box.add_child(sku_button)
-
-
-func _try_recharge_sku(sku_id: String) -> void:
-	if _recharge_client == null:
-		if is_instance_valid(_recharge_status):
-			_recharge_status.text = GameData.RECHARGE_STATUS_TEXT
-		return
-	var result: Dictionary = _recharge_client.create_order(sku_id, _recharge_region)
-	var reason: String = String(result.get("reason", "not_connected"))
-	if is_instance_valid(_recharge_status):
-		if reason == "unsupported_region":
-			_recharge_status.text = "这个地区还没接通。"
-		elif reason == "unknown_sku":
-			_recharge_status.text = "没有这个档位。"
-		else:
-			_recharge_status.text = GameData.RECHARGE_STATUS_TEXT
-	print("%s recharge stub sku=%s region=%s reason=%s" % [
-		VIDEO_LOG_PREFIX, sku_id, _recharge_region, reason,
-	])
-
-
-func _open_recharge() -> void:
-	if _state == State.RUNAWAY:
-		return
-	_hide_speech_bubble()
+func _on_recharge_pressed() -> void:
 	if is_instance_valid(_exit_popup):
 		_exit_popup.visible = false
 	if is_instance_valid(_settings_panel):
 		_settings_panel.visible = false
-	if is_instance_valid(_inventory_popup):
-		_inventory_popup.visible = false
-	if is_instance_valid(_chat_popup):
-		_chat_popup.visible = false
-	if is_instance_valid(_fortune_popup):
-		_fortune_popup.visible = false
-	if is_instance_valid(_movie_pick_popup):
-		_movie_pick_popup.visible = false
-	if _movie_open():
-		_hide_fortune_and_movie()
-	_inventory_kind = ""
-	_set_pet_layer_visible(false)
-	_expand_overlay_window(GameData.RECHARGE_WINDOW_SIZE)
-	if is_instance_valid(_recharge_status):
-		_recharge_status.text = GameData.RECHARGE_STATUS_TEXT
-	_rebuild_recharge_skus()
-	_refresh_recharge_region_buttons()
-	if is_instance_valid(_recharge_popup):
-		_recharge_popup.visible = true
-
-
-func _close_recharge() -> void:
-	if is_instance_valid(_recharge_popup):
-		_recharge_popup.visible = false
-	_hide_speech_bubble()
 	_restore_overlay_window_if_idle()
-	if not _any_overlay_open() and _state != State.RUNAWAY:
+	if not _any_content_overlay_open() and _state != State.RUNAWAY:
 		_set_pet_layer_visible(true)
-	call_deferred("_try_show_speech")
+	_show_notice(GameData.RECHARGE_DEMO_TEXT)

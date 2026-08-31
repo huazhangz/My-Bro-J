@@ -1,7 +1,7 @@
 class_name UnderwearArt
 extends RefCounted
 
-## 库存内裤贴图：优先用 boxers.png / boxers1.png 按格内缩后从边角 flood-fill 抠底，
+## 库存内裤贴图：优先用 bx1.png / bx2.png 按绝对切格从边角 flood-fill 抠底，
 ## 否则用仓库内 `assets/images/underwear/01.png` … `50.png`。
 ## 不使用 Steve 立绘的全局色度键参数。
 
@@ -50,25 +50,14 @@ static func _slice_sheet(path: String, start_index: int) -> void:
 		return
 	var cols: int = GameData.UNDERWEAR_SHEET_COLUMNS
 	var rows: int = GameData.UNDERWEAR_SHEET_ROWS
-	var cell_w: int = width / cols
-	var cell_h: int = height / rows
-	var inset_x: int = maxi(int(round(float(cell_w) * GameData.UNDERWEAR_CELL_INSET_X_RATIO)), 3)
-	var inset_top: int = maxi(int(round(float(cell_h) * GameData.UNDERWEAR_CELL_INSET_TOP_RATIO)), 0)
-	var inset_bottom: int = maxi(int(round(float(cell_h) * GameData.UNDERWEAR_CELL_INSET_BOTTOM_RATIO)), 8)
-	var shift_y: int = int(round(float(cell_h) * GameData.UNDERWEAR_CELL_SHIFT_Y_RATIO))
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(GameData.UNDERWEAR_USER_DIR))
 	for row: int in range(rows):
 		for col: int in range(cols):
 			var art_index: int = start_index + row * cols + col
-			var left: int = col * cell_w + inset_x
-			var top: int = row * cell_h + inset_top + shift_y
-			var right: int = (col + 1) * cell_w - inset_x
-			var bottom: int = (row + 1) * cell_h - inset_bottom + shift_y
-			left = clampi(left, 0, width - 8)
-			right = clampi(right, left + 8, width)
-			top = clampi(top, 0, height - 8)
-			bottom = clampi(bottom, top + 8, height)
-			var cell: Image = image.get_region(Rect2i(left, top, right - left, bottom - top))
+			var cell_rect: Rect2i = GameData.underwear_cell_rect(width, height, col, row)
+			if cell_rect.size.x < 8 or cell_rect.size.y < 8:
+				continue
+			var cell: Image = image.get_region(cell_rect)
 			_flood_key_from_edges(cell)
 			var trimmed: Image = _trim_and_fit(cell, GameData.UNDERWEAR_ART_SIZE)
 			var dest: String = GameData.underwear_user_path(art_index)

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Slice boxers.png / boxers1.png (5x5 grids) or bake 50 unique cutouts.
+"""Slice bx1.png / bx2.png with absolute cell rects, or bake 50 unique cutouts.
 
-Slicing insets each cell so the next row's waistband is not included, then
-flood-fills transparency from the edges only. This does not use Steve's
-global chroma-key settings.
+Cell bounds are the user-measured pixel table on a 1536x975 reference sheet,
+scaled to the actual image size. Flood-fill transparency from the edges only.
+This does not use Steve's global chroma-key settings.
 """
 
 from __future__ import annotations
@@ -18,19 +18,21 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "assets" / "images" / "underwear"
 GRID = 5
 CELL = 128
-INSET_X_RATIO = 1.0 / 14.0
-INSET_TOP_RATIO = 0.0
-INSET_BOTTOM_RATIO = 0.30
-SHIFT_Y_RATIO = -0.20
-KEY_DIST = 0.055
-KEY_GREEN_DIST = 0.10
-SHEET_NAMES = ("boxers.png", "boxers1.png", "Boxers.png", "Boxers1.png")
+SHEET_REF_W = 1536
+SHEET_REF_H = 975
+SHEET_X = (0, 290, 610, 925, 1225, 1536)
+SHEET_Y = (0, 190, 380, 565, 760, 975)
+KEY_DIST = 0.045
+KEY_GREEN_DIST = 0.085
+SHEET_NAMES = ("bx1.png", "bx2.png", "BX1.png", "BX2.png")
 SEARCH_DIRS = (
     ROOT / "assets" / "images" / "underwear" / "sheets",
     ROOT / "assets" / "images" / "underwear",
     ROOT / "assets" / "images",
     ROOT,
+    Path("/mnt/c/Users/ASUS/My-Bro-J/assets/images"),
     Path("/mnt/c/Users/ASUS/My-Bro-J"),
+    Path("C:/Users/ASUS/My-Bro-J/assets/images"),
     Path("C:/Users/ASUS/My-Bro-J"),
 )
 
@@ -41,6 +43,18 @@ def find_sheet(name: str) -> Path | None:
         if path.is_file():
             return path
     return None
+
+
+def cell_box(width: int, height: int, col: int, row: int) -> tuple[int, int, int, int]:
+    sx = width / float(SHEET_REF_W)
+    sy = height / float(SHEET_REF_H)
+    left = max(0, int(round(SHEET_X[col] * sx)))
+    right = min(width, int(round(SHEET_X[col + 1] * sx)))
+    top = max(0, int(round(SHEET_Y[row] * sy)))
+    bottom = min(height, int(round(SHEET_Y[row + 1] * sy)))
+    if right - left < 8 or bottom - top < 8:
+        return (0, 0, 0, 0)
+    return (left, top, right, bottom)
 
 
 def _luma(r: int, g: int, b: int) -> float:
@@ -137,30 +151,21 @@ def trim_cell(image: Image.Image) -> Image.Image:
 def slice_sheet(path: Path, start_index: int) -> int:
     sheet = Image.open(path).convert("RGBA")
     width, height = sheet.size
-    cell_w = width // GRID
-    cell_h = height // GRID
-    inset_x = max(3, int(round(cell_w * INSET_X_RATIO)))
-    inset_top = max(0, int(round(cell_h * INSET_TOP_RATIO)))
-    inset_bottom = max(8, int(round(cell_h * INSET_BOTTOM_RATIO)))
-    shift_y = int(round(cell_h * SHIFT_Y_RATIO))
     written = 0
     for row in range(GRID):
         for col in range(GRID):
-            left = max(0, col * cell_w + inset_x)
-            top = max(0, row * cell_h + inset_top + shift_y)
-            right = min(width, (col + 1) * cell_w - inset_x)
-            bottom = min(height, (row + 1) * cell_h - inset_bottom + shift_y)
-            if right - left < 8 or bottom - top < 8:
+            box = cell_box(width, height, col, row)
+            if box[2] <= box[0] or box[3] <= box[1]:
                 continue
-            cell = flood_key_from_edges(sheet.crop((left, top, right, bottom)))
+            cell = flood_key_from_edges(sheet.crop(box))
             cell = trim_cell(cell)
             index = start_index + row * GRID + col
             dest = OUT_DIR / f"{index + 1:02d}.png"
             cell.save(dest, "PNG")
             written += 1
     print(
-        f"sliced {path} -> {written} cells from index {start_index} "
-        f"(shift_y={shift_y} inset x={inset_x} top={inset_top} bottom={inset_bottom})"
+        f"sliced {path} {width}x{height} -> {written} cells from index {start_index} "
+        f"(absolute grid vs {SHEET_REF_W}x{SHEET_REF_H})"
     )
     return written
 
@@ -264,7 +269,9 @@ def _mix(a: tuple[int, int, int], b: tuple[int, int, int], t: float) -> tuple[in
 
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    leftover = [p for p in OUT_DIR.glob("*.png") if not p.name[:2].isdigit()]
+    leftover = [
+        p for p in OUT_DIR.glob("*.png") if not p.name[:2].isdigit()
+    ]
     for path in leftover:
         path.unlink()
         print(f"removed leftover {path.name}")
@@ -284,10 +291,17 @@ def main() -> None:
             written += 1
         print("only one sheet found; baked styles 26-50")
     else:
-        print("boxers.png / boxers1.png not in workspace; baking 50 unique cutouts")
-        for index in range(50):
-            bake_style(index).save(OUT_DIR / f"{index + 1:02d}.png", "PNG")
-            written += 1
+        print("bx1.png / bx2.png not in workspace; keeping existing 01-50 or baking")
+        existing = list(OUT_DIR.glob("[0-9][0-9].png"))
+        if len(existing) < 50:
+            for index in range(50):
+                dest = OUT_DIR / f"{index + 1:02d}.png"
+                if dest.is_file():
+                    continue
+                bake_style(index).save(dest, "PNG")
+                written += 1
+        else:
+            written = len(existing)
     print(f"wrote {written} files to {OUT_DIR}")
 
 
