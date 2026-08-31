@@ -22,6 +22,8 @@ SHEET_REF_W = 1536
 SHEET_REF_H = 975
 SHEET_X = (0, 290, 610, 925, 1225, 1536)
 SHEET_Y = (0, 190, 380, 565, 760, 975)
+# Left/right keep SHEET_X. Shrink each cell bottom so it does not eat the next row's top.
+SHEET_INSET_BOTTOM = 22
 KEY_DIST = 0.045
 KEY_GREEN_DIST = 0.085
 SHEET_NAMES = ("bx1.png", "bx2.png", "BX1.png", "BX2.png")
@@ -51,7 +53,11 @@ def cell_box(width: int, height: int, col: int, row: int) -> tuple[int, int, int
     left = max(0, int(round(SHEET_X[col] * sx)))
     right = min(width, int(round(SHEET_X[col + 1] * sx)))
     top = max(0, int(round(SHEET_Y[row] * sy)))
-    bottom = min(height, int(round(SHEET_Y[row + 1] * sy)))
+    raw_bottom = min(height, int(round(SHEET_Y[row + 1] * sy)))
+    inset = 0
+    if row < GRID - 1:
+        inset = max(1, int(round(SHEET_INSET_BOTTOM * sy)))
+    bottom = max(top + 1, raw_bottom - inset)
     if right - left < 8 or bottom - top < 8:
         return (0, 0, 0, 0)
     return (left, top, right, bottom)

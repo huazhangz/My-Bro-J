@@ -230,6 +230,7 @@ const SHICHEN_RANGES: PackedStringArray = [
 const MOVIE_WINDOW_SIZE: Vector2i = Vector2i(720, 480)
 const MOVIE_WINDOW_MIN: Vector2i = Vector2i(420, 280)
 const MOVIE_RESIZE_EDGE: int = 10
+const MOVIE_WEB_ASPECT: float = 16.0 / 9.0
 const MOVIE_VOLUME_DEFAULT: float = 0.8
 const MOVIE_SPEEDS: PackedFloat32Array = [0.75, 1.0, 1.5, 2.0]
 const MOVIE_CACHE_DIR: String = "user://movies"
@@ -297,6 +298,8 @@ const UNDERWEAR_SHEET_REF_H: int = 975
 ## 必须用字面量。PackedInt32Array(...) 构造不是常量表达式。
 const UNDERWEAR_SHEET_X: PackedInt32Array = [0, 290, 610, 925, 1225, 1536]
 const UNDERWEAR_SHEET_Y: PackedInt32Array = [0, 190, 380, 565, 760, 975]
+## 左右边距保持 X 表。只从每格底边内收，避免裁进下一行内裤的顶边。
+const UNDERWEAR_SHEET_INSET_BOTTOM: int = 22
 ## 内裤 flood-fill 抠底阈值。略收，减轻把浅色布料抠穿。
 const UNDERWEAR_KEY_DIST: float = 0.045
 const UNDERWEAR_KEY_GREEN_DIST: float = 0.085
@@ -1352,7 +1355,11 @@ func underwear_cell_rect(sheet_w: int, sheet_h: int, col: int, row: int) -> Rect
 	var left: int = clampi(int(round(float(UNDERWEAR_SHEET_X[col]) * sx)), 0, sheet_w - 1)
 	var right: int = clampi(int(round(float(UNDERWEAR_SHEET_X[col + 1]) * sx)), left + 1, sheet_w)
 	var top: int = clampi(int(round(float(UNDERWEAR_SHEET_Y[row]) * sy)), 0, sheet_h - 1)
-	var bottom: int = clampi(int(round(float(UNDERWEAR_SHEET_Y[row + 1]) * sy)), top + 1, sheet_h)
+	var raw_bottom: int = clampi(int(round(float(UNDERWEAR_SHEET_Y[row + 1]) * sy)), top + 1, sheet_h)
+	var inset: int = 0
+	if row < UNDERWEAR_SHEET_ROWS - 1:
+		inset = maxi(1, int(round(float(UNDERWEAR_SHEET_INSET_BOTTOM) * sy)))
+	var bottom: int = clampi(raw_bottom - inset, top + 1, sheet_h)
 	return Rect2i(left, top, right - left, bottom - top)
 
 

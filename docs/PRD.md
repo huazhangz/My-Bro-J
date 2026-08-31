@@ -88,6 +88,8 @@
 | `UNDERWEAR_SHEET_COLUMNS/ROWS` | 5 × 5 |
 | `UNDERWEAR_SHEET_X` | 0 / 290 / 610 / 925 / 1225 / 1536 |
 | `UNDERWEAR_SHEET_Y` | 0 / 190 / 380 / 565 / 760 / 975 |
+| `UNDERWEAR_SHEET_INSET_BOTTOM` | 22（参考像素；只收底边，避免裁进下一行顶边） |
+| `MOVIE_WEB_ASPECT` | 16 / 9（网页片源信箱） |
 | `UNDERWEAR_KEY_DIST` / `GREEN` | 0.045 / 0.085（仅内裤 flood-fill） |
 | `RECHARGE_DEMO_TEXT` | 充值功能演示中，待重做。 |
 
@@ -117,7 +119,7 @@
 ### 3.3 内裤贴图
 
 - 本机 `bx1.png`、`bx2.png`（各 25 格，5×5）优先放 `assets/images/`（用户路径 `C:\Users\ASUS\My-Bro-J\assets\images\`）。
-- 切格按绝对像素表，参考分辨率 1536×975：列 0–290 / 290–610 / 610–925 / 925–1225 / 1225–1536；行 0–190 / 190–380 / 380–565 / 565–760 / 760–975。实际表按宽高缩放。
+- 切格按绝对像素表，参考分辨率 1536×975：列 0–290 / 290–610 / 610–925 / 925–1225 / 1225–1536；行 0–190 / 190–380 / 380–565 / 565–760 / 760–975。实际表按宽高缩放。左右用 X 表不改。每格底边再内收 `UNDERWEAR_SHEET_INSET_BOTTOM`（末行除外），避免裁进下一行内裤的顶边。
 - 抠底只从边角 flood-fill（`UNDERWEAR_KEY_DIST=0.045`），**不**套用 Steve 立绘全局色度键。
 - 写入 `user://underwear/`，能写仓库时同时覆盖 `res://assets/images/underwear/%02d.png`。
 - 仓库已提交 50 张切图；本机表优先覆盖。原表与切图分开放。
@@ -165,7 +167,8 @@
 - 运势：强制公历年/月/日/时辰，禁止口头改期
 - 电影：点「哥请你看个电影吧」直接加载内置 Kepler Supernova Simulation（Archive Theora）。关菜单未开播则取消。顶栏「这部好无聊呀哥哥~」为粉色，点击展开网址输入框（不再随机换片）。弹窗 chrome（顶栏、拖边、关闭、粉按钮、音量/静音）保持不变。
   - **直链模式**：`.ogv` / `.ogg` 走 `VideoStreamPlayer`（Theora）。
-  - **网页模式**：爱一帆 / iyf.tv 及其它站点链接切到内嵌 Edge/Chrome（Windows `SetParent`）。10 秒内嵌失败则显示「用系统浏览器打开」（`OS.shell_open`）。非 Windows 直接走该回退。
+  - **网页模式**：爱一帆 / iyf.tv 及其它站点链接切到内嵌 Edge/Chrome（Windows `SetParent`）。客户区按 16:9 信箱，黑边铺在 MovieStage 里，避免网页被拉扁。10 秒内嵌失败则显示「用系统浏览器打开」（`OS.shell_open`）。非 Windows 直接走该回退。
+  - 看电影时 Steve 主动画置顶在影片上方（独立透明窗），可单独拖动；右键不打开菜单。关闭电影后立绘回到主窗。
 - 头顶气泡：按文案尺寸布局并挂 YuanRou；空摘录不显示，避免灰框无字。
 
 ### 充值
@@ -251,6 +254,7 @@ Steve (Control, theme = steve_theme)
 - [x] 聊聊天滚底、电影进度随加载、库存品质底色 / 1.5× 贴图、烘干 15% 降品
 - [x] 内裤绝对切格（bx1/bx2）、电影 Kepler + 网址框、头顶空气泡修复、充值改 demo
 - [x] 电影双模式：Theora 直链 + Windows 内嵌网页播放；10 秒回退系统浏览器
+- [x] 网页 16:9 信箱；看电影 Steve 置顶可拖、右键不开菜单；内裤底边内收防串行
 - [x] 存档 `save_data.json`
 - [ ] 离线烘干补算
 - [ ] Windows 导出与打包
@@ -264,6 +268,7 @@ Steve (Control, theme = steve_theme)
 1. Godot 4 只播 Ogg Theora。电影「边下边播」依赖播放器读取仍在增长的缓存文件；下完后会重开 stream 以刷新时长，下载中用字节比估算进度条上限。
 2. `bx1.png` / `bx2.png` 若未放进 `assets/images/` 或本机目录，使用仓库内已提交的 50 张切图。绝对切格 + 边角 flood-fill，不改 Steve 全局抠像。
 3. 70KB 级 `steve.ogv` 占位片一律拒绝。需要本机 `steve3.mp4` + FFmpeg。
-4. 看电影内置只留 Kepler Supernova Simulation。`.ogv` 直链走 `VideoStreamPlayer`。爱一帆等网页站在 Windows 上内嵌 Edge/Chrome；失败或非 Windows 显示「用系统浏览器打开」。Godot 4 仍不能原生播 HLS/MP4。
-5. 聊聊天 / 运势无 `STEVE_CHAT_API_URL` 时走本地占位回复。
-6. 充值仅 demo 提示，待重做。
+4. 看电影内置只留 Kepler。`.ogv` 直链走 `VideoStreamPlayer`。网页站 16:9 信箱内嵌；Windows 失败则「用系统浏览器打开」。看电影时 Steve 置顶可拖，右键不开菜单。
+5. 内裤切格左右用 `UNDERWEAR_SHEET_X`；底边内收 22 参考像素，避免（列,行）裁进下一行顶边。本机有 bx1/bx2 时 F5 会重切。
+6. 聊聊天 / 运势无 `STEVE_CHAT_API_URL` 时走本地占位回复。
+7. 充值仅 demo 提示，待重做。

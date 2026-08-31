@@ -173,6 +173,9 @@ var _web_embed: WebMovieEmbed
 var _movie_web_mode: bool = false
 var _movie_last_url: String = ""
 var _movie_web_wait: float = 0.0
+var _movie_pet_window: Window
+var _movie_pet_dragging: bool = false
+var _movie_pet_drag_offset: Vector2i = Vector2i.ZERO
 var _chat_scroll_token: int = 0
 var _dryer_hint_bubble: PanelContainer
 var _dryer_hint_label: Label
@@ -637,7 +640,6 @@ func _gui_input(event: InputEvent) -> void:
 				accept_event()
 				return
 			if _movie_open():
-				_close_movie()
 				accept_event()
 				return
 			if _is_pointer_on_pet(mb.position):
@@ -756,10 +758,14 @@ func _process_drag_input(event: InputEvent) -> void:
 		else:
 			_dragging = false
 			_movie_resizing = false
+			_movie_pet_dragging = false
 		return
 	if event is InputEventMouseMotion:
 		if _movie_resizing:
 			_apply_movie_resize()
+			return
+		if _movie_pet_dragging:
+			_apply_movie_pet_drag()
 			return
 		if _dragging:
 			if not _can_move_window():
@@ -769,9 +775,10 @@ func _process_drag_input(event: InputEvent) -> void:
 			DisplayServer.window_set_position(_clamp_to_screen(target))
 
 
-func _clamp_to_screen(pos: Vector2i) -> Vector2i:
+func _clamp_to_screen(pos: Vector2i, window_size: Vector2i = Vector2i.ZERO) -> Vector2i:
 	var usable: Rect2i = DisplayServer.screen_get_usable_rect()
-	var window_size: Vector2i = DisplayServer.window_get_size()
+	if window_size == Vector2i.ZERO:
+		window_size = DisplayServer.window_get_size()
 	var min_x: int = usable.position.x - window_size.x + SCREEN_MARGIN
 	var max_x: int = usable.position.x + usable.size.x - SCREEN_MARGIN
 	var min_y: int = usable.position.y - window_size.y + SCREEN_MARGIN
@@ -2539,6 +2546,8 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 		GameData.save_game()
 		get_tree().quit()
+	elif what == NOTIFICATION_WM_WINDOW_FOCUS_IN and _movie_open():
+		_raise_movie_pet_overlay()
 
 
 func _resume_saved_dry_timers() -> void:
@@ -3152,6 +3161,7 @@ func _hide_fortune_and_movie() -> void:
 			_movie_client.cancel_fetch()
 		_stop_movie_player()
 		_stop_web_movie()
+		_hide_movie_pet_overlay()
 		_movie_last_url = ""
 		_movie_popup.visible = false
 		_movie_maximized = false
@@ -3512,6 +3522,12 @@ func _setup_movie_ui() -> void:
 	_movie_stage.custom_minimum_size = Vector2(320.0, 180.0)
 	_movie_stage.clip_contents = true
 	body.add_child(_movie_stage)
+	var letterbox: ColorRect = ColorRect.new()
+	letterbox.name = "MovieLetterbox"
+	letterbox.color = Color(0.02, 0.02, 0.04, 1.0)
+	letterbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	letterbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_movie_stage.add_child(letterbox)
 	_movie_player = VideoStreamPlayer.new()
 	_movie_player.name = "MoviePlayer"
 	_movie_player.expand = true
@@ -3733,11 +3749,11 @@ func _start_builtin_movie() -> void:
 	if is_instance_valid(_fortune_popup):
 		_fortune_popup.visible = false
 	_inventory_kind = ""
-	_set_pet_layer_visible(false)
 	_movie_maximized = false
 	_expand_overlay_window(GameData.MOVIE_WINDOW_SIZE)
 	if is_instance_valid(_movie_popup):
 		_movie_popup.visible = true
+	_show_movie_pet_overlay()
 	_hide_movie_url_row()
 	_movie_last_url = ""
 	_stop_web_movie()
@@ -3797,10 +3813,10 @@ func _on_movie_ready(path: String, title: String) -> void:
 		if is_instance_valid(_fortune_popup):
 			_fortune_popup.visible = false
 		_inventory_kind = ""
-		_set_pet_layer_visible(false)
 		_movie_maximized = false
 		_expand_overlay_window(GameData.MOVIE_WINDOW_SIZE)
 		_movie_popup.visible = true
+	_show_movie_pet_overlay()
 	if is_instance_valid(_movie_title):
 		_movie_title.text = title
 	_play_movie_file(path)
@@ -3896,6 +3912,7 @@ func _start_web_movie(url: String) -> void:
 	if is_instance_valid(_movie_title):
 		_movie_title.text = GameData.movie_web_title(_movie_last_url)
 	_set_movie_transport_enabled(false)
+	_show_movie_pet_overlay()
 	if not is_instance_valid(_web_embed):
 		_show_web_movie_fallback()
 		return
@@ -3952,9 +3969,21 @@ func _web_embed_rect() -> Rect2i:
 	if not is_instance_valid(_movie_stage):
 		return Rect2i(0, 0, 64, 64)
 	var area: Rect2 = _movie_stage.get_global_rect()
+	var avail: Vector2 = area.size
+	var aspect: float = GameData.MOVIE_WEB_ASPECT
+	var fit: Vector2 = avail
+	if avail.y <= 1.0 or avail.x / avail.y > aspect:
+		fit.y = avail.y
+		fit.x = avail.y * aspect
+	else:
+		fit.x = avail.x
+		fit.y = avail.x / aspect
+	fit.x = maxf(fit.x, 64.0)
+	fit.y = maxf(fit.y, 64.0)
+	var origin: Vector2 = area.position + (avail - fit) * 0.5
 	return Rect2i(
-		Vector2i(int(round(area.position.x)), int(round(area.position.y))),
-		Vector2i(maxi(int(round(area.size.x)), 64), maxi(int(round(area.size.y)), 64))
+		Vector2i(int(round(origin.x)), int(round(origin.y))),
+		Vector2i(int(round(fit.x)), int(round(fit.y)))
 	)
 
 
@@ -4014,6 +4043,149 @@ func _open_movie_in_system_browser() -> void:
 	OS.shell_open(url)
 
 
+func _show_movie_pet_overlay() -> void:
+	if _state == State.RUNAWAY:
+		return
+	_hide_speech_bubble()
+	_set_hover_hud_visible(false, false)
+	if _is_embedded_in_editor():
+		if is_instance_valid(_pet_visual):
+			_pet_visual.visible = true
+			_pet_visual.z_index = 80
+		_set_video_playing(true)
+		return
+	_ensure_movie_pet_window()
+	if not is_instance_valid(_movie_pet_window) or not is_instance_valid(_pet_visual):
+		_set_pet_layer_visible(true)
+		return
+	var pet_size: Vector2i = GameData.pet_window_size()
+	var host_pos: Vector2i = DisplayServer.window_get_position()
+	var host_size: Vector2i = DisplayServer.window_get_size()
+	var pos: Vector2i = host_pos + Vector2i(
+		maxi((host_size.x - pet_size.x) / 2, 0),
+		maxi(host_size.y - pet_size.y - 12, 0)
+	)
+	if _pet_visual.get_parent() != _movie_pet_window:
+		_pet_visual.reparent(_movie_pet_window, false)
+	_pet_visual.visible = true
+	_pet_visual.z_index = 0
+	_pet_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pet_visual.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_sync_pet_visual_rects()
+	_set_video_playing(true)
+	_movie_pet_window.size = pet_size
+	_movie_pet_window.visible = true
+	var win_id: int = _movie_pet_window.get_window_id()
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true, win_id)
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_RESIZE_DISABLED, true, win_id)
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_TRANSPARENT, true, win_id)
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, true, win_id)
+	DisplayServer.window_set_size(pet_size, win_id)
+	DisplayServer.window_set_position(_clamp_to_screen(pos, pet_size), win_id)
+	_apply_movie_pet_passthrough()
+	_raise_movie_pet_overlay()
+
+
+func _hide_movie_pet_overlay() -> void:
+	_movie_pet_dragging = false
+	if is_instance_valid(_pet_visual):
+		_pet_visual.z_index = 0
+		_pet_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if _pet_visual.get_parent() != self:
+			_pet_visual.reparent(self, false)
+			move_child(_pet_visual, 0)
+		_pet_visual.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_sync_pet_visual_rects()
+	if is_instance_valid(_movie_pet_window):
+		_movie_pet_window.visible = false
+
+
+func _ensure_movie_pet_window() -> void:
+	if is_instance_valid(_movie_pet_window):
+		return
+	var win: Window = Window.new()
+	win.name = "MoviePetWindow"
+	win.transparent = true
+	win.unresizable = true
+	win.borderless = true
+	win.always_on_top = true
+	win.transient = true
+	win.exclusive = false
+	win.unfocusable = false
+	win.popup_window = false
+	win.visible = false
+	win.mouse_passthrough = true
+	add_child(win)
+	win.close_requested.connect(func() -> void:
+		if is_instance_valid(_movie_pet_window):
+			_movie_pet_window.visible = true
+	)
+	win.window_input.connect(func(event: InputEvent) -> void:
+		_on_movie_pet_window_input(event)
+	)
+	_movie_pet_window = win
+
+
+func _apply_movie_pet_passthrough() -> void:
+	if not is_instance_valid(_movie_pet_window):
+		return
+	var hit: Rect2 = _pet_hit_rect()
+	if hit.size.x < 8.0 or hit.size.y < 8.0:
+		var area: Rect2 = _layout_area
+		hit = area if area.size.x > 8.0 else Rect2(Vector2.ZERO, Vector2(_movie_pet_window.size))
+	_movie_pet_window.mouse_passthrough_polygon = PackedVector2Array([
+		hit.position,
+		hit.position + Vector2(hit.size.x, 0.0),
+		hit.position + hit.size,
+		hit.position + Vector2(0.0, hit.size.y),
+	])
+
+
+func _raise_movie_pet_overlay() -> void:
+	if not is_instance_valid(_movie_pet_window) or not _movie_pet_window.visible:
+		return
+	var win_id: int = _movie_pet_window.get_window_id()
+	if win_id < 0:
+		return
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, true, win_id)
+
+
+func _on_movie_pet_window_input(event: InputEvent) -> void:
+	if not _movie_open() or not is_instance_valid(_movie_pet_window):
+		return
+	if event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event
+		if mb.button_index == MOUSE_BUTTON_RIGHT:
+			return
+		if mb.button_index != DRAG_BUTTON:
+			return
+		if mb.pressed:
+			if not _can_move_window():
+				return
+			_movie_pet_dragging = true
+			var win_id: int = _movie_pet_window.get_window_id()
+			_movie_pet_drag_offset = (
+				DisplayServer.mouse_get_position() - DisplayServer.window_get_position(win_id)
+			)
+		else:
+			_movie_pet_dragging = false
+		return
+	if event is InputEventMouseMotion and _movie_pet_dragging:
+		_apply_movie_pet_drag()
+
+
+func _apply_movie_pet_drag() -> void:
+	if not _movie_pet_dragging or not is_instance_valid(_movie_pet_window):
+		return
+	if not _can_move_window():
+		_movie_pet_dragging = false
+		return
+	var win_id: int = _movie_pet_window.get_window_id()
+	var pet_size: Vector2i = DisplayServer.window_get_size(win_id)
+	var target: Vector2i = DisplayServer.mouse_get_position() - _movie_pet_drag_offset
+	DisplayServer.window_set_position(_clamp_to_screen(target, pet_size), win_id)
+
+
 func _play_movie_file(path: String) -> void:
 	if not is_instance_valid(_movie_player):
 		return
@@ -4058,6 +4230,7 @@ func _stop_movie_player() -> void:
 func _close_movie() -> void:
 	_stop_web_movie()
 	_stop_movie_player()
+	_hide_movie_pet_overlay()
 	_movie_last_url = ""
 	_movie_maximized = false
 	if _movie_client != null and _movie_client.has_method("cancel_fetch"):

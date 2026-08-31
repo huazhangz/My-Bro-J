@@ -145,6 +145,8 @@ $argList = @(
 	"--window-position=0,0",
 	"--disable-features=TranslateUI,MediaRouter",
 	"--autoplay-policy=no-user-gesture-required",
+	"--force-device-scale-factor=1",
+	"--high-dpi-support=1",
 	"--no-first-run",
 	"--no-default-browser-check"
 )
