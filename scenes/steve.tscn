@@ -330,7 +330,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
 theme_type_variation = &"RiskButton"
-text = "能不能给我洗快点"
+text = "💦 能不能给我洗快点"
 autowrap_mode = 3
 
 [node name="ChatButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
@@ -338,14 +338,14 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
 theme_type_variation = &"EquipButton"
-text = "聊聊天"
+text = "💬 聊聊天"
 
 [node name="FortuneButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
 theme_type_variation = &"CodexButton"
-text = "哥来帮你算算运势~"
+text = "🔮 哥来帮你算算运势~"
 autowrap_mode = 3
 
 [node name="MovieButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
@@ -353,7 +353,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
 theme_type_variation = &"CodexButton"
-text = "哥请你看个电影吧"
+text = "🎬 哥请你看个电影吧"
 autowrap_mode = 3
 
 [node name="DinnerButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
@@ -361,14 +361,14 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
 theme_type_variation = &"PinkButton"
-text = "约个饭"
+text = "🍜 约个饭"
 
 [node name="RechargeButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
 theme_type_variation = &"CoinButton"
-text = "充值"
+text = "💎 充值"
 
 [node name="MenuFooter" type="HBoxContainer" parent="ExitPopup/MenuScroll/ExitInner"]
 layout_mode = 2
@@ -380,7 +380,7 @@ custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"EquipButton"
-text = "设置"
+text = "⚙️ 设置"
 
 [node name="QuitAppButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner/MenuFooter"]
 unique_name_in_owner = true
@@ -388,7 +388,7 @@ custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"CloseButton"
-text = "晚点再洗"
+text = "🚪 晚点再洗"
 
 [node name="SettingsPanel" type="VBoxContainer" parent="ExitPopup/MenuScroll/ExitInner"]
 unique_name_in_owner = true
@@ -555,11 +555,11 @@ vertical_alignment = 1
 [node name="DryerHintButton" type="Button" parent="InventoryPopup/InventoryBody/InventoryHeader"]
 unique_name_in_owner = true
 visible = false
-custom_minimum_size = Vector2(28, 28)
+custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 size_flags_vertical = 4
+mouse_filter = 0
 text = "?"
-tooltip_text = "烘干机可能会把内裤烤坏的，烤坏的内裤也能穿，只是品质降低了"
 focus_mode = 0
 
 [node name="HeaderSpacer" type="Control" parent="InventoryPopup/InventoryBody/InventoryHeader"]

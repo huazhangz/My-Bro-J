@@ -158,14 +158,16 @@ const RUNAWAY_BANNER_TEXT: String = "已跑路..."
 const RUNAWAY_BANNER_WIDTH_RATIO: float = 0.72
 const RUNAWAY_BANNER_HEIGHT: float = 30.0
 const RUNAWAY_BANNER_TOP_INSET: float = 8.0
-const PRESSURE_BUTTON_TEXT: String = "能不能给我洗快点"
+const PRESSURE_BUTTON_TEXT: String = "💦 能不能给我洗快点"
 const PRESSURE_COOLDOWN_SUFFIX: String = "后再压力他"
-const MOVIE_BUTTON_TEXT: String = "哥请你看个电影吧"
+const MOVIE_BUTTON_TEXT: String = "🎬 哥请你看个电影吧"
 const MOVIE_LOADING_TEXT: String = "给你包场呢妈妈，耐心等等我"
-const DINNER_BUTTON_TEXT: String = "约个饭"
-const CHAT_BUTTON_TEXT: String = "聊聊天"
-const FORTUNE_BUTTON_TEXT: String = "哥来帮你算算运势~"
-const RECHARGE_BUTTON_TEXT: String = "充值"
+const DINNER_BUTTON_TEXT: String = "🍜 约个饭"
+const CHAT_BUTTON_TEXT: String = "💬 聊聊天"
+const FORTUNE_BUTTON_TEXT: String = "🔮 哥来帮你算算运势~"
+const RECHARGE_BUTTON_TEXT: String = "💎 充值"
+const SETTINGS_BUTTON_TEXT: String = "⚙️ 设置"
+const QUIT_BUTTON_TEXT: String = "🚪 晚点再洗"
 const TAP_SPEEDUP_SECONDS: float = 5.0
 const TAP_SPEEDUP_COOLDOWN: float = 1.0
 ## 蒸馏自 sun-yuchen-perspective / sun-skill：孙哥口吻，不上整本 SKILL。
@@ -244,8 +246,21 @@ const MOVIE_RESTORE_TEXT: String = "还原"
 const MOVIE_SKIP_TEXT: String = "这部好无聊呀哥哥~"
 const MOVIE_DURATION_RELOAD_SECONDS: float = 2.5
 const MOVIE_LOG_PREFIX: String = "[Steve/Movie] "
+const MOVIE_PICK_TITLE: String = "想看哪一类"
+const MOVIE_PICK_HINT: String = "只播 2009 年后美国 / 中国大陆、可公开抓取的非限制级 Theora。爱一帆等聚合站来路不明、也不是 .ogv，接不了。"
+const MOVIE_CN_EMPTY_TEXT: String = "中国大陆公开可播的 Theora 太少，这块片库还没 All in。哥不接爱一帆那种链。"
+const MOVIE_EMPTY_GENRE_TEXT: String = "这类片库还是空的，换一类吧。"
+const MOVIE_GENRE_ALL: String = "all"
+const MOVIE_PICK_WINDOW_SIZE: Vector2i = Vector2i(520, 360)
 ## 2009 年后、制片方限定美国 / 中国大陆、可公开抓取的非限制级 Theora。
 ## 不含商业院线版权片（Godot 4 只能播 .ogv，且不能去盗链好莱坞 / 内地院线片）。
+const MOVIE_GENRES: Array = [
+	{"id": "all", "label": "🎲 随便看看"},
+	{"id": "scifi", "label": "🚀 科幻"},
+	{"id": "doc", "label": "🎥 纪录片"},
+	{"id": "short", "label": "⏱️ 短片"},
+	{"id": "cn", "label": "🇨🇳 中国大陆"},
+]
 const MOVIE_CATALOG: Array = [
 	{
 		"id": "pioneer_one_s01e01",
@@ -254,6 +269,7 @@ const MOVIE_CATALOG: Array = [
 		"rating": "PG",
 		"year": 2010,
 		"region": "US",
+		"tags": "scifi",
 		"archive_id": "PioneerOneS01E01720pHD",
 		"file": "Content/Pioneer.One.S01E01.REFIX.720p.x264-VODO.ogv",
 		"bytes": 78002295,
@@ -265,9 +281,106 @@ const MOVIE_CATALOG: Array = [
 		"rating": "G",
 		"year": 2015,
 		"region": "US",
+		"tags": "doc",
 		"archive_id": "SilentHallOfFameDocumentary",
 		"file": "Silent-Hall-of-Fame-documentary.ogv",
 		"bytes": 116630287,
+	},
+	{
+		"id": "everything_is_a_remix_1",
+		"title": "Everything is a Remix Part 1",
+		"license": "CC BY-SA",
+		"rating": "G",
+		"year": 2010,
+		"region": "US",
+		"tags": "doc,short",
+		"archive_id": "EverythingIsARemix1",
+		"file": "everything_is_a_remix_1.ogv",
+		"bytes": 34385809,
+	},
+	{
+		"id": "everything_is_a_remix_2",
+		"title": "Everything is a Remix Part 2",
+		"license": "CC BY-SA",
+		"rating": "G",
+		"year": 2011,
+		"region": "US",
+		"tags": "doc,short",
+		"archive_id": "EverythingIsARemix2",
+		"file": "everything_is_a_remix_2.ogv",
+		"bytes": 45850181,
+	},
+	{
+		"id": "everything_is_a_remix_3",
+		"title": "Everything is a Remix Part 3",
+		"license": "CC BY-SA",
+		"rating": "G",
+		"year": 2011,
+		"region": "US",
+		"tags": "doc,short",
+		"archive_id": "EverythingIsARemix3",
+		"file": "everything_is_a_remix_3.ogv",
+		"bytes": 53271964,
+	},
+	{
+		"id": "everything_is_a_remix_4",
+		"title": "Everything is a Remix Part 4",
+		"license": "CC BY-SA",
+		"rating": "G",
+		"year": 2012,
+		"region": "US",
+		"tags": "doc,short",
+		"archive_id": "EverythingIsARemix4",
+		"file": "everything_is_a_remix_4.ogv",
+		"bytes": 72232044,
+	},
+	{
+		"id": "nasa_kepler_supernova",
+		"title": "Kepler Supernova Simulation",
+		"license": "US-Gov PD",
+		"rating": "G",
+		"year": 2013,
+		"region": "US",
+		"tags": "doc,short",
+		"archive_id": "SimulationOfKeplerSupernovaExplosion",
+		"file": "Simulation of Kepler Supernova Explosion.ogv",
+		"bytes": 850735,
+	},
+	{
+		"id": "nasa_cme_2012",
+		"title": "Aug 31 2012 Coronal Mass Ejection",
+		"license": "US-Gov PD",
+		"rating": "G",
+		"year": 2013,
+		"region": "US",
+		"tags": "doc,short",
+		"archive_id": "Aug.312012CoronalMassEjection",
+		"file": "Aug. 31, 2012 Coronal Mass Ejection.ogv",
+		"bytes": 1246659,
+	},
+	{
+		"id": "story_of_bottled_water",
+		"title": "The Story of Bottled Water",
+		"license": "CC / Community Media",
+		"rating": "G",
+		"year": 2010,
+		"region": "US",
+		"tags": "doc,short",
+		"archive_id": "Story_of_Bottled_Water",
+		"file": "Story_of_Bottled_Water.ogv",
+		"bytes": 36528908,
+	},
+	{
+		"id": "nasa_mars_sunset",
+		"title": "Sunset on Mars",
+		"license": "US-Gov PD",
+		"rating": "G",
+		"year": 2015,
+		"region": "US",
+		"tags": "doc,short,scifi",
+		"archive_id": "MarsSunset",
+		"file": "MarsSunset.ogv",
+		"bytes": 132908,
 	},
 ]
 const UNDERWEAR_EMOJI: String = "🩲"
@@ -276,18 +389,27 @@ const UNDERWEAR_SHEET_COLUMNS: int = 5
 const UNDERWEAR_SHEET_ROWS: int = 5
 const UNDERWEAR_SHEET_CELLS: int = 25
 const UNDERWEAR_ART_SIZE: int = 128
-## 切格内缩，避免把下一行内裤腰边切进来。只作用于内裤表，不改 Steve 抠像。
-const UNDERWEAR_CELL_INSET_X_RATIO: float = 1.0 / 12.0
-const UNDERWEAR_CELL_INSET_TOP_RATIO: float = 1.0 / 16.0
-const UNDERWEAR_CELL_INSET_BOTTOM_RATIO: float = 1.0 / 8.0
+## 切格整体上移：表里的内裤偏上，均分格子会切到下一行腰边、裁掉本格顶部。
+## 只作用于内裤表，不改 Steve 抠像。
+const UNDERWEAR_CELL_SHIFT_Y_RATIO: float = -0.20
+const UNDERWEAR_CELL_INSET_X_RATIO: float = 1.0 / 14.0
+const UNDERWEAR_CELL_INSET_TOP_RATIO: float = 0.0
+const UNDERWEAR_CELL_INSET_BOTTOM_RATIO: float = 0.30
+## 内裤 flood-fill 抠底阈值。继续收紧，避免把浅色布料抠穿。
+const UNDERWEAR_KEY_DIST: float = 0.055
+const UNDERWEAR_KEY_GREEN_DIST: float = 0.10
 const UNDERWEAR_RES_DIR: String = "res://assets/images/underwear"
 const UNDERWEAR_USER_DIR: String = "user://underwear"
 const USER_BOXERS_SHEET_A: PackedStringArray = [
+	"assets/images/underwear/sheets/boxers.png",
+	"assets/images/underwear/boxers.png",
 	"boxers.png",
 	"Boxers.png",
 	"BOXERS.png",
 ]
 const USER_BOXERS_SHEET_B: PackedStringArray = [
+	"assets/images/underwear/sheets/boxers1.png",
+	"assets/images/underwear/boxers1.png",
 	"boxers1.png",
 	"Boxers1.png",
 	"BOXERS1.png",
@@ -318,13 +440,15 @@ const DRAWER_HEADLINE_COLOR: Color = Color(0.85, 0.65, 0.16, 0.94)
 const INVENTORY_HEADLINE_HEIGHT: float = 36.0
 const INVENTORY_HEADLINE_PAD_X: float = 14.0
 const INVENTORY_CLOSE_BUTTON_WIDTH: float = 72.0
-const DRYER_HINT_SIZE: float = 28.0
+const DRYER_HINT_SIZE: float = 32.0
 const DRYER_HINT_TEXT: String = "烘干机可能会把内裤烤坏的，烤坏的内裤也能穿，只是品质降低了"
 const USER_ASSET_DIRS: PackedStringArray = [
 	USER_PROJECT_DIR,
 	USER_PROJECT_DIR_WSL,
 	"res://",
 	"res://assets/images",
+	"res://assets/images/underwear",
+	"res://assets/images/underwear/sheets",
 	"res://assets/fonts",
 	"res://assets/videos",
 	USER_DESKTOP_DIR,
@@ -445,6 +569,30 @@ const COIN_REWARD: Dictionary = {
 	Quality.LUXURY: 16,
 	Quality.MARTIAN: 32,
 }
+
+## 充值架构已装配，通道未接通。业务脚本不得在客户端直接加币。
+const RECHARGE_ENABLED: bool = false
+const RECHARGE_TITLE_TEXT: String = "充值"
+const RECHARGE_STATUS_TEXT: String = "支付通道尚未接通。架构已留好，下单与验单都走服务端。"
+const RECHARGE_WINDOW_SIZE: Vector2i = Vector2i(520, 620)
+const RECHARGE_REGION_US: String = "US"
+const RECHARGE_REGION_CN: String = "CN"
+const RECHARGE_REGIONS: Array = [
+	{"id": "US", "label": "美国"},
+	{"id": "CN", "label": "中国大陆"},
+]
+const RECHARGE_SKUS: Array = [
+	{"id": "coin_60", "coins": 60, "usd": "0.99", "cny": "6"},
+	{"id": "coin_300", "coins": 300, "usd": "4.99", "cny": "30"},
+	{"id": "coin_680", "coins": 680, "usd": "9.99", "cny": "68"},
+]
+const RECHARGE_NOTES: String = """技术和安全（通道未实现，只作约束）：
+
+美国：优先 Stripe Checkout 或后续 Steam IAP。卡号不得进桌宠客户端，PCI 范围留在支付商。Webhook 验签后才加币。沙盒与正式密钥隔离，存在服务端环境变量，不进仓库。
+
+中国大陆：微信 / 支付宝经持牌聚合。客户端只拿预下单参数，不收银行卡。加币必须服务端验单。注意 ICP、支付备案与 PIPL。人民币标价与到账以服务端为准。
+
+两边通用：只走 HTTPS；收据/回调在服务端验；客户端上报不可信；订单号幂等；日志打码；不把密钥写进 GDScript。"""
 
 # --- 信号 -----------------------------------------------------------------
 
@@ -1197,21 +1345,50 @@ func fortune_offline_reply() -> String:
 	]
 
 
-func shuffled_movie_catalog(exclude_id: String = "") -> Array:
-	var copy: Array = MOVIE_CATALOG.duplicate(true)
-	if not exclude_id.is_empty() and copy.size() > 1:
-		var filtered: Array = []
-		for entry: Variant in copy:
-			if String((entry as Dictionary).get("id", "")) == exclude_id:
-				continue
-			filtered.append(entry)
-		if not filtered.is_empty():
-			copy = filtered
+func shuffled_movie_catalog(exclude_id: String = "", genre: String = "") -> Array:
+	var wanted: String = genre.strip_edges()
+	if wanted.is_empty():
+		wanted = MOVIE_GENRE_ALL
+	var copy: Array = []
+	for entry: Variant in MOVIE_CATALOG:
+		var item: Dictionary = entry as Dictionary
+		if not movie_entry_matches_genre(item, wanted):
+			continue
+		if not exclude_id.is_empty() and String(item.get("id", "")) == exclude_id:
+			continue
+		copy.append(item)
+	if copy.is_empty() and wanted != MOVIE_GENRE_ALL:
+		for entry: Variant in MOVIE_CATALOG:
+			var item: Dictionary = entry as Dictionary
+			if movie_entry_matches_genre(item, wanted):
+				copy.append(item)
+		if copy.is_empty():
+			return copy
 	copy.shuffle()
 	copy.sort_custom(func(a: Variant, b: Variant) -> bool:
 		return int((a as Dictionary).get("bytes", MOVIE_MAX_BYTES)) < int((b as Dictionary).get("bytes", MOVIE_MAX_BYTES))
 	)
 	return copy
+
+
+func movie_entry_matches_genre(entry: Dictionary, genre: String) -> bool:
+	var wanted: String = genre.strip_edges()
+	if wanted.is_empty() or wanted == MOVIE_GENRE_ALL:
+		return true
+	if wanted == "cn":
+		return String(entry.get("region", "")).to_upper() == "CN"
+	var tags: PackedStringArray = String(entry.get("tags", "")).split(",", false)
+	for tag: String in tags:
+		if tag.strip_edges() == wanted:
+			return true
+	return false
+
+
+func movie_genre_label(genre: String) -> String:
+	for entry: Dictionary in MOVIE_GENRES:
+		if String(entry.get("id", "")) == genre:
+			return String(entry.get("label", genre))
+	return "🎲 随便看看"
 
 
 func movie_id_from_path(path: String) -> String:

@@ -29,13 +29,14 @@
 | 5 | 烘干机 / 抽屉库存（4 列，品质底色，标题 xx条内裤） | ✅ |
 | 6 | 压力催洗 + 15.5% 跑路 + 冷却读秒 | ✅ |
 | 7 | 跑路空盆 `container.jpg` 抠绿 + 「已跑路...」 | ✅ |
-| 8 | 右键 4 倍菜单；烘干机/抽屉用 Emoji 按钮 | ✅ |
+| 8 | 右键 4 倍菜单；聊聊天及下方按钮均带 Emoji | ✅ |
 | 9 | 聊聊天（白字黑边，发/回自动滚底）+ 运势选择器 | ✅ |
-| 10 | 看电影：关菜单停下载；约 2.5MB 先播；进度条随加载伸长；「这部好无聊呀哥哥~」换片 | ✅ |
+| 10 | 看电影：先选类型；关菜单停下载；约 2.5MB 先播；进度条随加载伸长；「这部好无聊呀哥哥~」换片 | ✅ |
 | 11 | 动态立绘 Theora + 色度键；失败回落 Steve2 | ✅ |
 | 12 | `user://save_data.json` | ✅ 已接 |
 | 13 | 付费加速 / 图鉴换装 UI | ⬜ 已禁用 |
-| 14 | 离线烘干补算、Windows 导出包 | ⬜ |
+| 14 | 充值架构（US/CN SKU + 服务端验单骨架，通道未接通） | ✅ 骨架 |
+| 15 | 离线烘干补算、Windows 导出包 | ⬜ |
 
 ---
 
@@ -67,7 +68,14 @@
 | `UI_FONT_OUTLINE_COLOR` | 黑 |
 | `DRYER_BUTTON_TEXT` | `🧺 烘干机` |
 | `DRAWER_BUTTON_TEXT` | `🗄️ 抽屉` |
-| `MOVIE_BUTTON_TEXT` | `哥请你看个电影吧` |
+| `PRESSURE_BUTTON_TEXT` | `💦 能不能给我洗快点` |
+| `CHAT_BUTTON_TEXT` | `💬 聊聊天` |
+| `FORTUNE_BUTTON_TEXT` | `🔮 哥来帮你算算运势~` |
+| `MOVIE_BUTTON_TEXT` | `🎬 哥请你看个电影吧` |
+| `DINNER_BUTTON_TEXT` | `🍜 约个饭` |
+| `RECHARGE_BUTTON_TEXT` | `💎 充值` |
+| `SETTINGS_BUTTON_TEXT` | `⚙️ 设置` |
+| `QUIT_BUTTON_TEXT` | `🚪 晚点再洗` |
 | `MOVIE_SKIP_TEXT` | `这部好无聊呀哥哥~` |
 | `MOVIE_PLAY_AFTER_BYTES` | 2 500 000 |
 | `MOVIE_STALL_SECONDS` | 18 |
@@ -75,6 +83,10 @@
 | `DRYER_HINT_TEXT` | 烘干机可能会把内裤烤坏的… |
 | `UNDERWEAR_ART_COUNT` | 50 |
 | `UNDERWEAR_SHEET_COLUMNS/ROWS` | 5 × 5 |
+| `UNDERWEAR_CELL_SHIFT_Y_RATIO` | -0.20（截图窗口上移） |
+| `UNDERWEAR_CELL_INSET_BOTTOM_RATIO` | 0.30 |
+| `UNDERWEAR_KEY_DIST` / `GREEN` | 0.055 / 0.10（仅内裤 flood-fill） |
+| `RECHARGE_ENABLED` | false |
 
 已删除：`dryer.jpg` / `drawer.jpg` / `drawer1.jpg` 及对应 `USER_DRYER_*`、`DRYER_ICON_*`、`DRYER_BG_ZOOM`。
 
@@ -95,15 +107,16 @@
 
 库存格子底板按品质：一次性灰 / 涤纶绿 / 纯棉蓝 / 真丝紫 / 奢华金 / 火星科技红。
 
-烘干完成时 15% 品质降一级（不低于一次性）。烘干机标题旁圆形「?」，悬停显示 `DRYER_HINT_TEXT`。
+烘干完成时 15% 品质降一级（不低于一次性）。烘干机标题旁圆形「?」：无边框透明窗不用引擎 tooltip，改为每帧用 `DisplayServer.mouse_get_position()` 判断是否落在按钮矩形内，再显示自建气泡。
 
 洗出一条时 `art_index = randi_range(0, 49)`，贴图为对应切图。旧存档缺字段时用 `id` 映射到 0–49。
 
 ### 3.3 内裤贴图
 
-- 本机 `boxers.png`、`boxers1.png`（各 25 格，5×5）：切格先内缩（左右 1/12、上 1/16、下 1/8），再从边角 flood-fill 抠底。不套用 Steve 立绘全局色度键。
+- 本机 `boxers.png`、`boxers1.png`（各 25 格，5×5）优先放 `assets/images/underwear/sheets/`。切格整体上移 20%、顶部不裁、底部内缩 30%，避免切到下一行、丢掉本格腰边。
+- 抠底只从边角 flood-fill（`UNDERWEAR_KEY_DIST=0.055`），**不**套用 Steve 立绘全局色度键。
 - 写入 `user://underwear/`，能写仓库时同时覆盖 `res://assets/images/underwear/%02d.png`。
-- 仓库已提交 50 张切图；本机表优先覆盖。
+- 仓库已提交 50 张切图；本机表优先覆盖。原表与切图分开放。
 - 切片脚本：`tools/slice_boxers.py`。说明见 `assets/images/underwear/README.md`。
 
 ---
@@ -127,15 +140,15 @@
 
 - 统计气泡：好感 / 洗了 xx 条 / 陪伴 / 跑路
 - `🧺 烘干机`、`🗄️ 抽屉`（Emoji 在文字前，无 TextureRect）
-- `能不能给我洗快点` / `聊聊天` / `哥来帮你算算运势~` / `哥请你看个电影吧` / `约个饭` / `充值`
-- 设置：置顶、体型；`晚点再洗` 存档退出；`×` 关闭
+- `💦 能不能给我洗快点` / `💬 聊聊天` / `🔮 哥来帮你算算运势~` / `🎬 哥请你看个电影吧` / `🍜 约个饭` / `💎 充值`
+- `⚙️ 设置`：置顶、体型；`🚪 晚点再洗` 存档退出；`×` 关闭
 - **关闭菜单时**若电影窗未打开，则 `cancel_fetch()`，不在后台继续下片
 
 ### 库存 `InventoryPopup`
 
 - 无任何背景贴图，仅 `OVERLAY_CHROME_COLOR` 底板
 - 标题色条：烘干机紫 / 抽屉金；标题实时为「xx条内裤」
-- 烘干机标题旁圆形「?」悬停说明烘干可能降品
+- 烘干机标题旁「?」：自建气泡，不用引擎 tooltip（透明置顶窗会吞掉默认 tooltip）
 - 4 列卡片（贴图高 63 = 旧 42×1.5），格子随贴图放大，列间距避免重叠
 - 卡片底色随品质：灰 / 绿 / 蓝 / 紫 / 金 / 红
 - 品质词后写「内裤」；图为 50 款内裤切图 + 磨损
@@ -146,7 +159,14 @@
 
 - 聊聊天：7 天历史；OpenAI 兼容；`CHAT_SYSTEM_PROMPT` 孙哥口吻；发/回自动滚底
 - 运势：强制公历年/月/日/时辰，禁止口头改期
-- 电影：Internet Archive 白名单 Theora（2009+ 美/中可公开片）。metadata 直链；下到 `MOVIE_PLAY_AFTER_BYTES` 且文件头 `OggS` 就开播，剩余继续写入同一缓存。完整下完后重开 stream，进度条按已下载字节估算总时长。关菜单未开播则取消。缓存命中秒开。顶栏「这部好无聊呀哥哥~」排除当前片再抓一部。片单仍排除院线盗链。
+- 电影：先弹出类型（随便看看 / 科幻 / 纪录片 / 短片 / 中国大陆）。Internet Archive 白名单 Theora（2009+ 美/中可公开片）。metadata 直链；下到 `MOVIE_PLAY_AFTER_BYTES` 且文件头 `OggS` 就开播，剩余继续写入同一缓存。完整下完后重开 stream，进度条按已下载字节估算总时长。关菜单未开播则取消。缓存命中秒开。顶栏「这部好无聊呀哥哥~」排除当前片、保持当前类型再抓一部。片单仍排除院线盗链。爱一帆等聚合站来路不明且不是 `.ogv`，不接入。中国大陆公开 Theora 极少，该类型空库提示。
+
+### 充值（骨架）
+
+- UI 可选美国 / 中国大陆，展示 `60 / 300 / 680` 三档标价。
+- `scripts/recharge_client.gd`：`create_order` / `verify_receipt` / `grant_coins` 全部 stub，返回 `not_connected`。
+- **客户端不得加币**。通道接通后必须：HTTPS 预下单 → 支付商托管卡号/钱包 → Webhook / 收据服务端验签 → 订单号幂等加币。
+- 美国优先 Stripe Checkout 或后续 Steam IAP（PCI 范围留在支付商）。中国大陆走微信 / 支付宝持牌聚合，注意 ICP、支付备案与 PIPL。密钥只放服务端环境变量。
 
 ### 立绘
 
@@ -172,10 +192,12 @@ My-Bro-J/
 ├── scripts/underwear_art.gd
 ├── scripts/chat_client.gd
 ├── scripts/movie_client.gd
+├── scripts/recharge_client.gd
 ├── assets/images/container.jpg
 ├── assets/images/steve2.jpg
 ├── assets/images/underwear/01.png … 50.png
 ├── assets/images/underwear/README.md
+├── assets/images/underwear/sheets/README.md
 ├── assets/fonts/YuanRou-P-Bold.ttf
 ├── assets/fonts/steve_theme.tres
 ├── assets/shaders/chroma_key.gdshader
@@ -192,7 +214,7 @@ Steve (Control, theme = steve_theme)
 ├── ExitPopup → 统计气泡 + Emoji 按钮 + 功能按钮 + 设置
 ├── RunawayBanner
 ├── InventoryPopup → InventoryChrome（无贴图底）+ Grid 4 列 + DryerHintButton
-├── ChatPopup / FortunePopup / MoviePopup
+├── ChatPopup / FortunePopup / MoviePopup / MoviePickPopup / RechargePopup
 ```
 
 色度键只挂 `PetFrame` 与跑路空盆，不再挂库存背景或菜单图标。
@@ -206,9 +228,10 @@ Steve (Control, theme = steve_theme)
 | 左键拖 | 移窗 |
 | 立绘悬停 1s | 洗涤水条 |
 | 立绘右键 | 菜单 |
-| 🧺 烘干机 / 🗄️ 抽屉 | 库存；标题 xx条内裤；烘干机可悬停问号 |
-| 哥请你看个电影吧 | 包场文案；关菜单停加载；顶栏可换片 |
-| 聊聊天 | 白字黑边会话，发/回滚到底 |
+| 🧺 烘干机 / 🗄️ 抽屉 | 库存；标题 xx条内裤；烘干机「?」自建气泡 |
+| 🎬 哥请你看个电影吧 | 先选类型；包场文案；关菜单停加载；顶栏可换片 |
+| 💬 聊聊天 | 白字黑边会话，发/回滚到底 |
+| 💎 充值 | 选 US/CN 与档位；通道未接通，不加币 |
 | ESC | 先关弹层否则退出 |
 
 ---
@@ -220,17 +243,20 @@ Steve (Control, theme = steve_theme)
 - [x] Day 3：中文字体、右键菜单、库存、压力催洗、跑路
 - [x] 聊聊天 / 运势 / 电影 / 50 款内裤切图 / Emoji 菜单按钮
 - [x] 聊聊天滚底、电影进度随加载、库存品质底色 / 1.5× 贴图、烘干 15% 降品
+- [x] 内裤切格上移、抠像收紧、电影类型选择、烘干机问号气泡、充值骨架
 - [x] 存档 `save_data.json`
 - [ ] 离线烘干补算
 - [ ] Windows 导出与打包
 - [ ] 换装面板 / 大红特效（图鉴 UI 仍禁用）
+- [ ] 充值通道接通（Stripe / 微信支付宝，仅服务端验单）
 
 ---
 
 ## 九、已知限制
 
 1. Godot 4 只播 Ogg Theora。电影「边下边播」依赖播放器读取仍在增长的缓存文件；下完后会重开 stream 以刷新时长，下载中用字节比估算进度条上限。
-2. `boxers.png` / `boxers1.png` 若未放进本机目录，使用仓库内已提交的 50 张切图。切格内缩 + 边角 flood-fill，不改 Steve 全局抠像。
+2. `boxers.png` / `boxers1.png` 若未放进 `assets/images/underwear/sheets/` 或本机目录，使用仓库内已提交的 50 张切图。切格上移 + 底部多裁 + 边角 flood-fill，不改 Steve 全局抠像。
 3. 70KB 级 `steve.ogv` 占位片一律拒绝。需要本机 `steve3.mp4` + FFmpeg。
-4. 看电影仅白名单可公开 Theora（Pioneer One 2010 US、Silent Hall of Fame 2015 US）。
+4. 看电影仅白名单可公开 Theora（Pioneer One、Remix 系列、NASA 短片、Story of Bottled Water 等）。爱一帆不接入。中国大陆类型当前空库。
 5. 聊聊天 / 运势无 `STEVE_CHAT_API_URL` 时走本地占位回复。
+6. 充值只装配架构：下单/验单留空，客户端永不直接加币。

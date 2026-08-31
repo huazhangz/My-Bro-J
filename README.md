@@ -15,7 +15,7 @@
 2. 本机素材（可选，放在 `C:\Users\ASUS\My-Bro-J` 或仓库根目录）：
    - `steve3.mp4`：绿幕立绘。双击 `convert_video.bat`（需 FFmpeg）写成 `assets/videos/steve.ogv`。
    - `Steve2.jpg` / `steve2.jpg`：没有可用视频时的静帧。
-   - `boxers.png`、`boxers1.png`：各 5×5=25 条内裤。切格内缩后从边角 flood-fill 抠底，写成 `assets/images/underwear/01.png` … `50.png`。不使用 Steve 立绘全局抠像。仓库已带 50 张切图；本机表在时会覆盖。
+   - `boxers.png`、`boxers1.png`：各 5×5=25 条内裤，优先放 `assets/images/underwear/sheets/`。切格整体上移并加大底部裁切后，从边角 flood-fill 抠底，写成 `assets/images/underwear/01.png` … `50.png`。不使用 Steve 立绘全局抠像。仓库已带 50 张切图；本机表在时会覆盖。
 3. UI 字体已在 `assets/fonts/YuanRou-P-Bold.ttf`。若只有 zip，F5 会自动解包。
 4. **F5** 跑 `steve.tscn`。Game 面板关掉 *Embed Game on Play*。小于 80KB 的 `steve.ogv` 会被拒绝。
 
@@ -29,10 +29,11 @@
 | 左键拖动 | 移动桌宠窗口 |
 | 在立绘上右键 | 打开 4 倍圆角菜单 |
 | `🧺 烘干机` / `🗄️ 抽屉` | 未晾干仓库 / 已收藏，4 列格子，品质底色，标题「xx条内裤」 |
-| `能不能给我洗快点` | 随机扣 1 秒~12 小时；15.5% 跑路；冷却读秒 |
-| `聊聊天` | 孙哥口吻对话；白字黑边；发/回自动滚底 |
-| `哥来帮你算算运势~` | 强制年/月/日/时辰选择器 |
-| `哥请你看个电影吧` | 白名单 Theora；关菜单即停下载；下到约 2.5MB 可先播；进度条随加载伸长；「这部好无聊呀哥哥~」换片 |
+| `💦 能不能给我洗快点` | 随机扣 1 秒~12 小时；15.5% 跑路；冷却读秒 |
+| `💬 聊聊天` | 孙哥口吻对话；白字黑边；发/回自动滚底 |
+| `🔮 哥来帮你算算运势~` | 强制年/月/日/时辰选择器 |
+| `🎬 哥请你看个电影吧` | 先选类型；白名单 Theora；关菜单即停下载；下到约 2.5MB 可先播；进度条随加载伸长；「这部好无聊呀哥哥~」换片 |
+| `💎 充值` | 选美国 / 中国大陆与档位；通道未接通，客户端不加币 |
 | 立绘上双击 | 加速洗涤 5 秒 |
 | `ESC` | 先关弹层，否则退出 |
 
@@ -55,13 +56,14 @@ My-Bro-J/
 │   ├── GameData.gd            # Autoload 单例：常量、仓库、存档
 │   ├── underwear_art.gd       # 50 张内裤切图加载与表切片
 │   ├── chat_client.gd         # 聊聊天 / 运势 HTTP
-│   └── movie_client.gd        # Archive Theora：直链 + 可播阈值先播
+│   ├── movie_client.gd        # Archive Theora：直链 + 可播阈值先播
+│   └── recharge_client.gd     # 充值骨架：下单/验单 stub，客户端不加币
 ├── assets/
 │   ├── icon.svg
 │   ├── images/
 │   │   ├── container.jpg      # 跑路空盆（绿幕）
 │   │   ├── steve2.jpg         # 无视频时的静帧
-│   │   └── underwear/01.png … 50.png + README.md
+│   │   └── underwear/01.png … 50.png + sheets/ + README.md
 │   ├── fonts/
 │   │   ├── YuanRou-P-Bold.ttf
 │   │   ├── YuanRou-OFL.txt
@@ -107,7 +109,10 @@ My-Bro-J/
 | `DRY_QUALITY_DOWN_PERMILLE` | 150 | 烘干 15% 降一级 |
 | `MOVIE_PLAY_AFTER_BYTES` | 2.5 MB | 电影先播阈值 |
 | `MOVIE_SKIP_TEXT` | 这部好无聊呀哥哥~ | 电影顶栏换片 |
-| `MOVIE_BUTTON_TEXT` | 哥请你看个电影吧 | 菜单按钮 |
+| `MOVIE_BUTTON_TEXT` | 🎬 哥请你看个电影吧 | 菜单按钮 |
+| `CHAT_BUTTON_TEXT` | 💬 聊聊天 | 菜单按钮 |
+| `RECHARGE_BUTTON_TEXT` | 💎 充值 | 菜单按钮；通道未接通 |
+| `UNDERWEAR_CELL_SHIFT_Y_RATIO` | -0.20 | 内裤切格上移 |
 | `DRYER_BUTTON_TEXT` | 🧺 烘干机 | 菜单按钮 |
 | `DRAWER_BUTTON_TEXT` | 🗄️ 抽屉 | 菜单按钮 |
 | `UI_FONT_COLOR` / `UI_FONT_OUTLINE_*` | 白字 + 4px 黑边 | 全局文字，含聊聊天 |

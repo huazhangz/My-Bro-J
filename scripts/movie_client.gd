@@ -38,12 +38,17 @@ func is_busy() -> bool:
 	return _busy
 
 
-func fetch_random(exclude_id: String = "") -> void:
+func fetch_random(exclude_id: String = "", genre: String = "") -> void:
 	if _busy:
 		return
 	_cancelled = false
-	_queue = GameData.shuffled_movie_catalog(exclude_id)
-	print("%s start catalog=%d exclude=%s" % [GameData.MOVIE_LOG_PREFIX, _queue.size(), exclude_id])
+	_queue = GameData.shuffled_movie_catalog(exclude_id, genre)
+	print("%s start catalog=%d exclude=%s genre=%s" % [
+		GameData.MOVIE_LOG_PREFIX, _queue.size(), exclude_id, genre,
+	])
+	if _queue.is_empty():
+		movie_failed.emit("empty_genre")
+		return
 	_try_next_movie()
 
 

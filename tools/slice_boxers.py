@@ -18,13 +18,18 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "assets" / "images" / "underwear"
 GRID = 5
 CELL = 128
-INSET_X_RATIO = 1.0 / 12.0
-INSET_TOP_RATIO = 1.0 / 16.0
-INSET_BOTTOM_RATIO = 1.0 / 8.0
+INSET_X_RATIO = 1.0 / 14.0
+INSET_TOP_RATIO = 0.0
+INSET_BOTTOM_RATIO = 0.30
+SHIFT_Y_RATIO = -0.20
+KEY_DIST = 0.055
+KEY_GREEN_DIST = 0.10
 SHEET_NAMES = ("boxers.png", "boxers1.png", "Boxers.png", "Boxers1.png")
 SEARCH_DIRS = (
-    ROOT,
+    ROOT / "assets" / "images" / "underwear" / "sheets",
+    ROOT / "assets" / "images" / "underwear",
     ROOT / "assets" / "images",
+    ROOT,
     Path("/mnt/c/Users/ASUS/My-Bro-J"),
     Path("C:/Users/ASUS/My-Bro-J"),
 )
@@ -46,9 +51,9 @@ def _is_backdrop(r: int, g: int, b: int, a: int) -> bool:
     if a < 20:
         return True
     luma = _luma(r, g, b)
-    if luma > 0.90 and abs(r - g) < 22 and abs(g - b) < 22:
+    if luma > 0.96 and abs(r - g) < 10 and abs(g - b) < 10:
         return True
-    if g > 128 and g > r + 46 and g > b + 46:
+    if g > 158 and g > r + 72 and g > b + 72:
         return True
     return False
 
@@ -59,11 +64,11 @@ def _matches_backdrop(px: tuple[int, int, int, int], key: tuple[int, int, int, i
         return True
     kr, kg, kb, _ka = key
     dist = math.sqrt((r - kr) ** 2 + (g - kg) ** 2 + (b - kb) ** 2) / 255.0
-    if dist <= 0.22:
+    if dist <= KEY_DIST:
         return True
-    if kg > 115 and g > 122 and g > r + 50 and g > b + 50:
-        return dist <= 0.38
-    if _luma(kr, kg, kb) > 0.88 and _luma(r, g, b) > 0.88 and abs(r - g) < 22 and abs(g - b) < 22:
+    if kg > 140 and g > 176 and g > r + 90 and g > b + 90:
+        return dist <= KEY_GREEN_DIST
+    if _luma(kr, kg, kb) > 0.96 and _luma(r, g, b) > 0.98 and abs(r - g) < 6 and abs(g - b) < 6:
         return True
     return False
 
@@ -134,35 +139,41 @@ def slice_sheet(path: Path, start_index: int) -> int:
     width, height = sheet.size
     cell_w = width // GRID
     cell_h = height // GRID
-    inset_x = max(4, int(round(cell_w * INSET_X_RATIO)))
-    inset_top = max(4, int(round(cell_h * INSET_TOP_RATIO)))
-    inset_bottom = max(6, int(round(cell_h * INSET_BOTTOM_RATIO)))
+    inset_x = max(3, int(round(cell_w * INSET_X_RATIO)))
+    inset_top = max(0, int(round(cell_h * INSET_TOP_RATIO)))
+    inset_bottom = max(8, int(round(cell_h * INSET_BOTTOM_RATIO)))
+    shift_y = int(round(cell_h * SHIFT_Y_RATIO))
     written = 0
     for row in range(GRID):
         for col in range(GRID):
-            left = col * cell_w + inset_x
-            top = row * cell_h + inset_top
-            right = (col + 1) * cell_w - inset_x
-            bottom = (row + 1) * cell_h - inset_bottom
+            left = max(0, col * cell_w + inset_x)
+            top = max(0, row * cell_h + inset_top + shift_y)
+            right = min(width, (col + 1) * cell_w - inset_x)
+            bottom = min(height, (row + 1) * cell_h - inset_bottom + shift_y)
+            if right - left < 8 or bottom - top < 8:
+                continue
             cell = flood_key_from_edges(sheet.crop((left, top, right, bottom)))
             cell = trim_cell(cell)
             index = start_index + row * GRID + col
             dest = OUT_DIR / f"{index + 1:02d}.png"
             cell.save(dest, "PNG")
             written += 1
-    print(f"sliced {path} -> {written} cells from index {start_index} (inset x={inset_x} top={inset_top} bottom={inset_bottom})")
+    print(
+        f"sliced {path} -> {written} cells from index {start_index} "
+        f"(shift_y={shift_y} inset x={inset_x} top={inset_top} bottom={inset_bottom})"
+    )
     return written
 
 
 def _brief_mask() -> Image.Image:
     mask = Image.new("L", (CELL, CELL), 0)
     draw = ImageDraw.Draw(mask)
-    draw.rounded_rectangle((18, 10, 110, 70), radius=10, fill=255)
-    draw.rounded_rectangle((18, 48, 60, 116), radius=16, fill=255)
-    draw.rounded_rectangle((68, 48, 110, 116), radius=16, fill=255)
-    draw.polygon([(40, 58), (88, 58), (80, 94), (48, 94)], fill=255)
-    draw.ellipse((24, 90, 60, 140), fill=0)
-    draw.ellipse((68, 90, 104, 140), fill=0)
+    draw.rounded_rectangle((18, 6, 110, 66), radius=10, fill=255)
+    draw.rounded_rectangle((18, 44, 60, 108), radius=16, fill=255)
+    draw.rounded_rectangle((68, 44, 110, 108), radius=16, fill=255)
+    draw.polygon([(40, 54), (88, 54), (80, 88), (48, 88)], fill=255)
+    draw.ellipse((24, 84, 60, 132), fill=0)
+    draw.ellipse((68, 84, 104, 132), fill=0)
     return mask
 
 

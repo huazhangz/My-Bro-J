@@ -52,20 +52,23 @@ static func _slice_sheet(path: String, start_index: int) -> void:
 	var rows: int = GameData.UNDERWEAR_SHEET_ROWS
 	var cell_w: int = width / cols
 	var cell_h: int = height / rows
-	var inset_x: int = maxi(int(round(float(cell_w) * GameData.UNDERWEAR_CELL_INSET_X_RATIO)), 4)
-	var inset_top: int = maxi(int(round(float(cell_h) * GameData.UNDERWEAR_CELL_INSET_TOP_RATIO)), 4)
-	var inset_bottom: int = maxi(int(round(float(cell_h) * GameData.UNDERWEAR_CELL_INSET_BOTTOM_RATIO)), 6)
+	var inset_x: int = maxi(int(round(float(cell_w) * GameData.UNDERWEAR_CELL_INSET_X_RATIO)), 3)
+	var inset_top: int = maxi(int(round(float(cell_h) * GameData.UNDERWEAR_CELL_INSET_TOP_RATIO)), 0)
+	var inset_bottom: int = maxi(int(round(float(cell_h) * GameData.UNDERWEAR_CELL_INSET_BOTTOM_RATIO)), 8)
+	var shift_y: int = int(round(float(cell_h) * GameData.UNDERWEAR_CELL_SHIFT_Y_RATIO))
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(GameData.UNDERWEAR_USER_DIR))
 	for row: int in range(rows):
 		for col: int in range(cols):
 			var art_index: int = start_index + row * cols + col
 			var left: int = col * cell_w + inset_x
-			var top: int = row * cell_h + inset_top
+			var top: int = row * cell_h + inset_top + shift_y
 			var right: int = (col + 1) * cell_w - inset_x
-			var bottom: int = (row + 1) * cell_h - inset_bottom
-			var region_w: int = maxi(right - left, 8)
-			var region_h: int = maxi(bottom - top, 8)
-			var cell: Image = image.get_region(Rect2i(left, top, region_w, region_h))
+			var bottom: int = (row + 1) * cell_h - inset_bottom + shift_y
+			left = clampi(left, 0, width - 8)
+			right = clampi(right, left + 8, width)
+			top = clampi(top, 0, height - 8)
+			bottom = clampi(bottom, top + 8, height)
+			var cell: Image = image.get_region(Rect2i(left, top, right - left, bottom - top))
 			_flood_key_from_edges(cell)
 			var trimmed: Image = _trim_and_fit(cell, GameData.UNDERWEAR_ART_SIZE)
 			var dest: String = GameData.underwear_user_path(art_index)
@@ -78,9 +81,9 @@ static func _corner_is_backdrop(color: Color) -> bool:
 	if color.a < 0.08:
 		return true
 	var luma: float = color.r * 0.299 + color.g * 0.587 + color.b * 0.114
-	if luma > 0.90 and absf(color.r - color.g) < 0.08 and absf(color.g - color.b) < 0.08:
+	if luma > 0.96 and absf(color.r - color.g) < 0.04 and absf(color.g - color.b) < 0.04:
 		return true
-	if color.g > 0.50 and color.g > color.r + 0.18 and color.g > color.b + 0.18:
+	if color.g > 0.62 and color.g > color.r + 0.28 and color.g > color.b + 0.28:
 		return true
 	return false
 
@@ -92,13 +95,13 @@ static func _matches_backdrop(color: Color, key: Color) -> bool:
 	var dg: float = color.g - key.g
 	var db: float = color.b - key.b
 	var dist: float = sqrt(dr * dr + dg * dg + db * db)
-	if dist <= 0.22:
+	if dist <= GameData.UNDERWEAR_KEY_DIST:
 		return true
-	if key.g > 0.45 and color.g > 0.48 and color.g > color.r + 0.20 and color.g > color.b + 0.20:
-		return dist <= 0.38
+	if key.g > 0.55 and color.g > 0.70 and color.g > color.r + 0.36 and color.g > color.b + 0.36:
+		return dist <= GameData.UNDERWEAR_KEY_GREEN_DIST
 	var luma: float = color.r * 0.299 + color.g * 0.587 + color.b * 0.114
 	var key_luma: float = key.r * 0.299 + key.g * 0.587 + key.b * 0.114
-	if key_luma > 0.88 and luma > 0.88 and absf(color.r - color.g) < 0.08 and absf(color.g - color.b) < 0.08:
+	if key_luma > 0.96 and luma > 0.98 and absf(color.r - color.g) < 0.024 and absf(color.g - color.b) < 0.024:
 		return true
 	return false
 
@@ -231,17 +234,16 @@ static func _in_ellipse(x: float, y: float, left: float, top: float, right: floa
 
 
 static func _brief_inside(px: float, py: float) -> bool:
-	if _in_ellipse(px, py, 24.0, 90.0, 60.0, 140.0) or _in_ellipse(px, py, 68.0, 90.0, 104.0, 140.0):
+	if _in_ellipse(px, py, 24.0, 84.0, 60.0, 132.0) or _in_ellipse(px, py, 68.0, 84.0, 104.0, 132.0):
 		return false
-	if _in_round_rect(px, py, 18.0, 10.0, 110.0, 70.0, 10.0):
+	if _in_round_rect(px, py, 18.0, 6.0, 110.0, 66.0, 10.0):
 		return true
-	if _in_round_rect(px, py, 18.0, 48.0, 60.0, 116.0, 16.0):
+	if _in_round_rect(px, py, 18.0, 44.0, 60.0, 108.0, 16.0):
 		return true
-	if _in_round_rect(px, py, 68.0, 48.0, 110.0, 116.0, 16.0):
+	if _in_round_rect(px, py, 68.0, 44.0, 110.0, 108.0, 16.0):
 		return true
-	# crotch bridge
-	if py >= 58.0 and py <= 94.0:
-		var t: float = (py - 58.0) / 36.0
+	if py >= 54.0 and py <= 88.0:
+		var t: float = (py - 54.0) / 34.0
 		var left: float = 40.0 + (48.0 - 40.0) * t
 		var right: float = 88.0 + (80.0 - 88.0) * t
 		if px >= left and px <= right:
