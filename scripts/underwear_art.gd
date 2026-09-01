@@ -10,6 +10,7 @@ static var _ingested: bool = false
 
 
 static func texture_for(item: Dictionary) -> Texture2D:
+	_purge_stale_user_cutouts()
 	_ingest_sheets_if_needed()
 	var art_index: int = GameData.item_art_index(item)
 	if _cache.has(art_index):
@@ -21,10 +22,41 @@ static func texture_for(item: Dictionary) -> Texture2D:
 	return texture
 
 
+static func _purge_stale_user_cutouts() -> void:
+	var expected: String = str(GameData.UNDERWEAR_CROP_VERSION)
+	var version_path: String = GameData.UNDERWEAR_VERSION_FILE
+	var current: String = ""
+	if FileAccess.file_exists(version_path):
+		var file: FileAccess = FileAccess.open(version_path, FileAccess.READ)
+		if file != null:
+			current = file.get_as_text().strip_edges()
+			file.close()
+	if current == expected:
+		return
+	var user_dir: String = GameData.UNDERWEAR_USER_DIR
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(user_dir))
+	var dir: DirAccess = DirAccess.open(user_dir)
+	if dir != null:
+		dir.list_dir_begin()
+		var name: String = dir.get_next()
+		while not name.is_empty():
+			if not dir.current_is_dir() and name.to_lower().ends_with(".png"):
+				dir.remove(name)
+			name = dir.get_next()
+		dir.list_dir_end()
+	var out: FileAccess = FileAccess.open(version_path, FileAccess.WRITE)
+	if out != null:
+		out.store_string(expected)
+		out.close()
+	_cache.clear()
+	print("[Steve/Underwear] purged stale user cutouts; crop_version=%s" % expected)
+
+
 static func _ingest_sheets_if_needed() -> void:
 	if _ingested:
 		return
 	_ingested = true
+	_purge_stale_user_cutouts()
 	var sheet_a: String = GameData.first_existing_named(GameData.USER_BOXERS_SHEET_A)
 	var sheet_b: String = GameData.first_existing_named(GameData.USER_BOXERS_SHEET_B)
 	if sheet_a.is_empty() and sheet_b.is_empty():

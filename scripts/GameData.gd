@@ -299,7 +299,10 @@ const UNDERWEAR_SHEET_REF_H: int = 975
 const UNDERWEAR_SHEET_X: PackedInt32Array = [0, 290, 610, 925, 1225, 1536]
 const UNDERWEAR_SHEET_Y: PackedInt32Array = [0, 190, 380, 565, 760, 975]
 ## 左右边距保持 X 表。只从每格底边内收，避免裁进下一行内裤的顶边。
-const UNDERWEAR_SHEET_INSET_BOTTOM: int = 27
+const UNDERWEAR_SHEET_INSET_BOTTOM: int = 30
+## 切格世代。与仓库默认 01–50 对齐；本机 user:// 旧切图在对不上时丢掉。
+const UNDERWEAR_CROP_VERSION: int = 30
+const UNDERWEAR_VERSION_FILE: String = "user://underwear/crop_version.txt"
 ## 内裤 flood-fill 抠底阈值。略收，减轻把浅色布料抠穿。
 const UNDERWEAR_KEY_DIST: float = 0.045
 const UNDERWEAR_KEY_GREEN_DIST: float = 0.085

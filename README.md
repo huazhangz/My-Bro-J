@@ -15,7 +15,7 @@
 2. 本机素材（可选，放在 `C:\Users\ASUS\My-Bro-J` 或仓库根目录）：
    - `steve3.mp4`：绿幕立绘。双击 `convert_video.bat`（需 FFmpeg）写成 `assets/videos/steve.ogv`。
    - `Steve2.jpg` / `steve2.jpg`：没有可用视频时的静帧。
-   - `bx1.png`、`bx2.png`：各 5×5=25 条内裤，优先放 `assets/images/`。按绝对切格（参考 1536×975）裁切，左右用 X 表，底边内收 27 参考像素后再 flood-fill 抠底，写成 `assets/images/underwear/01.png` … `50.png`。不使用 Steve 立绘全局抠像。仓库已带 50 张切图；本机表在时会覆盖。
+   - `bx1.png`、`bx2.png`：各 5×5=25 条内裤，优先放 `assets/images/`。按绝对切格（参考 1536×975）裁切，左右用 X 表，底边内收 30 参考像素后再 flood-fill 抠底，写成 `assets/images/underwear/01.png` … `50.png`。不使用 Steve 立绘全局抠像。仓库切图即为该默认；本机旧 `user://underwear` 会按世代清掉。
 3. UI 字体已在 `assets/fonts/YuanRou-P-Bold.ttf`。若只有 zip，F5 会自动解包。
 4. **F5** 跑 `steve.tscn`。Game 面板关掉 *Embed Game on Play*。小于 80KB 的 `steve.ogv` 会被拒绝。
 
@@ -32,7 +32,7 @@
 | `💦 能不能给我洗快点` | 随机扣 1 秒~12 小时；15.5% 跑路；冷却读秒 |
 | `💬 聊聊天` | 孙哥口吻对话；白字黑边；发/回自动滚底 |
 | `🔮 哥来帮你算算运势~` | 强制年/月/日/时辰选择器 |
-| `🎬 哥请你看个电影吧` | 直接加载 Kepler；网址框支持网页或 .ogv；网页 16:9 信箱；Steve 在主窗舞台上，可关窗/拖边，右键不开菜单 |
+| `🎬 哥请你看个电影吧` | Kepler / 网址；网页 16:9 视口；Steve 在视口下方可拖，无黑底方块 |
 | `💝 打赏` | 支付宝/微信扫码；无后端则说明缺商户资料。成功不加币 |
 | 立绘上双击 | 加速洗涤 5 秒 |
 | `ESC` | 先关弹层，否则退出 |
@@ -118,7 +118,7 @@ My-Bro-J/
 | `CHAT_BUTTON_TEXT` | 💬 聊聊天 | 菜单按钮 |
 | `TIP_BUTTON_TEXT` | 💝 打赏 | 扫码打赏，客户端不加币 |
 | `UNDERWEAR_SHEET_X/Y` | 绝对切格 | bx1/bx2 参考 1536×975 |
-| `UNDERWEAR_SHEET_INSET_BOTTOM` | 27 | 只收底边，避免裁进下一行顶边 |
+| `UNDERWEAR_SHEET_INSET_BOTTOM` | 30 | 只收底边，避免裁进下一行顶边 |
 | `DRYER_BUTTON_TEXT` | 🧺 烘干机 | 菜单按钮 |
 | `DRAWER_BUTTON_TEXT` | 🗄️ 抽屉 | 菜单按钮 |
 | `UI_FONT_COLOR` / `UI_FONT_OUTLINE_*` | 白字 + 4px 黑边 | 全局文字，含聊聊天 |

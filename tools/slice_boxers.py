@@ -23,7 +23,7 @@ SHEET_REF_H = 975
 SHEET_X = (0, 290, 610, 925, 1225, 1536)
 SHEET_Y = (0, 190, 380, 565, 760, 975)
 # Left/right keep SHEET_X. Shrink each cell bottom so it does not eat the next row's top.
-SHEET_INSET_BOTTOM = 27
+SHEET_INSET_BOTTOM = 30
 KEY_DIST = 0.045
 KEY_GREEN_DIST = 0.085
 SHEET_NAMES = ("bx1.png", "bx2.png", "BX1.png", "BX2.png")
@@ -273,6 +273,30 @@ def _mix(a: tuple[int, int, int], b: tuple[int, int, int], t: float) -> tuple[in
     )
 
 
+def recrop_existing(extra_bottom: int) -> int:
+    """Erase extra opaque rows at the content bottom. Do not zoom back to fill."""
+    written = 0
+    for index in range(50):
+        dest = OUT_DIR / f"{index + 1:02d}.png"
+        if not dest.is_file():
+            continue
+        image = Image.open(dest).convert("RGBA")
+        bbox = image.getbbox()
+        if bbox is None:
+            continue
+        _left, top, _right, bottom = bbox
+        cut = max(top + 1, bottom - extra_bottom)
+        pixels = image.load()
+        width, height = image.size
+        for y in range(cut, height):
+            for x in range(width):
+                pixels[x, y] = (0, 0, 0, 0)
+        image.save(dest, "PNG")
+        written += 1
+    print(f"recropped {written} committed cutouts extra_bottom={extra_bottom}")
+    return written
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     leftover = [
@@ -297,7 +321,7 @@ def main() -> None:
             written += 1
         print("only one sheet found; baked styles 26-50")
     else:
-        print("bx1.png / bx2.png not in workspace; keeping existing 01-50 or baking")
+        print("bx1.png / bx2.png not in workspace; rebasing committed 01-50 as default")
         existing = list(OUT_DIR.glob("[0-9][0-9].png"))
         if len(existing) < 50:
             for index in range(50):
@@ -306,8 +330,8 @@ def main() -> None:
                     continue
                 bake_style(index).save(dest, "PNG")
                 written += 1
-        else:
-            written = len(existing)
+        # Cumulative unbaked inset vs last committed PNGs (22→30 ≈ 6px on 128).
+        written = recrop_existing(6)
     print(f"wrote {written} files to {OUT_DIR}")
 
 

@@ -165,6 +165,8 @@ var _movie_url_row: HBoxContainer
 var _movie_url_input: LineEdit
 var _movie_url_load_button: Button
 var _movie_stage: Control
+var _movie_viewport: Control
+var _movie_pet_host: Control
 var _movie_web_panel: Panel
 var _movie_web_status: Label
 var _movie_web_open_button: Button
@@ -173,6 +175,9 @@ var _movie_web_mode: bool = false
 var _movie_last_url: String = ""
 var _movie_web_wait: float = 0.0
 var _movie_pet_on_stage: bool = false
+var _movie_pet_dragging: bool = false
+var _movie_pet_grab: Vector2 = Vector2.ZERO
+var _movie_pet_pos: Vector2 = Vector2(-1.0, -1.0)
 var _tip_popup: Control
 var _tip_chrome: Panel
 var _tip_title: Label
@@ -767,6 +772,10 @@ func _process_drag_input(event: InputEvent) -> void:
 				return
 			if _movie_resizing:
 				return
+			if _movie_open() and _is_pointer_on_movie_pet(mb.global_position):
+				if not _begin_movie_pet_drag(mb.global_position):
+					return
+				return
 			var overlay_open: bool = _any_overlay_open()
 			if not overlay_open and not _is_pointer_on_pet(get_local_mouse_position()):
 				return
@@ -777,10 +786,14 @@ func _process_drag_input(event: InputEvent) -> void:
 		else:
 			_dragging = false
 			_movie_resizing = false
+			_movie_pet_dragging = false
 		return
 	if event is InputEventMouseMotion:
 		if _movie_resizing:
 			_apply_movie_resize()
+			return
+		if _movie_pet_dragging:
+			_apply_movie_pet_drag(event)
 			return
 		if _dragging:
 			if not _can_move_window():
@@ -1795,8 +1808,8 @@ func _sync_video_display() -> void:
 		_pet_frame.visible = false
 		return
 	if chroma_key_enabled:
-		_pet_video.visible = true
-		_pet_video.modulate = Color(1.0, 1.0, 1.0, 0.0)
+		_pet_video.visible = false
+		_pet_video.modulate = Color(1.0, 1.0, 1.0, 1.0)
 		_pet_frame.visible = true
 		_pet_frame.position = _pet_video.position
 		_pet_frame.size = _pet_video.size
@@ -3543,25 +3556,35 @@ func _setup_movie_ui() -> void:
 	_movie_stage.name = "MovieStage"
 	_movie_stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_movie_stage.custom_minimum_size = Vector2(320.0, 180.0)
-	_movie_stage.clip_contents = true
+	_movie_stage.clip_contents = false
+	_movie_stage.mouse_filter = Control.MOUSE_FILTER_STOP
 	body.add_child(_movie_stage)
-	var letterbox: ColorRect = ColorRect.new()
-	letterbox.name = "MovieLetterbox"
-	letterbox.color = Color(0.02, 0.02, 0.04, 1.0)
-	letterbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	letterbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_movie_stage.add_child(letterbox)
+	var ratio_box: AspectRatioContainer = AspectRatioContainer.new()
+	ratio_box.name = "MovieAspect"
+	ratio_box.ratio = GameData.MOVIE_WEB_ASPECT
+	ratio_box.stretch_mode = AspectRatioContainer.STRETCH_FIT
+	ratio_box.alignment_horizontal = AspectRatioContainer.ALIGNMENT_CENTER
+	ratio_box.alignment_vertical = AspectRatioContainer.ALIGNMENT_CENTER
+	ratio_box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ratio_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_movie_stage.add_child(ratio_box)
+	_movie_viewport = Control.new()
+	_movie_viewport.name = "MovieViewport"
+	_movie_viewport.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_movie_viewport.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_movie_viewport.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ratio_box.add_child(_movie_viewport)
 	_movie_player = VideoStreamPlayer.new()
 	_movie_player.name = "MoviePlayer"
 	_movie_player.expand = true
 	_movie_player.loop = false
 	_movie_player.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_movie_stage.add_child(_movie_player)
+	_movie_viewport.add_child(_movie_player)
 	_movie_web_panel = Panel.new()
 	_movie_web_panel.name = "MovieWebPanel"
 	_movie_web_panel.visible = false
 	_movie_web_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_movie_stage.add_child(_movie_web_panel)
+	_movie_viewport.add_child(_movie_web_panel)
 	var web_body: VBoxContainer = VBoxContainer.new()
 	web_body.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	web_body.offset_left = 16.0
@@ -3585,6 +3608,12 @@ func _setup_movie_ui() -> void:
 	_movie_web_open_button.visible = false
 	_movie_web_open_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	web_body.add_child(_movie_web_open_button)
+	_movie_pet_host = Control.new()
+	_movie_pet_host.name = "MoviePetHost"
+	_movie_pet_host.custom_minimum_size = Vector2(0.0, 148.0)
+	_movie_pet_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_movie_pet_host.mouse_filter = Control.MOUSE_FILTER_STOP
+	body.add_child(_movie_pet_host)
 	var bar: HBoxContainer = HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 8)
 	body.add_child(bar)
@@ -3998,24 +4027,15 @@ func _tick_movie_web(delta: float) -> void:
 
 
 func _web_embed_rect() -> Rect2i:
-	if not is_instance_valid(_movie_stage):
+	var host: Control = _movie_viewport if is_instance_valid(_movie_viewport) else _movie_stage
+	if not is_instance_valid(host):
 		return Rect2i(0, 0, 64, 64)
-	var area: Rect2 = _movie_stage.get_global_rect()
-	var avail: Vector2 = area.size
-	var aspect: float = GameData.MOVIE_WEB_ASPECT
-	var fit: Vector2 = avail
-	if avail.y <= 1.0 or avail.x / avail.y > aspect:
-		fit.y = avail.y
-		fit.x = avail.y * aspect
-	else:
-		fit.x = avail.x
-		fit.y = avail.x / aspect
-	fit.x = maxf(fit.x, 64.0)
-	fit.y = maxf(fit.y, 64.0)
-	var origin: Vector2 = area.position + (avail - fit) * 0.5
+	var area: Rect2 = host.get_global_rect()
+	if area.size.x < 8.0 or area.size.y < 8.0:
+		return Rect2i(0, 0, 64, 64)
 	return Rect2i(
-		Vector2i(int(round(origin.x)), int(round(origin.y))),
-		Vector2i(int(round(fit.x)), int(round(fit.y)))
+		Vector2i(int(round(area.position.x)), int(round(area.position.y))),
+		Vector2i(maxi(int(round(area.size.x)), 64), maxi(int(round(area.size.y)), 64))
 	)
 
 
@@ -4080,21 +4100,25 @@ func _show_movie_pet_overlay() -> void:
 		return
 	_hide_speech_bubble()
 	_set_hover_hud_visible(false, false)
-	if not is_instance_valid(_pet_visual) or not is_instance_valid(_movie_stage):
+	if not is_instance_valid(_pet_visual) or not is_instance_valid(_movie_pet_host):
 		_set_pet_layer_visible(true)
 		return
-	if _pet_visual.get_parent() != _movie_stage:
-		_pet_visual.reparent(_movie_stage, false)
+	if _pet_visual.get_parent() != _movie_pet_host:
+		_pet_visual.reparent(_movie_pet_host, false)
 	_movie_pet_on_stage = true
+	_movie_pet_pos = Vector2(-1.0, -1.0)
 	_pet_visual.visible = true
 	_pet_visual.z_index = 80
-	_pet_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pet_visual.mouse_filter = Control.MOUSE_FILTER_STOP
 	_layout_movie_pet()
 	_set_video_playing(true)
+	_sync_video_display()
 
 
 func _hide_movie_pet_overlay() -> void:
 	_movie_pet_on_stage = false
+	_movie_pet_dragging = false
+	_movie_pet_pos = Vector2(-1.0, -1.0)
 	if not is_instance_valid(_pet_visual):
 		return
 	_pet_visual.z_index = 0
@@ -4105,39 +4129,108 @@ func _hide_movie_pet_overlay() -> void:
 		move_child(_pet_visual, 0)
 	_pet_visual.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_sync_pet_visual_rects()
+	_sync_video_display()
 
 
 func _layout_movie_pet() -> void:
 	if not _movie_open() or not _movie_pet_on_stage:
 		return
-	if not is_instance_valid(_pet_visual) or not is_instance_valid(_movie_stage):
+	if not is_instance_valid(_pet_visual) or not is_instance_valid(_movie_pet_host):
 		return
-	if _pet_visual.get_parent() != _movie_stage:
+	if _pet_visual.get_parent() != _movie_pet_host:
 		return
 	var pet_size: Vector2 = Vector2(GameData.pet_window_size())
+	var host_size: Vector2 = _movie_pet_host.size
+	if host_size.x < 8.0 or host_size.y < 8.0:
+		return
 	var scale_v: float = GameData.MOVIE_PET_SCALE
+	if host_size.x > 8.0 and host_size.y > 8.0:
+		scale_v = minf(scale_v, host_size.x / maxf(pet_size.x, 1.0))
+		scale_v = minf(scale_v, host_size.y / maxf(pet_size.y, 1.0))
 	_pet_visual.scale = Vector2(scale_v, scale_v)
 	_pet_visual.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_pet_visual.size = pet_size
-	var stage_size: Vector2 = _movie_stage.size
 	var scaled: Vector2 = pet_size * scale_v
-	_pet_visual.position = Vector2(
-		(stage_size.x - scaled.x) * 0.5,
-		maxf(stage_size.y - scaled.y - 4.0, 0.0)
+	var pos: Vector2 = Vector2(
+		(host_size.x - scaled.x) * 0.5,
+		maxf(host_size.y - scaled.y, 0.0) * 0.5
 	)
+	if _movie_pet_pos.x >= 0.0:
+		pos = _movie_pet_pos
+	_pet_visual.position = _clamp_movie_pet_pos(pos, scaled, host_size)
+	_movie_pet_pos = _pet_visual.position
 	_sync_pet_visual_rects()
+	_sync_video_display()
+
+
+func _clamp_movie_pet_pos(pos: Vector2, scaled: Vector2, host_size: Vector2) -> Vector2:
+	var max_x: float = maxf(host_size.x - scaled.x, 0.0)
+	var max_y: float = maxf(host_size.y - scaled.y, 0.0)
+	return Vector2(clampf(pos.x, 0.0, max_x), clampf(pos.y, 0.0, max_y))
+
+
+func _movie_pet_global_hit() -> Rect2:
+	if not _movie_pet_on_stage or not is_instance_valid(_pet_visual) or not _pet_visual.visible:
+		return Rect2()
+	var local: Rect2 = GameData.pet_hit_rect(_layout_area)
+	var xf: Transform2D = _pet_visual.get_global_transform()
+	var p0: Vector2 = xf * local.position
+	var p1: Vector2 = xf * (local.position + Vector2(local.size.x, 0.0))
+	var p2: Vector2 = xf * (local.position + local.size)
+	var p3: Vector2 = xf * (local.position + Vector2(0.0, local.size.y))
+	var mini_p: Vector2 = Vector2(
+		minf(minf(p0.x, p1.x), minf(p2.x, p3.x)),
+		minf(minf(p0.y, p1.y), minf(p2.y, p3.y))
+	)
+	var maxi_p: Vector2 = Vector2(
+		maxf(maxf(p0.x, p1.x), maxf(p2.x, p3.x)),
+		maxf(maxf(p0.y, p1.y), maxf(p2.y, p3.y))
+	)
+	return Rect2(mini_p, maxi_p - mini_p)
+
+
+func _is_pointer_on_movie_pet(global_pos: Vector2) -> bool:
+	if not _movie_open() or not _movie_pet_on_stage:
+		return false
+	if is_instance_valid(_pet_visual) and _pet_visual.get_global_rect().has_point(global_pos):
+		var hit: Rect2 = _movie_pet_global_hit()
+		if hit.size.x >= 8.0 and hit.size.y >= 8.0:
+			return hit.has_point(global_pos)
+		return true
+	return false
+
+
+func _begin_movie_pet_drag(global_pos: Vector2) -> bool:
+	if not is_instance_valid(_pet_visual) or not is_instance_valid(_movie_pet_host):
+		return false
+	_dragging = false
+	_movie_pet_dragging = true
+	var host_xf: Transform2D = _movie_pet_host.get_global_transform()
+	var local: Vector2 = host_xf.affine_inverse() * global_pos
+	_movie_pet_grab = local - _pet_visual.position
+	return true
+
+
+func _apply_movie_pet_drag(event: InputEvent) -> void:
+	if not _movie_pet_dragging or not is_instance_valid(_pet_visual) or not is_instance_valid(_movie_pet_host):
+		_movie_pet_dragging = false
+		return
+	var global_pos: Vector2
+	if event is InputEventMouseMotion:
+		global_pos = (event as InputEventMouseMotion).global_position
+	else:
+		global_pos = _movie_pet_host.get_global_mouse_position()
+	var host_xf: Transform2D = _movie_pet_host.get_global_transform()
+	var local: Vector2 = host_xf.affine_inverse() * global_pos
+	var pet_size: Vector2 = Vector2(GameData.pet_window_size()) * _pet_visual.scale
+	_pet_visual.position = _clamp_movie_pet_pos(
+		local - _movie_pet_grab, pet_size, _movie_pet_host.size
+	)
+	_movie_pet_pos = _pet_visual.position
 
 
 func _movie_pet_hole_rect() -> Rect2i:
-	if not _movie_pet_on_stage or not is_instance_valid(_pet_visual) or not _pet_visual.visible:
-		return Rect2i()
-	var area: Rect2 = _pet_visual.get_global_rect()
-	if area.size.x < 8.0 or area.size.y < 8.0:
-		return Rect2i()
-	return Rect2i(
-		Vector2i(int(round(area.position.x)), int(round(area.position.y))),
-		Vector2i(int(round(area.size.x)), int(round(area.size.y)))
-	)
+	return Rect2i()
 
 
 func _play_movie_file(path: String) -> void:
