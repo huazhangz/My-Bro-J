@@ -48,17 +48,17 @@
 
 目录划分固定如下，新增文件必须放进对应目录，不要再往根目录堆散文件：
 
-- `scenes/`：全部 `.tscn` 场景。主场景 `scenes/sun_pet.tscn`
+- `scenes/`：全部 `.tscn` 场景。主场景 `scenes/steve.tscn`
   （根节点必须是 `Control`，全屏铺满，背景完全透明）。
-- `scripts/`：全部 `.gd` 脚本。`scripts/sun_pet.gd` 为主场景脚本，
+- `scripts/`：全部 `.gd` 脚本。`scripts/steve.gd` 为主场景脚本，
   `scripts/GameData.gd` 是全局 Autoload 单例（名称 `GameData`）。
 - `assets/`：美术、字体与视频资源（`assets/images/`、`assets/fonts/`、`assets/videos/`）。
 - `docs/`：`docs/PRD.md` 等文档。
-- 根目录只保留 `project.godot`、`README.md`、`.gitignore`、`.cursorrules`。
+- 根目录只保留 `project.godot`、`README.md`、`.gitignore`、`.cursorrules`、`convert_video.bat`。
 - 移动任何场景/脚本/资源后，必须同步修正 `project.godot` 的
   `run/main_scene`、`config/icon`、`[autoload]`，以及 `.tscn` 里的 `ext_resource path`，
   并跑一次 `godot --headless --path . --import` 确认无报错。
-- 所有数值常量（洗涤 45 秒、晾干 60 秒、仓库上限 10、CD 缩减系数…）集中定义在 `GameData` 中，
+- 所有数值常量（洗涤 45 秒、烘干基础 90 秒 + 品质每级 10 秒、仓库上限 10、CD 缩减系数…）集中定义在 `GameData` 中，
   业务脚本不得散落硬编码魔法数字。
 - 私有成员以下划线开头：`var _wash_remaining: float`。
 - 文件名 `snake_case`，类名/节点名 `PascalCase`，常量 `SCREAMING_SNAKE_CASE`。
@@ -68,11 +68,11 @@
 - 根 `Control` 不得放置不透明的 `ColorRect` / `Panel` 铺满全屏，否则窗口不再透明。
 - 需要 `get_window().transparent_bg = true` 配合 `display/window/per_pixel_transparency/allowed=true`。
 - 装饰性节点（纯展示）设置 `mouse_filter = Control.MOUSE_FILTER_IGNORE`，避免吃掉拖拽输入。
-- 中文字体已接入（`assets/fonts/GlowSansSC-Regular-Subset.otf` + 主题 `assets/fonts/steve_theme.tres`），
- UI 文本直接写中文。主题同时挂在 `project.godot` 的 `gui/theme/custom` 与主场景根节点 `theme` 上，
+- 中文字体只有一套：`assets/fonts/YuanRou-P-Bold.ttf`（源柔ゴシック P Bold，OFL 1.1）+ 主题 `assets/fonts/steve_theme.tres`。
+ UI 文本直接写中文。主题挂在 `project.godot` 的 `gui/theme/custom` 与主场景根节点 `theme` 上，
  新增 `Label` / `Button` 直接继承即可，**不要**再逐节点 `theme_override_fonts/font` 设字体；
  需要差异化样式时用主题里的类型变体（`theme_type_variation = &"RiskButton"` 等）。
- 若新文案出现方块，说明字体子集缺字，按 `assets/fonts/README.md` 的脚本重新生成子集。
+ 不要再引入第二套默认字体（人偶仿宋 / Glow Sans / 汉仪等已删除）。
 
 ## 6. 动态立绘视频
 
@@ -80,14 +80,17 @@
  `VideoStream` 的唯一子类是 `VideoStreamTheora`。绝不要写 `.mp4` / `.webm` 的加载代码，
  也不要臆造 `VideoStreamWebm` 之类不存在的类。素材一律先用 FFmpeg 转 `.ogv`
  （命令见 `assets/videos/README.md`）。
-- `scenes/sun_pet.tscn` 里 `PetVideo.stream` **直接挂** `res://assets/videos/steve.ogv`
+- `scenes/steve.tscn` 里 `PetVideo.stream` **直接挂** `res://assets/videos/steve.ogv`
  （`VideoStreamTheora`），让编辑器视口能预览视频帧；`PlaceholderVisual` 默认
  `visible = false`。运行时仍由 `_setup_pet_video()` 校验，失败才把占位图打开。
  不要删掉这份 `ext_resource`，否则编辑器又会默认露出几何占位。
- 用户绿幕源文件约定为 `C:/Users/ASUS/Desktop/Steve1.mp4`：存在则 FFmpeg 转 `user://steve.ogv`。
-- 默认画面只有角色立绘。右键角色弹出退出确认（Quit App / Cancel），不要再挂 CanvasLayer HUD。
+ 用户绿幕源文件约定为 `C:/Users/ASUS/My-Bro-J/steve3.mp4`：存在则 FFmpeg 转 `user://steve.ogv` 与 `assets/videos/steve.ogv`。
+ 立绘静帧约定为同目录 `Steve2.jpg`。内裤表 `bx1.png` / `bx2.png`（各 5×5）按绝对切格运行时抠底切片。
+ 烘干机 / 抽屉菜单按钮用 Emoji 文案，不再使用贴图。
+- 默认画面只有角色立绘。右键角色弹出「烘干机 / 抽屉 / 退出游戏」，不要再挂 CanvasLayer HUD。
+- 主场景只有 `scenes/steve.tscn`，不要再新增第二套平行场景或脚本。
 - `VideoStreamPlayer` 必须 `mouse_filter = Control.MOUSE_FILTER_IGNORE`，否则会吃掉窗口拖拽。
-- Theora **没有 Alpha 通道**，透明背景只能靠 `assets/videos/video_key.gdshader` 色度键抠像。
+- Theora **没有 Alpha 通道**，透明背景只能靠 `assets/shaders/chroma_key.gdshader` 色度键抠像。
  着色器挂在 `PetFrame`（TextureRect）上，不要挂在 `VideoStreamPlayer` 上（其 TEXTURE
  不是视频帧）。打开 `chroma_key_enabled` 后把 `get_video_texture()` 喂给 `PetFrame`。
  参数走主场景根节点的 `@export`（`chroma_key_color` / `chroma_key_similarity` /

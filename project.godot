@@ -1,6 +1,6 @@
 ; Engine configuration file.
 ; Steve 桌宠小游戏 (Steve Desktop Pet)
-; 透明 / 无边框 / 总在最前 的 250x350 桌面悬浮窗。
+; 透明 / 无边框 / 总在最前 的 300x420 桌面悬浮窗（立绘 1.2 倍）。
 
 config_version=5
 
@@ -8,7 +8,8 @@ config_version=5
 
 config/name="Steve Desktop Pet"
 config/description="Steve desktop pet - 2D Idle built with Godot 4."
-run/main_scene="res://scenes/sun_pet.tscn"
+; F5 只跑这一份场景。仓库里已删除 sun_pet.tscn / main.tscn。不要用 F6 跑旧标签。
+run/main_scene="res://scenes/steve.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://assets/icon.svg"
 boot_splash/show_image=false
@@ -23,18 +24,18 @@ gdscript/warnings/untyped_declaration=1
 
 [display]
 
-window/size/viewport_width=250
-window/size/viewport_height=350
+window/size/viewport_width=300
+window/size/viewport_height=420
 window/size/borderless=true
 window/size/transparent=true
-window/size/always_on_top=true
+window/size/always_on_top=false
 window/per_pixel_transparency/allowed=true
+window/subwindows/embed_subwindows=false
 
 [gui]
 
-; 全局默认主题：圆体中文字体，保证 Label / Button / Tooltip 全都不再显示方块。
 theme/custom="res://assets/fonts/steve_theme.tres"
-theme/custom_font="res://assets/fonts/GlowSansSC-Regular-Subset.otf"
+theme/custom_font="res://assets/fonts/YuanRou-P-Bold.ttf"
 
 [rendering]
 

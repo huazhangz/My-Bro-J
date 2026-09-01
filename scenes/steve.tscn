@@ -1,15 +1,54 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=9 format=3]
 
-[ext_resource type="Script" path="res://scripts/sun_pet.gd" id="1_steve"]
+[ext_resource type="Script" path="res://scripts/steve.gd" id="1_steve"]
 [ext_resource type="Theme" path="res://assets/fonts/steve_theme.tres" id="2_theme"]
-[ext_resource type="Shader" path="res://assets/videos/video_key.gdshader" id="3_videokey"]
-[ext_resource type="VideoStreamTheora" path="res://assets/videos/steve.ogv" id="4_ogv"]
+[ext_resource type="Shader" path="res://assets/shaders/chroma_key.gdshader" id="3_videokey"]
+[ext_resource type="Texture2D" path="res://assets/images/container.jpg" id="7_basin"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_videokey"]
 shader = ExtResource("3_videokey")
 shader_parameter/key_color = Color(0, 1, 0, 1)
-shader_parameter/similarity = 0.35
-shader_parameter/smoothness = 0.1
+shader_parameter/similarity = 0.81
+shader_parameter/smoothness = 0.15
+shader_parameter/spill_suppression = 0.3
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_basinkey"]
+shader = ExtResource("3_videokey")
+shader_parameter/key_color = Color(0, 1, 0, 1)
+shader_parameter/similarity = 0.81
+shader_parameter/smoothness = 0.15
+shader_parameter/spill_suppression = 0.3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_runaway"]
+bg_color = Color(0.72, 0.08, 0.08, 0.55)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 0.35, 0.28, 0.7)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_water_bg"]
+bg_color = Color(0.04, 0.1, 0.18, 0.7)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.55, 0.85, 1, 0.45)
+corner_radius_top_left = 7
+corner_radius_top_right = 7
+corner_radius_bottom_right = 7
+corner_radius_bottom_left = 7
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_water_fill"]
+bg_color = Color(0.22, 0.72, 0.96, 0.92)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
 
 [node name="Steve" type="Control"]
 layout_mode = 3
@@ -18,12 +57,14 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 0
 theme = ExtResource("2_theme")
 script = ExtResource("1_steve")
 chroma_key_enabled = true
 chroma_key_color = Color(0, 1, 0, 1)
-chroma_key_similarity = 0.35
-chroma_key_smoothness = 0.1
+chroma_key_similarity = 0.81
+chroma_key_smoothness = 0.15
+chroma_spill_suppression = 0.3
 
 [node name="PetVisual" type="Control" parent="."]
 unique_name_in_owner = true
@@ -37,15 +78,15 @@ mouse_filter = 2
 
 [node name="PetVideo" type="VideoStreamPlayer" parent="PetVisual"]
 unique_name_in_owner = true
+editor_description = "Required unique name %PetVideo for steve.gd"
 layout_mode = 0
-offset_left = 5.0
+offset_left = 10.0
 offset_top = 5.0
-offset_right = 245.0
-offset_bottom = 345.0
+offset_right = 298.0
+offset_bottom = 413.0
 mouse_filter = 2
-stream = ExtResource("4_ogv")
 volume_db = -80.0
-autoplay = true
+autoplay = false
 expand = true
 loop = true
 
@@ -54,11 +95,25 @@ unique_name_in_owner = true
 visible = false
 material = SubResource("ShaderMaterial_videokey")
 layout_mode = 0
-offset_left = 5.0
+offset_left = 10.0
 offset_top = 5.0
-offset_right = 245.0
-offset_bottom = 345.0
+offset_right = 298.0
+offset_bottom = 413.0
 mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="BasinFrame" type="TextureRect" parent="PetVisual"]
+unique_name_in_owner = true
+visible = false
+material = SubResource("ShaderMaterial_basinkey")
+layout_mode = 0
+offset_left = 10.0
+offset_top = 5.0
+offset_right = 298.0
+offset_bottom = 413.0
+mouse_filter = 2
+texture = ExtResource("7_basin")
 expand_mode = 1
 stretch_mode = 5
 
@@ -75,91 +130,610 @@ mouse_filter = 2
 
 [node name="Head" type="ColorRect" parent="PetVisual/PlaceholderVisual"]
 layout_mode = 0
-offset_left = 98.0
-offset_top = 80.0
-offset_right = 152.0
-offset_bottom = 130.0
+offset_left = 122.6
+offset_top = 96.0
+offset_right = 187.4
+offset_bottom = 156.0
 mouse_filter = 2
 color = Color(0.976471, 0.858824, 0.717647, 1)
 
 [node name="EyeLeft" type="ColorRect" parent="PetVisual/PlaceholderVisual"]
 layout_mode = 0
-offset_left = 111.0
-offset_top = 98.0
-offset_right = 119.0
-offset_bottom = 106.0
+offset_left = 138.2
+offset_top = 117.6
+offset_right = 147.8
+offset_bottom = 127.2
 mouse_filter = 2
 color = Color(0.152941, 0.152941, 0.176471, 1)
 
 [node name="EyeRight" type="ColorRect" parent="PetVisual/PlaceholderVisual"]
 layout_mode = 0
-offset_left = 131.0
-offset_top = 98.0
-offset_right = 139.0
-offset_bottom = 106.0
+offset_left = 162.2
+offset_top = 117.6
+offset_right = 171.8
+offset_bottom = 127.2
 mouse_filter = 2
 color = Color(0.152941, 0.152941, 0.176471, 1)
 
 [node name="Body" type="ColorRect" parent="PetVisual/PlaceholderVisual"]
 layout_mode = 0
-offset_left = 84.0
-offset_top = 130.0
-offset_right = 166.0
-offset_bottom = 210.0
+offset_left = 105.8
+offset_top = 156.0
+offset_right = 204.2
+offset_bottom = 252.0
 mouse_filter = 2
 color = Color(0.176471, 0.501961, 0.878431, 1)
 
 [node name="Basin" type="ColorRect" parent="PetVisual/PlaceholderVisual"]
 layout_mode = 0
-offset_left = 60.0
-offset_top = 210.0
-offset_right = 190.0
-offset_bottom = 246.0
+offset_left = 77.0
+offset_top = 252.0
+offset_right = 233.0
+offset_bottom = 295.2
 mouse_filter = 2
 color = Color(0.239216, 0.729412, 0.788235, 0.870588)
+
+[node name="HoverHud" type="Control" parent="."]
+unique_name_in_owner = true
+modulate = Color(1, 1, 1, 0)
+z_index = 12
+layout_mode = 0
+offset_left = 28.0
+offset_top = 17.0
+offset_right = 228.0
+offset_bottom = 57.0
+mouse_filter = 2
+
+[node name="WaterBar" type="ProgressBar" parent="HoverHud"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 200.0
+offset_bottom = 14.0
+mouse_filter = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_water_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_water_fill")
+max_value = 100.0
+step = 1.0
+value = 1.0
+show_percentage = false
+
+[node name="WashLabel" type="Label" parent="HoverHud"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_top = 16.0
+offset_right = 200.0
+offset_bottom = 42.0
+mouse_filter = 2
+text = "洗涤进度（1/100）"
+horizontal_alignment = 2
 
 [node name="ExitPopup" type="PanelContainer" parent="."]
 unique_name_in_owner = true
 visible = false
 z_index = 20
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -88.0
-offset_top = -52.0
-offset_right = 88.0
-offset_bottom = 52.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_type_variation = &"SolidPanel"
 
-[node name="Rows" type="VBoxContainer" parent="ExitPopup"]
+[node name="MenuScroll" type="ScrollContainer" parent="ExitPopup"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 3
+
+[node name="ExitInner" type="VBoxContainer" parent="ExitPopup/MenuScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 14
+
+[node name="MenuHeader" type="HBoxContainer" parent="ExitPopup/MenuScroll/ExitInner"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="MenuHeaderSpacer" type="Control" parent="ExitPopup/MenuScroll/ExitInner/MenuHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="MenuCloseButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner/MenuHeader"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(28, 28)
+layout_mode = 2
+size_flags_horizontal = 8
+theme_type_variation = &"CloseButton"
+text = "×"
+
+[node name="StatBubbles" type="GridContainer" parent="ExitPopup/MenuScroll/ExitInner"]
+layout_mode = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+columns = 2
+
+[node name="AffinityBubble" type="PanelContainer" parent="ExitPopup/MenuScroll/ExitInner/StatBubbles"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BubbleAffinity" type="Label" parent="ExitPopup/MenuScroll/ExitInner/StatBubbles/AffinityBubble"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "❤  好感度  0"
+horizontal_alignment = 1
+
+[node name="UnderwearBubble" type="PanelContainer" parent="ExitPopup/MenuScroll/ExitInner/StatBubbles"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BubbleUnderwear" type="Label" parent="ExitPopup/MenuScroll/ExitInner/StatBubbles/UnderwearBubble"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "🩲  洗了 0 条 内裤"
+horizontal_alignment = 1
+
+[node name="CompanionBubble" type="PanelContainer" parent="ExitPopup/MenuScroll/ExitInner/StatBubbles"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BubbleCompanion" type="Label" parent="ExitPopup/MenuScroll/ExitInner/StatBubbles/CompanionBubble"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "陪伴时长  0：00"
+horizontal_alignment = 1
+
+[node name="RunawayBubble" type="PanelContainer" parent="ExitPopup/MenuScroll/ExitInner/StatBubbles"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BubbleRunaway" type="Label" parent="ExitPopup/MenuScroll/ExitInner/StatBubbles/RunawayBubble"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "跑路次数  0"
+horizontal_alignment = 1
+
+[node name="MenuIcons" type="HBoxContainer" parent="ExitPopup/MenuScroll/ExitInner"]
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="DryerSlot" type="Button" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(168, 76)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"CodexButton"
+text = "🧺 烘干机"
+autowrap_mode = 3
+
+[node name="DrawerSlot" type="Button" parent="ExitPopup/MenuScroll/ExitInner/MenuIcons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(168, 76)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"CoinButton"
+text = "🗄️ 抽屉"
+autowrap_mode = 3
+
+[node name="PressureWashButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 66)
+layout_mode = 2
+theme_type_variation = &"RiskButton"
+text = "💦 能不能给我洗快点"
+autowrap_mode = 3
+
+[node name="ChatButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 66)
+layout_mode = 2
+theme_type_variation = &"EquipButton"
+text = "💬 聊聊天"
+
+[node name="FortuneButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 66)
+layout_mode = 2
+theme_type_variation = &"CodexButton"
+text = "🔮 哥来帮你算算运势~"
+autowrap_mode = 3
+
+[node name="MovieButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 66)
+layout_mode = 2
+theme_type_variation = &"CodexButton"
+text = "🎬 哥请你看个电影吧"
+autowrap_mode = 3
+
+[node name="TipButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 66)
+layout_mode = 2
+theme_type_variation = &"CoinButton"
+text = "💝 打赏"
+
+[node name="MenuFooter" type="HBoxContainer" parent="ExitPopup/MenuScroll/ExitInner"]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="ExitTitle" type="Label" parent="ExitPopup/Rows"]
+[node name="SettingsButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner/MenuFooter"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
-mouse_filter = 2
-theme_type_variation = &"TitleLabel"
-text = "Quit App?"
-horizontal_alignment = 1
+size_flags_horizontal = 3
+theme_type_variation = &"EquipButton"
+text = "⚙️ 设置"
 
-[node name="ExitButtons" type="HBoxContainer" parent="ExitPopup/Rows"]
+[node name="QuitAppButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner/MenuFooter"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 66)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"CloseButton"
+text = "🚪 晚点再洗"
+
+[node name="SettingsPanel" type="VBoxContainer" parent="ExitPopup/MenuScroll/ExitInner"]
+unique_name_in_owner = true
+visible = false
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="QuitAppButton" type="Button" parent="ExitPopup/Rows/ExitButtons"]
+[node name="PinTopButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner/SettingsPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"EquipButton"
+text = "固定上层：开"
+
+[node name="SizeLabel" type="Label" parent="ExitPopup/MenuScroll/ExitInner/SettingsPanel"]
+layout_mode = 2
+text = "Steve体型"
+horizontal_alignment = 1
+
+[node name="SizeRow" type="HBoxContainer" parent="ExitPopup/MenuScroll/ExitInner/SettingsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SizeSmallButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner/SettingsPanel/SizeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"CodexButton"
+text = "小"
+
+[node name="SizeMediumButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner/SettingsPanel/SizeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"CoinButton"
+text = "中"
+
+[node name="SizeLargeButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner/SettingsPanel/SizeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"RiskButton"
+text = "大"
+
+[node name="SizeHugeButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner/SettingsPanel/SizeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"EquipButton"
+text = "超大"
+
+[node name="RunawayBanner" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+z_index = 12
+layout_mode = 0
+offset_left = 46.0
+offset_top = 13.0
+offset_right = 262.0
+offset_bottom = 43.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_runaway")
+
+[node name="RunawayLabel" type="Label" parent="RunawayBanner"]
+layout_mode = 2
+mouse_filter = 2
+text = "已跑路..."
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="InventoryPopup" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+z_index = 30
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="InventoryChrome" type="Panel" parent="InventoryPopup"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="InventoryBgClip" type="Control" parent="InventoryPopup"]
+clip_contents = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 12.0
+offset_right = -12.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="InventoryBg" type="TextureRect" parent="InventoryPopup/InventoryBgClip"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="InventoryMask" type="Panel" parent="InventoryPopup"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="InventoryBody" type="VBoxContainer" parent="InventoryPopup"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 12.0
+offset_right = -16.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 10
+
+[node name="InventoryHeader" type="HBoxContainer" parent="InventoryPopup/InventoryBody"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="InventoryHeadline" type="PanelContainer" parent="InventoryPopup/InventoryBody/InventoryHeader"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+
+[node name="InventoryTitle" type="Label" parent="InventoryPopup/InventoryBody/InventoryHeader/InventoryHeadline"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+mouse_filter = 2
+text = "0条内裤"
+vertical_alignment = 1
+
+[node name="DryerHintButton" type="Button" parent="InventoryPopup/InventoryBody/InventoryHeader"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 0
+text = "?"
+focus_mode = 0
+
+[node name="HeaderSpacer" type="Control" parent="InventoryPopup/InventoryBody/InventoryHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="TidyButton" type="Button" parent="InventoryPopup/InventoryBody/InventoryHeader"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(96, 36)
+layout_mode = 2
+size_flags_vertical = 0
+theme_type_variation = &"EquipButton"
+text = "收拾一下"
+
+[node name="InventoryCloseButton" type="Button" parent="InventoryPopup/InventoryBody/InventoryHeader"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(72, 36)
+layout_mode = 2
+size_flags_vertical = 0
+theme_type_variation = &"CloseButton"
+text = "关闭"
+
+[node name="TidyPanel" type="VBoxContainer" parent="InventoryPopup/InventoryBody"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TidyHint" type="Label" parent="InventoryPopup/InventoryBody/TidyPanel"]
+layout_mode = 2
+mouse_filter = 2
+text = "品质从高到低。只勾品质或词条删该组；两边都勾只删同时符合的。"
+autowrap_mode = 3
+
+[node name="TidyQualityBox" type="HFlowContainer" parent="InventoryPopup/InventoryBody/TidyPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 6
+
+[node name="TidyWearBox" type="HFlowContainer" parent="InventoryPopup/InventoryBody/TidyPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 6
+
+[node name="TidyActions" type="HBoxContainer" parent="InventoryPopup/InventoryBody/TidyPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TidyDeleteButton" type="Button" parent="InventoryPopup/InventoryBody/TidyPanel/TidyActions"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"RiskButton"
+text = "删除勾选"
+
+[node name="TidyCancelButton" type="Button" parent="InventoryPopup/InventoryBody/TidyPanel/TidyActions"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"CloseButton"
-text = "Quit App"
+text = "取消"
 
-[node name="CancelExitButton" type="Button" parent="ExitPopup/Rows/ExitButtons"]
+[node name="InventoryScroll" type="ScrollContainer" parent="InventoryPopup/InventoryBody"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 3
+
+[node name="InventoryGrid" type="GridContainer" parent="InventoryPopup/InventoryBody/InventoryScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
+columns = 4
+
+[node name="InventoryEmpty" type="Label" parent="InventoryPopup/InventoryBody"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+mouse_filter = 2
+text = "空空如也"
+horizontal_alignment = 1
+
+[node name="ChatPopup" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+z_index = 20
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ChatChrome" type="Panel" parent="ChatPopup"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ChatBody" type="VBoxContainer" parent="ChatPopup"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 12.0
+offset_right = -16.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 10
+
+[node name="ChatHeader" type="HBoxContainer" parent="ChatPopup/ChatBody"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ChatHeadline" type="PanelContainer" parent="ChatPopup/ChatBody/ChatHeader"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+
+[node name="ChatTitle" type="Label" parent="ChatPopup/ChatBody/ChatHeader/ChatHeadline"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+text = "聊聊天"
+vertical_alignment = 1
+
+[node name="ChatHeaderSpacer" type="Control" parent="ChatPopup/ChatBody/ChatHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="ChatCloseButton" type="Button" parent="ChatPopup/ChatBody/ChatHeader"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(72, 36)
+layout_mode = 2
+theme_type_variation = &"CloseButton"
+text = "关闭"
+
+[node name="ChatScroll" type="ScrollContainer" parent="ChatPopup/ChatBody"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 3
+
+[node name="ChatList" type="VBoxContainer" parent="ChatPopup/ChatBody/ChatScroll"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Cancel"
+theme_override_constants/separation = 10
+
+[node name="ChatComposer" type="HBoxContainer" parent="ChatPopup/ChatBody"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ChatInput" type="LineEdit" parent="ChatPopup/ChatBody/ChatComposer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+max_length = 400
+placeholder_text = "跟 Steve 说点什么"
+
+[node name="ChatSendButton" type="Button" parent="ChatPopup/ChatBody/ChatComposer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(72, 40)
+layout_mode = 2
+theme_type_variation = &"EquipButton"
+text = "发送"

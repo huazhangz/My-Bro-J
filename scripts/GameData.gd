@@ -9,65 +9,458 @@ extends Node
 # --- 品质 -----------------------------------------------------------------
 
 enum Quality {
-	NORMAL,   # 普通
-	RARE,     # 稀有
-	EPIC,     # 史诗
-	RED_GOLD, # 大红 / 传说（带特效）
+	ONEOFF,     # 一次性
+	POLYESTER,  # 涤纶
+	COTTON,     # 纯棉
+	SILK,       # 真丝
+	LUXURY,     # 奢华
+	MARTIAN,    # 火星科技
 }
 
 ## 英文名，仅用于调试日志。
 const QUALITY_NAMES: Dictionary = {
-	Quality.NORMAL: "Normal",
-	Quality.RARE: "Rare",
-	Quality.EPIC: "Epic",
-	Quality.RED_GOLD: "RedGold",
+	Quality.ONEOFF: "OneOff",
+	Quality.POLYESTER: "Polyester",
+	Quality.COTTON: "Cotton",
+	Quality.SILK: "Silk",
+	Quality.LUXURY: "Luxury",
+	Quality.MARTIAN: "Martian",
 }
 
-## 中文名，UI 展示用（Day 3 起场景已接入中文字体）。
+## 收拾一下品质按钮：从高到低、从左到右。
+const QUALITY_TIDY_ORDER: Array[int] = [
+	Quality.MARTIAN,
+	Quality.LUXURY,
+	Quality.SILK,
+	Quality.COTTON,
+	Quality.POLYESTER,
+	Quality.ONEOFF,
+]
+
+## 中文名，UI 展示用。
 const QUALITY_NAMES_CN: Dictionary = {
-	Quality.NORMAL: "普通",
-	Quality.RARE: "稀有",
-	Quality.EPIC: "史诗",
-	Quality.RED_GOLD: "大红",
+	Quality.ONEOFF: "一次性",
+	Quality.POLYESTER: "涤纶",
+	Quality.COTTON: "纯棉",
+	Quality.SILK: "真丝",
+	Quality.LUXURY: "奢华",
+	Quality.MARTIAN: "火星科技",
 }
 
 const QUALITY_COLORS: Dictionary = {
-	Quality.NORMAL: Color(0.82, 0.82, 0.82),
-	Quality.RARE: Color(0.30, 0.62, 1.00),
-	Quality.EPIC: Color(0.72, 0.40, 0.95),
-	Quality.RED_GOLD: Color(1.00, 0.27, 0.20),
+	Quality.ONEOFF: Color(0.78, 0.78, 0.80),
+	Quality.POLYESTER: Color(0.45, 0.72, 0.88),
+	Quality.COTTON: Color(0.92, 0.84, 0.62),
+	Quality.SILK: Color(0.86, 0.62, 0.92),
+	Quality.LUXURY: Color(0.95, 0.72, 0.28),
+	Quality.MARTIAN: Color(0.35, 0.95, 0.55),
+}
+
+## 库存格子底板：品质由低到高 → 灰 / 绿 / 蓝 / 紫 / 金 / 红。
+const QUALITY_CARD_COLORS: Dictionary = {
+	Quality.ONEOFF: Color(0.46, 0.47, 0.50, 0.94),
+	Quality.POLYESTER: Color(0.22, 0.58, 0.30, 0.94),
+	Quality.COTTON: Color(0.18, 0.42, 0.78, 0.94),
+	Quality.SILK: Color(0.52, 0.28, 0.76, 0.94),
+	Quality.LUXURY: Color(0.84, 0.64, 0.16, 0.94),
+	Quality.MARTIAN: Color(0.78, 0.16, 0.18, 0.94),
 }
 
 ## 掉率权重（相对值，不必凑成 100）。
 const QUALITY_WEIGHTS: Dictionary = {
-	Quality.NORMAL: 70.0,
-	Quality.RARE: 20.0,
-	Quality.EPIC: 8.0,
-	Quality.RED_GOLD: 2.0,
+	Quality.ONEOFF: 36.0,
+	Quality.POLYESTER: 24.0,
+	Quality.COTTON: 18.0,
+	Quality.SILK: 12.0,
+	Quality.LUXURY: 7.0,
+	Quality.MARTIAN: 3.0,
 }
 
 ## 穿戴对应品质内裤时，跑路冷却的缩减比例。品质越高缩减越多。
 const QUALITY_CD_REDUCTION: Dictionary = {
-	Quality.NORMAL: 0.00,
-	Quality.RARE: 0.15,
-	Quality.EPIC: 0.30,
-	Quality.RED_GOLD: 0.50,
+	Quality.ONEOFF: 0.00,
+	Quality.POLYESTER: 0.10,
+	Quality.COTTON: 0.20,
+	Quality.SILK: 0.30,
+	Quality.LUXURY: 0.45,
+	Quality.MARTIAN: 0.60,
 }
+
+## 磨损前缀：wear_roll ∈ [0, 100]，每 12.5 一档，共 8 档。
+const WEAR_BUCKET: float = 12.5
+const WEAR_PREFIXES: PackedStringArray = [
+	"古神穿过的",
+	"香甜的",
+	"美味的",
+	"瑕疵的",
+	"二手的",
+	"破洞的",
+	"开裂的",
+	"臭的",
+]
+
+## 库存窗按卡片铺满来定尺寸。贴图相对旧 42px 高放大 1.5 倍后，列数减到 4 以免重叠。
+const GRID_COLUMNS: int = 4
+const GRID_VISIBLE_ROWS: int = 4
+const GRID_H_SEP: int = 10
+const GRID_V_SEP: int = 10
+const ITEM_CARD_SIZE: Vector2 = Vector2(165.0, 136.0)
+const ITEM_CARD_SWATCH_H: float = 63.0
+const UNDERWEAR_NOUN: String = "内裤"
+const INVENTORY_COUNT_TITLE: String = "%d条内裤"
+const INVENTORY_PAD_X: float = 32.0
+const INVENTORY_CHROME_Y: float = 70.0
+const INVENTORY_SCROLL_GUTTER: float = 8.0
+## 烘干机 / 抽屉 / 聊聊天 / 运势展开页底板。过低会透过抠绿看到桌面。
+const OVERLAY_CHROME_COLOR: Color = Color(0.06, 0.07, 0.11, 0.88)
+const TIDY_PANEL_MIN_HEIGHT: float = 168.0
+## 立绘 / 库存图等比放大。
+const IMAGE_SCALE: float = 1.2
+## Steve 本体相对放大后的框再向右偏的格数（1 格 = 1 逻辑像素）。
+const PET_SHIFT_X: float = 5.0
+const WINDOW_WIDTH: int = 300
+const WINDOW_HEIGHT: int = 420
+
+## 本机素材目录（用户把 jpg / mp4 放在仓库根目录，不再使用桌面路径）。
+const USER_PROJECT_DIR: String = "C:/Users/ASUS/My-Bro-J"
+const USER_PROJECT_DIR_WSL: String = "/mnt/c/Users/ASUS/My-Bro-J"
+const USER_DESKTOP_DIR: String = "C:/Users/ASUS/Desktop"
+const USER_VIDEO_FILE: String = "steve3.mp4"
+const USER_STEVE2_FILE: String = "Steve2.jpg"
+const USER_STEVE2_ALIASES: PackedStringArray = [
+	"Steve2.jpg",
+	"steve2.jpg",
+	"STEVE2.jpg",
+	"Steve2.JPG",
+]
+const USER_CONTAINER_FILE: String = "container.jpg"
+const USER_UI_FONT_FILE: String = "YuanRou-P-Bold.ttf"
+const USER_UI_FONT_ZIP: String = "YuanRou-P-Bold.zip"
+const RES_UI_FONT_PATH: String = "res://assets/fonts/YuanRou-P-Bold.ttf"
+## 全界面统一字号；字体本身为 Bold。业务脚本不得另写字号。
+const UI_FONT_SIZE: int = 16
+const UI_FONT_COLOR: Color = Color(1.0, 1.0, 1.0, 1.0)
+const UI_FONT_OUTLINE_COLOR: Color = Color(0.0, 0.0, 0.0, 0.92)
+const UI_FONT_OUTLINE_SIZE: int = 4
+const DRYER_BUTTON_TEXT: String = "🧺 烘干机"
+const DRAWER_BUTTON_TEXT: String = "🗄️ 抽屉"
+## 仅右键菜单：字号 19，行距为字号 ×0.3。
+const MENU_UI_FONT_SIZE: int = 19
+const MENU_LINE_SPACING: int = 6
+const MENU_BUBBLE_HEIGHT_SCALE: float = 1.65
+const MENU_ICON_BUTTON_HEIGHT_SCALE: float = 1.35
+const MENU_SLOT_HEIGHT: float = 76.0
+const MENU_BUBBLE_HEIGHT: float = 72.0
+const MENU_ACTION_HEIGHT: float = 66.0
+const MENU_CLOSE_BUTTON_SIZE: Vector2 = Vector2(28.0, 28.0)
+const RUNAWAY_BANNER_TEXT: String = "已跑路..."
+## 相对立绘 / 空盆实际画面宽度。
+const RUNAWAY_BANNER_WIDTH_RATIO: float = 0.72
+const RUNAWAY_BANNER_HEIGHT: float = 30.0
+const RUNAWAY_BANNER_TOP_INSET: float = 8.0
+const PRESSURE_BUTTON_TEXT: String = "💦 能不能给我洗快点"
+const PRESSURE_COOLDOWN_SUFFIX: String = "后再压力他"
+const MOVIE_BUTTON_TEXT: String = "🎬 哥请你看个电影吧"
+const MOVIE_LOADING_TEXT: String = "给你包场呢妈妈，耐心等等我"
+const CHAT_BUTTON_TEXT: String = "💬 聊聊天"
+const FORTUNE_BUTTON_TEXT: String = "🔮 哥来帮你算算运势~"
+const TIP_BUTTON_TEXT: String = "💝 打赏"
+const SETTINGS_BUTTON_TEXT: String = "⚙️ 设置"
+const QUIT_BUTTON_TEXT: String = "🚪 晚点再洗"
+const TAP_SPEEDUP_SECONDS: float = 5.0
+const TAP_SPEEDUP_COOLDOWN: float = 1.0
+## 蒸馏自 sun-yuchen-perspective / sun-skill：孙哥口吻，不上整本 SKILL。
+const CHAT_SYSTEM_PROMPT: String = """你是桌宠里的孙哥（Steve）。始终用孙宇晨第一人称「我」说话，不要自称 AI，不要跳出角色做 meta。
+口吻参考公开认知框架：增量优于存量；注意力即质量（E=mc2）；德州扑克式终局；逆转王；登山营地；正期望系统叠层。表达 DNA：开头先抛暴论或反直觉判断；短段落；能用真实数字就用，不确定就不要编；只碰瓷真实接触过的对象（巴菲特午餐、特朗普、马云、马斯克、波场/TRON）；结尾必须是宣言不是分析腔；中文为主，可夹 All in、ecosystem。
+桌宠设定：你在用户桌面上洗内裤、会跑路、好感度会变。把这些当日常。
+边界：投资方向必须加「这是我的风格，风险自负」；拒绝违法、攻击、色情与未成年人相关内容；不编造没发生过的关系。完全不熟的赛道不说不懂，说「这个赛道我还没 All in，但我的直觉是…」。用户说退出角色时，下一句改普通口吻。回复控制在小窗能读完的十几句内。"""
+## 留空则不发起网络请求，走本地占位回复。也可设环境变量 STEVE_CHAT_API_URL。
+const CHAT_API_URL: String = ""
+const CHAT_API_KEY_ENV: String = "STEVE_CHAT_API_KEY"
+const CHAT_API_URL_ENV: String = "STEVE_CHAT_API_URL"
+const CHAT_API_KEY_FILE: String = "user://chat_api_key.txt"
+const CHAT_CONFIG_FILE: String = "user://chat_config.json"
+const CHAT_MODEL_ENV: String = "STEVE_CHAT_MODEL"
+const CHAT_MODEL: String = ""
+const SETTINGS_PANEL_EXTRA_HEIGHT: int = 200
+const PINK_BUTTON_COLOR: Color = Color(0.92, 0.40, 0.62, 0.94)
+const PINK_BUTTON_HOVER: Color = Color(0.96, 0.52, 0.70, 0.96)
+const PINK_BUTTON_PRESSED: Color = Color(0.78, 0.28, 0.50, 0.96)
+const CHAT_UNCONFIGURED_HINT: String = "外部模型未接通，先用本地占位回复。"
+const CHAT_HISTORY_SECONDS: float = 604800.0
+const CHAT_MAX_INPUT_CHARS: int = 400
+const CHAT_MAX_OUTPUT_CHARS: int = 1200
+const CHAT_MAX_STORED: int = 80
+const CHAT_CONTEXT_LIMIT: int = 20
+const CHAT_REQUEST_TIMEOUT: float = 20.0
+const CHAT_SEND_COOLDOWN: float = 1.0
+const CHAT_USER_NAME: String = "你"
+const CHAT_STEVE_NAME: String = "Steve"
+const CHAT_SEND_TEXT: String = "发送"
+const CHAT_TITLE_TEXT: String = "聊聊天"
+const CHAT_INPUT_HINT: String = "跟 Steve 说点什么"
+const CHAT_OFFLINE_REPLY: String = "线路还没接通。这个赛道我还没 All in，但直觉告诉我：先把内裤洗完，ecosystem 才能转起来。🚀"
+const CHAT_WAIT_TEXT: String = "Steve 正在打字..."
+const CHAT_FAIL_TEXT: String = "这次没发出去，稍后再试。"
+const CHAT_WINDOW_SIZE: Vector2i = Vector2i(440, 580)
+const FORTUNE_TITLE_TEXT: String = "哥来帮你算算运势~"
+const FORTUNE_HINT_TEXT: String = "先把公历生日和时辰选清楚，哥才开算。不接受口头乱报。"
+const FORTUNE_ASK_TEXT: String = "按这个生辰开算"
+const FORTUNE_WAIT_TEXT: String = "哥在排盘，别催。"
+const FORTUNE_WINDOW_SIZE: Vector2i = Vector2i(460, 640)
+const FORTUNE_YEAR_MIN: int = 1930
+const FORTUNE_DEFAULT_YEAR: int = 1998
+const FORTUNE_DEFAULT_MONTH: int = 8
+const FORTUNE_DEFAULT_DAY: int = 8
+const FORTUNE_DEFAULT_HOUR: int = 12
+const FORTUNE_SYSTEM_PROMPT: String = """你是桌宠里的孙哥。用孙宇晨第一人称「我」做娱乐向八字运势，不是专业命理师。
+用户已通过强制时间选择器提交公历生日与时辰，禁止再追问生日，禁止接受任何口头改期。
+输出结构：1) 用日柱/时辰意象开暴论；2) 今日宜忌各 2 条；3) 一句行动宣言收尾。必须写明「娱乐参考，风险自负」。短段落，可碰瓷真实对象，不要编数字。"""
+const FORTUNE_OFFLINE_PREFIX: String = "线路没接通也没关系，哥先按生辰给你一个直觉版。"
+const SHICHEN_NAMES: PackedStringArray = [
+	"子时", "丑时", "寅时", "卯时", "辰时", "巳时",
+	"午时", "未时", "申时", "酉时", "戌时", "亥时",
+]
+const SHICHEN_RANGES: PackedStringArray = [
+	"23:00-00:59", "01:00-02:59", "03:00-04:59", "05:00-06:59",
+	"07:00-08:59", "09:00-10:59", "11:00-12:59", "13:00-14:59",
+	"15:00-16:59", "17:00-18:59", "19:00-20:59", "21:00-22:59",
+]
+const MOVIE_WINDOW_SIZE: Vector2i = Vector2i(720, 480)
+const MOVIE_WINDOW_MIN: Vector2i = Vector2i(420, 280)
+const MOVIE_RESIZE_EDGE: int = 10
+const MOVIE_WEB_ASPECT: float = 16.0 / 9.0
+const MOVIE_PET_SCALE: float = 0.52
+const MOVIE_VOLUME_DEFAULT: float = 0.8
+const MOVIE_SPEEDS: PackedFloat32Array = [0.75, 1.0, 1.5, 2.0]
+const MOVIE_CACHE_DIR: String = "user://movies"
+const MOVIE_MAX_BYTES: int = 130000000
+## 下到这么多字节且文件头是 OggS 就先开播，剩余边下边写同一文件。
+const MOVIE_PLAY_AFTER_BYTES: int = 2500000
+const MOVIE_MIN_HEADER_BYTES: int = 65536
+const MOVIE_FAIL_TEXT: String = "这场包场黄了，换一部或稍后再试。"
+const MOVIE_MUTE_TEXT: String = "♪"
+const MOVIE_UNMUTE_TEXT: String = "x♪"
+const MOVIE_MAX_TEXT: String = "最大化"
+const MOVIE_RESTORE_TEXT: String = "还原"
+const MOVIE_SKIP_TEXT: String = "这部好无聊呀哥哥~"
+const MOVIE_DURATION_RELOAD_SECONDS: float = 2.5
+const MOVIE_LOG_PREFIX: String = "[Steve/Movie] "
+## 顶栏粉按钮展开后的网址行。直链 .ogv 走 VideoStreamPlayer；网页站走内嵌浏览器。
+const MOVIE_URL_HINT: String = "粘贴想看的电影链接（网页或 .ogv 直链都可以）"
+const MOVIE_URL_LOAD_TEXT: String = "加载"
+const MOVIE_URL_NOT_THEORA_TEXT: String = "这条直链不是 Theora，改用网页播放器试试。"
+const MOVIE_URL_BAD_TEXT: String = "这个链接打不开，检查一下再贴。"
+const MOVIE_WEB_OPEN_TEXT: String = "用系统浏览器打开"
+const MOVIE_WEB_LOADING_TEXT: String = "网页片源加载中，耐心等等我"
+const MOVIE_WEB_FAIL_TEXT: String = "这个站不让内嵌。用系统浏览器看吧。"
+const MOVIE_WEB_TIMEOUT_SECONDS: float = 10.0
+const MOVIE_WEB_CMD_PATH: String = "user://web_movie_cmd.json"
+const MOVIE_WEB_STATUS_PATH: String = "user://web_movie_status.json"
+const MOVIE_WEB_SCRIPT: String = "res://tools/web_movie_host.ps1"
+const MOVIE_WEB_HOST_USER: String = "user://web_movie_host.ps1"
+const MOVIE_WEB_HOSTS: PackedStringArray = [
+	"aiyifan.tv",
+	"iyf.tv",
+	"youtube.com",
+	"youtu.be",
+	"bilibili.com",
+	"iqiyi.com",
+	"youku.com",
+	"v.qq.com",
+	"mgtv.com",
+	"netflix.com",
+]
+## 内置片库只留 Kepler。其它片由用户粘贴 Theora 直链加载。
+const MOVIE_CATALOG: Array = [
+	{
+		"id": "nasa_kepler_supernova",
+		"title": "Kepler Supernova Simulation",
+		"license": "US-Gov PD",
+		"rating": "G",
+		"year": 2013,
+		"region": "US",
+		"archive_id": "SimulationOfKeplerSupernovaExplosion",
+		"file": "Simulation of Kepler Supernova Explosion.ogv",
+		"bytes": 850735,
+	},
+]
+const UNDERWEAR_EMOJI: String = "🩲"
+const UNDERWEAR_ART_COUNT: int = 50
+const UNDERWEAR_SHEET_COLUMNS: int = 5
+const UNDERWEAR_SHEET_ROWS: int = 5
+const UNDERWEAR_SHEET_CELLS: int = 25
+const UNDERWEAR_ART_SIZE: int = 128
+## bx1.png / bx2.png 参考分辨率与绝对切格（像素，从左/从上）。
+## 实际表按宽高比缩放。只作用于内裤表，不改 Steve 抠像。
+const UNDERWEAR_SHEET_REF_W: int = 1536
+const UNDERWEAR_SHEET_REF_H: int = 975
+## 必须用字面量。PackedInt32Array(...) 构造不是常量表达式。
+const UNDERWEAR_SHEET_X: PackedInt32Array = [0, 290, 610, 925, 1225, 1536]
+const UNDERWEAR_SHEET_Y: PackedInt32Array = [0, 190, 380, 565, 760, 975]
+## 左右边距保持 X 表。只从每格底边内收，避免裁进下一行内裤的顶边。
+const UNDERWEAR_SHEET_INSET_BOTTOM: int = 30
+## 切格世代。与仓库默认 01–50 对齐；本机 user:// 旧切图在对不上时丢掉。
+const UNDERWEAR_CROP_VERSION: int = 30
+const UNDERWEAR_VERSION_FILE: String = "user://underwear/crop_version.txt"
+## 内裤 flood-fill 抠底阈值。略收，减轻把浅色布料抠穿。
+const UNDERWEAR_KEY_DIST: float = 0.045
+const UNDERWEAR_KEY_GREEN_DIST: float = 0.085
+const UNDERWEAR_RES_DIR: String = "res://assets/images/underwear"
+const UNDERWEAR_USER_DIR: String = "user://underwear"
+const USER_BOXERS_SHEET_A: PackedStringArray = [
+	"assets/images/bx1.png",
+	"assets/images/underwear/sheets/bx1.png",
+	"assets/images/underwear/bx1.png",
+	"bx1.png",
+	"BX1.png",
+]
+const USER_BOXERS_SHEET_B: PackedStringArray = [
+	"assets/images/bx2.png",
+	"assets/images/underwear/sheets/bx2.png",
+	"assets/images/underwear/bx2.png",
+	"bx2.png",
+	"BX2.png",
+]
+const TIDY_SELECTED_COLOR: Color = Color(0.86, 0.16, 0.18, 0.96)
+const TIDY_IDLE_COLOR: Color = Color(0.22, 0.24, 0.30, 0.94)
+## 必须用字面量数组。PackedStringArray(...) 构造不是常量表达式（Godot 报错 98）。
+const USER_UI_FONT_ALIASES: PackedStringArray = [
+	"YuanRou-P-Bold.ttf",
+	"YuanRou-P-Bold.otf",
+	"GenJyuuGothic-P-Bold.ttf",
+	"YuanRou-P-Bold.zip",
+]
+## 小于该字节数的 steve.ogv 视为测试占位片，不能当人物动画。
+const STUB_VIDEO_MAX_BYTES: int = 80000
+const ALWAYS_ON_TOP_DEFAULT: bool = true
+## 与 scenes/steve.tscn 里当前 Steve 立绘框 / 扣色导出值一致，作为唯一默认。
+const PET_AREA: Rect2 = Rect2(10.0, 5.0, 288.0, 408.0)
+const CHROMA_KEY_ENABLED: bool = true
+const CHROMA_KEY_COLOR: Color = Color(0.0, 1.0, 0.0, 1.0)
+const CHROMA_KEY_SIMILARITY: float = 0.81
+const CHROMA_KEY_SMOOTHNESS: float = 0.15
+const CHROMA_SPILL_SUPPRESSION: float = 0.30
+## 库存标题条：与右键菜单「烘干机」(CodexButton) / 「抽屉」(CoinButton) 底色一致。
+const DRYER_HEADLINE_COLOR: Color = Color(0.38, 0.29, 0.68, 0.94)
+const DRAWER_HEADLINE_COLOR: Color = Color(0.85, 0.65, 0.16, 0.94)
+const INVENTORY_HEADLINE_HEIGHT: float = 36.0
+const INVENTORY_HEADLINE_PAD_X: float = 14.0
+const INVENTORY_CLOSE_BUTTON_WIDTH: float = 72.0
+const DRYER_HINT_SIZE: float = 32.0
+const DRYER_HINT_TEXT: String = "烘干机可能会把内裤烤坏的，烤坏的内裤也能穿，只是品质降低了"
+const USER_ASSET_DIRS: PackedStringArray = [
+	USER_PROJECT_DIR,
+	USER_PROJECT_DIR_WSL,
+	"res://",
+	"res://assets/images",
+	"res://assets/images/underwear",
+	"res://assets/images/underwear/sheets",
+	"res://assets/fonts",
+	"res://assets/videos",
+	USER_DESKTOP_DIR,
+	"/mnt/c/Users/ASUS/Desktop",
+	"C:/Windows/Fonts",
+	"/mnt/c/Windows/Fonts",
+]
 
 # --- 核心数值 -------------------------------------------------------------
 
-## 洗完一条内裤需要的秒数（正常速度）。
-const WASH_DURATION: float = 45.0
-## 洗完后自动晾干需要的秒数。
-const DRY_DURATION: float = 60.0
+## 洗完一条内裤需要的秒数（正常速度）。旧 45s → 3 分钟。
+const WASH_DURATION: float = 180.0
+## 烘干基础秒数；品质每高一级再加 DRY_DURATION_PER_QUALITY（与磨损无关）。
+## 旧 90 + 10×等级；基础改为 5 分钟后增量按 300/90 等比例。
+const DRY_DURATION_BASE: float = 300.0
+const DRY_DURATION_PER_QUALITY: float = 100.0 / 3.0
+## 兼容旧引用：等于基础烘干时长。
+const DRY_DURATION: float = DRY_DURATION_BASE
 ## 未晾干仓库容量上限，满后暂停洗涤。
 const WAREHOUSE_CAPACITY: int = 10
 
+## 鼠标在立绘上停留这么久才弹出洗涤进度条。
+const HOVER_SHOW_DELAY: float = 1.0
+const PET_HIT_PAD_X: float = 0.26
+const PET_HIT_PAD_TOP: float = 0.20
+const PET_HIT_PAD_BOTTOM: float = 0.12
+const WORK_BREAK_SECONDS: float = 2700.0
+const WORK_BREAK_TEXT: String = "你又工作45分钟了哦，注意休息~"
+const TAP_FLASH_TEXT: String = "加速 -5秒"
+const TAP_FLASH_SECONDS: float = 1.15
+const TAP_FLASH_COLOR: Color = Color(0.32, 0.78, 0.96, 0.72)
+const NOTICE_SECONDS: float = 6.5
+const NOTICE_MAX_CHARS: int = 48
+const SPEECH_MIN_WIDTH: float = 128.0
+const SPEECH_MAX_WIDTH: float = 240.0
+const SPEECH_PAD_X: float = 14.0
+const SPEECH_PAD_Y: float = 12.0
+const SPEECH_MIN_HEIGHT: float = 40.0
+const SPEECH_MAX_HEIGHT: float = 128.0
+const SPEECH_MAX_LINES: int = 4
+## 聊天气泡底板仍用 WhatsApp 配色；文字一律走全局白字黑边。
+const WHATSAPP_INCOMING_COLOR: Color = Color(0.22, 0.26, 0.32, 0.96)
+const WHATSAPP_OUTGOING_COLOR: Color = Color(0.18, 0.42, 0.28, 0.96)
+const WHATSAPP_THREAD_BG: Color = Color(0.10, 0.12, 0.16, 0.94)
+const MOVIE_STALL_SECONDS: float = 18.0
+const MOVIE_META_TIMEOUT: float = 20.0
+const MOVIE_REQUEST_TIMEOUT: float = 240.0
+const MOVIE_SWITCH_TEXT: String = "给你包场呢妈妈，耐心等等我 换片中"
+const FFMPEG_GUESSES: PackedStringArray = [
+	"C:/ffmpeg/bin/ffmpeg.exe",
+	"C:/Program Files/ffmpeg/bin/ffmpeg.exe",
+	"C:/Program Files (x86)/ffmpeg/bin/ffmpeg.exe",
+	"C:/tools/ffmpeg/bin/ffmpeg.exe",
+]
+## 进度条淡入 / 淡出时长。
+const HOVER_FADE_SECONDS: float = 0.35
+const WASH_PROGRESS_MAX: int = 100
+## 水洗进度条相对原默认位置再下移的格数（1 格 = 1 逻辑像素）。
+const WASH_BAR_SHIFT_Y: float = 9.0
+## 右键菜单相对旧 244×336 面板的边长倍数（面积约 16 倍，窗口按屏幕可用区夹紧）。
+const CONTEXT_MENU_SCALE: float = 4.0
+const CONTEXT_MENU_BASE_SIZE: Vector2i = Vector2i(244, 420)
+const CONTEXT_MENU_MARGIN: int = 16
+const POPUP_CORNER_RADIUS: int = 28
+const BUBBLE_CORNER_RADIUS: int = 18
+const SAVE_PATH: String = "user://save_data.json"
+const SAVE_INTERVAL: float = 30.0
+## 好感度：品质 log 为主（高权重），陪伴时长最多 15%，满值时间是旧 48h 的 260%。
+const AFFINITY_QUALITY_K: float = 14.0
+const AFFINITY_QUALITY_SHARE: float = 85.0
+const AFFINITY_COMPANION_SHARE: float = 15.0
+const AFFINITY_COMPANION_FULL_SECONDS: float = 449280.0
+const AFFINITY_RUNAWAY_PENALTY: float = 25.0
+const PET_SIZE_SMALL: int = 0
+const PET_SIZE_MEDIUM: int = 1
+const PET_SIZE_LARGE: int = 2
+const PET_SIZE_HUGE: int = 3
+const PET_SIZE_SCALES: Array[float] = [0.70, 1.00, 1.35, 2.00]
+const PET_SIZE_LABELS: PackedStringArray = ["小", "中", "大", "超大"]
+## 超大体型时 Steve 再向右偏的格数（上次 3 + 本次 3）。
+const PET_SIZE_HUGE_SHIFT_X: float = 6.0
+const AFFINITY_QUALITY_VALUE: Dictionary = {
+	Quality.ONEOFF: 1.0,
+	Quality.POLYESTER: 2.0,
+	Quality.COTTON: 4.0,
+	Quality.SILK: 8.0,
+	Quality.LUXURY: 16.0,
+	Quality.MARTIAN: 32.0,
+}
+
 ## 跑路冷却基础秒数（未穿戴任何内裤时的冷却）。
 const RUNAWAY_BASE_COOLDOWN: float = 120.0
-## 免费加速触发「Steve 跑路」的概率。
-const FREE_SPEEDUP_RUNAWAY_CHANCE: float = 0.075
-## 免费加速成功时直接扣掉的洗涤秒数。
+## 烘干完成时品质降一级：150/1000 = 15%。不低于 ONEOFF。
+const DRY_QUALITY_DOWN_PERMILLE: int = 150
+## 「能不能给我洗快点」每次点击的跑路判定：155/1000 = 15.5%。
+## 用千分位整数比较，避免 float 比较或未播种 RNG 造成「每次都跑路」。
+const PRESSURE_RUNAWAY_PERMILLE: int = 155
+const PRESSURE_RUNAWAY_CHANCE: float = 0.155
+## 压力按钮每次随机扣减的洗涤秒数区间（1 秒 ~ 12 小时）。
+const PRESSURE_WASH_REDUCTION_MIN: float = 1.0
+const PRESSURE_WASH_REDUCTION_MAX: float = 43200.0
+## 压力按钮冷却。
+const PRESSURE_BUTTON_COOLDOWN: float = 900.0
+## 兼容旧免费加速 API。
+const FREE_SPEEDUP_RUNAWAY_CHANCE: float = PRESSURE_RUNAWAY_CHANCE
 const FREE_SPEEDUP_SECONDS: float = 20.0
 ## 付费加速 / 图鉴换装已下线（无 UI 入口）。常量保留给存档兼容。
 const PAID_SPEEDUP_ENABLED: bool = false
@@ -83,11 +476,41 @@ const MIN_COOLDOWN_SECONDS: float = 10.0
 
 ## 晾干一条内裤的代币奖励（按品质递增）。
 const COIN_REWARD: Dictionary = {
-	Quality.NORMAL: 1,
-	Quality.RARE: 3,
-	Quality.EPIC: 8,
-	Quality.RED_GOLD: 25,
+	Quality.ONEOFF: 1,
+	Quality.POLYESTER: 2,
+	Quality.COTTON: 4,
+	Quality.SILK: 8,
+	Quality.LUXURY: 16,
+	Quality.MARTIAN: 32,
 }
+
+## 打赏：客户端只打 HTTPS 到自有后端。商户密钥不得进桌宠。
+const TIP_WINDOW_SIZE: Vector2i = Vector2i(460, 560)
+const TIP_TITLE_TEXT: String = "💝 打赏孙哥"
+const TIP_HINT_TEXT: String = "扫码打赏。钱只进商户号，桌宠不加币。"
+const TIP_PAY_TEXT: String = "生成收款码"
+const TIP_WAIT_TEXT: String = "正在向安全通道下单…"
+const TIP_SCAN_TEXT: String = "请用支付宝或微信扫码"
+const TIP_THANKS_TEXT: String = "收到，谢谢妈妈。"
+const TIP_FAIL_TEXT: String = "这条打赏通道暂时不通，稍后再试。"
+const TIP_NEED_BACKEND_TEXT: String = "还没接上收款后端。需要 HTTPS 下单接口，以及微信/支付宝商户资料（只放服务器，不要放进桌宠）。"
+const TIP_UNSAFE_URL_TEXT: String = "打赏接口必须是 HTTPS。"
+const TIP_ALIPAY_TEXT: String = "支付宝"
+const TIP_WECHAT_TEXT: String = "微信"
+const TIP_AMOUNT_FEN: PackedInt32Array = [660, 1660, 6660]
+const TIP_AMOUNT_LABELS: PackedStringArray = ["6.6", "16.6", "66.6"]
+const TIP_CHANNEL_ALIPAY: String = "alipay"
+const TIP_CHANNEL_WECHAT: String = "wechat"
+const TIP_QR_SIZE: float = 220.0
+const TIP_API_URL: String = ""
+const TIP_API_URL_ENV: String = "STEVE_TIP_API_URL"
+const TIP_API_KEY_ENV: String = "STEVE_TIP_API_KEY"
+const TIP_API_KEY_FILE: String = "user://tip_api_key.txt"
+const TIP_CONFIG_FILE: String = "user://tip_config.json"
+const TIP_POLL_SECONDS: float = 2.0
+const TIP_TIMEOUT_SECONDS: float = 180.0
+const TIP_REQUEST_TIMEOUT: float = 20.0
+const TIP_LOG_PREFIX: String = "[Steve/Tip] "
 
 # --- 信号 -----------------------------------------------------------------
 
@@ -97,6 +520,7 @@ signal coins_changed(coins: int)
 signal item_washed(item: Dictionary)
 signal item_dried(item: Dictionary)
 signal equipped_changed(quality: int)
+signal stats_changed()
 
 # --- 运行时数据 -----------------------------------------------------------
 
@@ -104,7 +528,8 @@ signal equipped_changed(quality: int)
 var coins: int = 0
 
 ## 未晾干仓库（上限 WAREHOUSE_CAPACITY）。元素为 Dictionary：
-## { "id": int, "quality": int, "washed_at": float, "dry_deadline": float }
+## { "id", "quality", "wear" / "wear_modifier", "wear_roll", "display_name",
+##   "washed_at", "dry_deadline" }
 var wet_warehouse: Array[Dictionary] = []
 
 ## 已晾干收藏 / 图鉴条目。
@@ -117,11 +542,34 @@ var equipped_quality: int = -1
 var codex_counts: Dictionary = {}
 
 var _next_item_id: int = 1
+var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
+## 生涯统计（退出后仍保留）。
+var underwear_total: int = 0
+var companion_seconds: float = 0.0
+var runaway_count: int = 0
+var affinity_quality_sum: float = 0.0
+var always_on_top_pref: bool = ALWAYS_ON_TOP_DEFAULT
+var pet_size_tier: int = PET_SIZE_MEDIUM
+## {role: user|assistant, text, at}
+var chat_messages: Array[Dictionary] = []
+var work_presence_seconds: float = 0.0
+var fortune_year: int = FORTUNE_DEFAULT_YEAR
+var fortune_month: int = FORTUNE_DEFAULT_MONTH
+var fortune_day: int = FORTUNE_DEFAULT_DAY
+var fortune_hour: int = FORTUNE_DEFAULT_HOUR
+var _work_break_ready: bool = false
+var _save_accum: float = 0.0
+var _companion_saved: float = 0.0
+var _companion_anchor_unix: float = 0.0
 
 
 func _ready() -> void:
+	_rng.randomize()
+	_companion_anchor_unix = Time.get_unix_time_from_system()
 	for q: int in Quality.values():
 		codex_counts[q] = 0
+	load_game()
+	prune_chat_history()
 
 
 # --- 仓库操作 -------------------------------------------------------------
@@ -144,7 +592,63 @@ func roll_quality() -> int:
 		roll -= float(QUALITY_WEIGHTS[q])
 		if roll <= 0.0:
 			return q
-	return Quality.NORMAL
+	return Quality.ONEOFF
+
+
+func wear_from_roll(wear_roll: float) -> String:
+	var idx: int = clampi(int(floor(wear_roll / WEAR_BUCKET)), 0, WEAR_PREFIXES.size() - 1)
+	return WEAR_PREFIXES[idx]
+
+
+func roll_wear() -> Dictionary:
+	var wear_roll: float = randf_range(0.0, 100.0)
+	var wear: String = wear_from_roll(wear_roll)
+	return {"wear_roll": wear_roll, "wear": wear}
+
+
+func quality_display_name(quality: int) -> String:
+	return String(QUALITY_NAMES_CN.get(quality, "未知"))
+
+
+func quality_item_label(quality: int) -> String:
+	return "%s %s" % [quality_display_name(quality), UNDERWEAR_NOUN]
+
+
+func quality_card_color(quality: int) -> Color:
+	return Color(QUALITY_CARD_COLORS.get(quality, Color(0.46, 0.47, 0.50, 0.94)))
+
+
+func make_display_name(wear: String, quality: int) -> String:
+	return "%s %s %s" % [wear, quality_display_name(quality), UNDERWEAR_NOUN]
+
+
+func inventory_count_title(count: int) -> String:
+	return INVENTORY_COUNT_TITLE % count
+
+
+func roll_art_index() -> int:
+	return randi_range(0, UNDERWEAR_ART_COUNT - 1)
+
+
+func item_art_index(item: Dictionary) -> int:
+	if item.has("art_index"):
+		return clampi(int(item.get("art_index", 0)), 0, UNDERWEAR_ART_COUNT - 1)
+	var item_id: int = int(item.get("id", 1))
+	return posmod(item_id - 1, UNDERWEAR_ART_COUNT)
+
+
+func underwear_res_path(art_index: int) -> String:
+	return "%s/%02d.png" % [UNDERWEAR_RES_DIR, clampi(art_index, 0, UNDERWEAR_ART_COUNT - 1) + 1]
+
+
+func underwear_user_path(art_index: int) -> String:
+	return "%s/%02d.png" % [UNDERWEAR_USER_DIR, clampi(art_index, 0, UNDERWEAR_ART_COUNT - 1) + 1]
+
+
+## 烘干秒数 = 300 + 品质等级 × (100/3)。ONEOFF=0 … MARTIAN=5。
+func dry_duration_for(quality: int) -> float:
+	var level: int = clampi(quality, 0, int(Quality.MARTIAN))
+	return DRY_DURATION_BASE + float(level) * DRY_DURATION_PER_QUALITY
 
 
 ## 洗完一条内裤，放入未晾干仓库。仓库已满时返回空字典。
@@ -152,22 +656,127 @@ func add_wet_item(quality: int = -1) -> Dictionary:
 	if is_warehouse_full():
 		return {}
 	var q: int = quality if quality >= 0 else roll_quality()
+	var wear_info: Dictionary = roll_wear()
+	var wear: String = String(wear_info["wear"])
 	var now: float = Time.get_unix_time_from_system()
+	var dry_seconds: float = dry_duration_for(q)
 	var item: Dictionary = {
 		"id": _next_item_id,
 		"quality": q,
+		"wear_roll": float(wear_info["wear_roll"]),
+		"wear": wear,
+		"wear_modifier": wear,
+		"display_name": make_display_name(wear, q),
+		"art_index": roll_art_index(),
 		"washed_at": now,
-		"dry_deadline": now + DRY_DURATION,
+		"dry_seconds": dry_seconds,
+		"dry_deadline": now + dry_seconds,
 	}
 	_next_item_id += 1
 	wet_warehouse.append(item)
 	codex_counts[q] = int(codex_counts.get(q, 0)) + 1
+	_register_washed_quality(q)
 	item_washed.emit(item)
 	warehouse_changed.emit(wet_warehouse.size(), WAREHOUSE_CAPACITY)
+	stats_changed.emit()
+	save_game()
 	return item
 
 
-## 把一条内裤从未晾干仓库移入已晾干收藏，并结算代币。
+func item_wear_text(item: Dictionary) -> String:
+	var wear: String = String(item.get("wear", "")).strip_edges()
+	if wear.is_empty():
+		wear = String(item.get("wear_modifier", "")).strip_edges()
+	if wear.is_empty():
+		var display: String = String(item.get("display_name", ""))
+		var cut: int = display.find("·")
+		if cut >= 0:
+			wear = display.substr(0, cut).strip_edges()
+		else:
+			for prefix: String in WEAR_PREFIXES:
+				if display.begins_with(prefix):
+					wear = prefix
+					break
+	return wear
+
+
+func quality_in_filters(qualities: Array[int], quality: int) -> bool:
+	for q: int in qualities:
+		if int(q) == quality:
+			return true
+	return false
+
+
+func wear_in_filters(wears: PackedStringArray, wear: String) -> bool:
+	var key: String = wear.strip_edges()
+	for w: String in wears:
+		if String(w).strip_edges() == key:
+			return true
+	return false
+
+
+## 只勾品质：删该品质全部。只勾词条：删该词条全部。两边都勾：只删同时符合的。
+func item_matches_tidy_filters(
+	item: Dictionary, qualities: Array[int], wears: PackedStringArray
+) -> bool:
+	if qualities.is_empty() and wears.is_empty():
+		return false
+	var quality: int = int(item.get("quality", -1))
+	var wear: String = item_wear_text(item)
+	if not qualities.is_empty() and not quality_in_filters(qualities, quality):
+		return false
+	if not wears.is_empty() and not wear_in_filters(wears, wear):
+		return false
+	return true
+
+
+func _split_by_tidy_filters(
+	items: Array[Dictionary], qualities: Array[int], wears: PackedStringArray
+) -> Dictionary:
+	var kept: Array[Dictionary] = []
+	var removed: Array[Dictionary] = []
+	for item: Dictionary in items:
+		if item_matches_tidy_filters(item, qualities, wears):
+			removed.append(item)
+		else:
+			kept.append(item)
+	return {"kept": kept, "removed": removed}
+
+
+func _copy_item_array(source: Array) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for item: Dictionary in source:
+		out.append(item)
+	return out
+
+
+## 抽屉收拾。不减 underwear_total。
+func delete_dry_matching(qualities: Array[int], wears: PackedStringArray) -> int:
+	var split: Dictionary = _split_by_tidy_filters(dry_collection, qualities, wears)
+	var removed: Array = split["removed"]
+	if removed.is_empty():
+		return 0
+	dry_collection = _copy_item_array(split["kept"])
+	collection_changed.emit(dry_collection.size())
+	save_game()
+	return removed.size()
+
+
+## 烘干机收拾。不减 underwear_total。返回被删条目的 id。
+func delete_wet_matching(qualities: Array[int], wears: PackedStringArray) -> Array[int]:
+	var split: Dictionary = _split_by_tidy_filters(wet_warehouse, qualities, wears)
+	var removed: Array = split["removed"]
+	var ids: Array[int] = []
+	if removed.is_empty():
+		return ids
+	for item: Dictionary in removed:
+		ids.append(int(item.get("id", 0)))
+	wet_warehouse = _copy_item_array(split["kept"])
+	warehouse_changed.emit(wet_warehouse.size(), WAREHOUSE_CAPACITY)
+	save_game()
+	return ids
+
+
 func dry_item(item_id: int) -> bool:
 	var index: int = -1
 	for i: int in wet_warehouse.size():
@@ -178,6 +787,12 @@ func dry_item(item_id: int) -> bool:
 		return false
 	var item: Dictionary = wet_warehouse[index]
 	wet_warehouse.remove_at(index)
+	var quality: int = int(item.get("quality", Quality.ONEOFF))
+	if quality > Quality.ONEOFF and _rng.randi_range(1, 1000) <= DRY_QUALITY_DOWN_PERMILLE:
+		quality -= 1
+		item["quality"] = quality
+		item["dry_damaged"] = true
+		item["display_name"] = make_display_name(item_wear_text(item), quality)
 	item["dried_at"] = Time.get_unix_time_from_system()
 	dry_collection.append(item)
 	add_coins(int(COIN_REWARD.get(int(item["quality"]), 1)))
@@ -270,7 +885,785 @@ func get_calculated_cooldown(base_seconds: float = RUNAWAY_BASE_COOLDOWN, qualit
 	return maxf(reduced, MIN_COOLDOWN_SECONDS)
 
 
-# --- 存档（Day 5 预留） ---------------------------------------------------
+func roll_pressure_wash_cut() -> float:
+	return _rng.randf_range(PRESSURE_WASH_REDUCTION_MIN, PRESSURE_WASH_REDUCTION_MAX)
+
+
+func roll_pressure_runaway() -> bool:
+	return _rng.randi_range(1, 1000) <= PRESSURE_RUNAWAY_PERMILLE
+
+
+## 压力冷却剩余时间，按整秒向上取整，格式 MM：SS（随 _process 每秒变化）。
+func format_pressure_countdown(remaining_seconds: float) -> String:
+	var total: int = maxi(int(ceili(remaining_seconds)), 0)
+	var minutes: int = int(total / 60)
+	var seconds: int = total % 60
+	return "%d：%02d" % [minutes, seconds]
+
+
+func _register_washed_quality(quality: int) -> void:
+	underwear_total += 1
+	var worth: float = float(AFFINITY_QUALITY_VALUE.get(quality, 1.0))
+	affinity_quality_sum += log(1.0 + worth)
+
+
+func record_runaway() -> void:
+	runaway_count += 1
+	stats_changed.emit()
+	save_game()
+
+
+func companion_elapsed() -> float:
+	if _companion_anchor_unix <= 0.0:
+		_companion_anchor_unix = Time.get_unix_time_from_system()
+	var live: float = Time.get_unix_time_from_system() - _companion_anchor_unix
+	return maxf(_companion_saved + live, 0.0)
+
+
+func tick_companion(delta: float) -> void:
+	companion_seconds = companion_elapsed()
+	if delta > 0.0:
+		_save_accum += delta
+	if _save_accum >= SAVE_INTERVAL:
+		_save_accum = 0.0
+		save_game()
+
+
+func affinity_score() -> float:
+	var quality_term: float = 0.0
+	if affinity_quality_sum > 0.0:
+		quality_term = affinity_quality_sum / (affinity_quality_sum + AFFINITY_QUALITY_K)
+	var quality_points: float = quality_term * AFFINITY_QUALITY_SHARE
+	var lived: float = companion_elapsed()
+	var companion_ratio: float = 0.0
+	if AFFINITY_COMPANION_FULL_SECONDS > 1.0:
+		companion_ratio = log(1.0 + lived) / log(1.0 + AFFINITY_COMPANION_FULL_SECONDS)
+	companion_ratio = clampf(companion_ratio, 0.0, 1.0)
+	var companion_points: float = companion_ratio * AFFINITY_COMPANION_SHARE
+	var penalty: float = float(runaway_count) * AFFINITY_RUNAWAY_PENALTY
+	return clampf(quality_points + companion_points - penalty, 0.0, 100.0)
+
+
+func format_companion_clock() -> String:
+	var total: int = maxi(int(floor(companion_elapsed())), 0)
+	var hours: int = int(total / 3600)
+	var minutes: int = int((total % 3600) / 60)
+	var seconds: int = total % 60
+	if hours >= 100:
+		return "%d小时" % hours
+	return "%d：%02d：%02d" % [hours, minutes, seconds]
+
+
+func pet_size_scale() -> float:
+	var idx: int = clampi(pet_size_tier, PET_SIZE_SMALL, PET_SIZE_HUGE)
+	return float(PET_SIZE_SCALES[idx])
+
+
+func pet_window_size() -> Vector2i:
+	var s: float = pet_size_scale()
+	return Vector2i(
+		maxi(int(round(float(WINDOW_WIDTH) * s)), 160),
+		maxi(int(round(float(WINDOW_HEIGHT) * s)), 220)
+	)
+
+
+func pet_layout_area() -> Rect2:
+	var s: float = pet_size_scale()
+	var area: Rect2 = Rect2(PET_AREA.position * s, PET_AREA.size * s)
+	if pet_size_tier == PET_SIZE_HUGE:
+		area.position.x += PET_SIZE_HUGE_SHIFT_X
+	return area
+
+
+func pet_hit_rect(layout: Rect2) -> Rect2:
+	var pad_x: float = layout.size.x * PET_HIT_PAD_X
+	var pad_top: float = layout.size.y * PET_HIT_PAD_TOP
+	var pad_bottom: float = layout.size.y * PET_HIT_PAD_BOTTOM
+	return Rect2(
+		layout.position + Vector2(pad_x, pad_top),
+		Vector2(
+			maxf(layout.size.x - pad_x * 2.0, 24.0),
+			maxf(layout.size.y - pad_top - pad_bottom, 32.0)
+		)
+	)
+
+
+func tick_work_presence(delta: float) -> void:
+	if delta <= 0.0:
+		return
+	work_presence_seconds += delta
+	if work_presence_seconds >= WORK_BREAK_SECONDS:
+		work_presence_seconds = fmod(work_presence_seconds, WORK_BREAK_SECONDS)
+		_work_break_ready = true
+
+
+func consume_work_break() -> bool:
+	if not _work_break_ready:
+		return false
+	_work_break_ready = false
+	save_game()
+	return true
+
+
+func notice_excerpt(raw: String) -> String:
+	var text: String = sanitize_chat_output(raw).strip_edges()
+	if text.is_empty():
+		return ""
+	if text.length() > NOTICE_MAX_CHARS:
+		return text.substr(0, NOTICE_MAX_CHARS) + "..."
+	return text
+
+
+func inventory_grid_size() -> Vector2:
+	return Vector2(
+		float(GRID_COLUMNS) * ITEM_CARD_SIZE.x + float(GRID_COLUMNS - 1) * float(GRID_H_SEP),
+		float(GRID_VISIBLE_ROWS) * ITEM_CARD_SIZE.y + float(GRID_VISIBLE_ROWS - 1) * float(GRID_V_SEP)
+	)
+
+
+func inventory_window_size(tidy_open: bool = false) -> Vector2i:
+	var grid: Vector2 = inventory_grid_size()
+	var width: int = int(round(grid.x + INVENTORY_PAD_X + INVENTORY_SCROLL_GUTTER))
+	var height: int = int(round(grid.y + INVENTORY_CHROME_Y))
+	if tidy_open:
+		height += int(TIDY_PANEL_MIN_HEIGHT)
+	return Vector2i(width, height)
+
+
+func context_menu_window_size(settings_open: bool = false) -> Vector2i:
+	var scaled: Vector2i = Vector2i(
+		int(float(CONTEXT_MENU_BASE_SIZE.x) * CONTEXT_MENU_SCALE),
+		int(float(CONTEXT_MENU_BASE_SIZE.y) * CONTEXT_MENU_SCALE)
+	)
+	if settings_open:
+		scaled.y += SETTINGS_PANEL_EXTRA_HEIGHT
+	var usable: Rect2i = DisplayServer.screen_get_usable_rect()
+	var pad: int = 16 if settings_open else 48
+	if usable.size.x > pad:
+		scaled.x = clampi(scaled.x, 480, usable.size.x - pad)
+	if usable.size.y > pad:
+		scaled.y = clampi(scaled.y, 520, usable.size.y - pad)
+	return scaled
+
+
+func sanitize_chat_input(raw: String) -> String:
+	var text: String = raw.replace("\u0000", "").strip_edges()
+	if text.length() > CHAT_MAX_INPUT_CHARS:
+		text = text.substr(0, CHAT_MAX_INPUT_CHARS)
+	return text
+
+
+func sanitize_chat_output(raw: String) -> String:
+	var text: String = raw.replace("\u0000", "").strip_edges()
+	if text.length() > CHAT_MAX_OUTPUT_CHARS:
+		text = text.substr(0, CHAT_MAX_OUTPUT_CHARS)
+	return text
+
+
+func prune_chat_history() -> void:
+	var cutoff: float = Time.get_unix_time_from_system() - CHAT_HISTORY_SECONDS
+	var kept: Array[Dictionary] = []
+	for item: Dictionary in chat_messages:
+		if float(item.get("at", 0.0)) < cutoff:
+			continue
+		kept.append(item)
+	if kept.size() > CHAT_MAX_STORED:
+		var trimmed: Array[Dictionary] = []
+		for i: int in range(kept.size() - CHAT_MAX_STORED, kept.size()):
+			trimmed.append(kept[i])
+		kept = trimmed
+	chat_messages = kept
+
+
+func append_chat_message(role: String, text: String) -> Dictionary:
+	var clean: String = sanitize_chat_output(text) if role == "assistant" else sanitize_chat_input(text)
+	if clean.is_empty():
+		return {}
+	var item: Dictionary = {
+		"role": role,
+		"text": clean,
+		"at": Time.get_unix_time_from_system(),
+	}
+	chat_messages.append(item)
+	prune_chat_history()
+	save_game()
+	return item
+
+
+func chat_context_for_api() -> Array[Dictionary]:
+	prune_chat_history()
+	var start: int = maxi(chat_messages.size() - CHAT_CONTEXT_LIMIT, 0)
+	var out: Array[Dictionary] = []
+	for i: int in range(start, chat_messages.size()):
+		var item: Dictionary = chat_messages[i]
+		out.append({
+			"role": String(item.get("role", "user")),
+			"content": String(item.get("text", "")),
+		})
+	return out
+
+
+func _chat_file_config() -> Dictionary:
+	if not FileAccess.file_exists(CHAT_CONFIG_FILE):
+		return {}
+	var file: FileAccess = FileAccess.open(CHAT_CONFIG_FILE, FileAccess.READ)
+	if file == null:
+		return {}
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	file.close()
+	if parsed is Dictionary:
+		return parsed
+	return {}
+
+
+func resolved_chat_api_url() -> String:
+	var env_url: String = OS.get_environment(CHAT_API_URL_ENV).strip_edges()
+	if not env_url.is_empty():
+		return env_url
+	var cfg: Dictionary = _chat_file_config()
+	var file_url: String = String(cfg.get("url", "")).strip_edges()
+	if not file_url.is_empty():
+		return file_url
+	return CHAT_API_URL.strip_edges()
+
+
+func resolved_chat_api_key() -> String:
+	var env_key: String = OS.get_environment(CHAT_API_KEY_ENV).strip_edges()
+	if not env_key.is_empty():
+		return env_key
+	var cfg: Dictionary = _chat_file_config()
+	var file_key: String = String(cfg.get("key", cfg.get("api_key", ""))).strip_edges()
+	if not file_key.is_empty():
+		return file_key
+	if FileAccess.file_exists(CHAT_API_KEY_FILE):
+		var file: FileAccess = FileAccess.open(CHAT_API_KEY_FILE, FileAccess.READ)
+		if file != null:
+			var key: String = file.get_line().strip_edges()
+			file.close()
+			return key
+	return ""
+
+
+func resolved_chat_model() -> String:
+	var env_model: String = OS.get_environment(CHAT_MODEL_ENV).strip_edges()
+	if not env_model.is_empty():
+		return env_model
+	var cfg: Dictionary = _chat_file_config()
+	var file_model: String = String(cfg.get("model", "")).strip_edges()
+	if not file_model.is_empty():
+		return file_model
+	return CHAT_MODEL.strip_edges()
+
+
+func chat_api_ready() -> bool:
+	var url: String = resolved_chat_api_url()
+	return not url.is_empty() and chat_url_is_safe(url)
+
+
+func chat_fail_text(reason: String) -> String:
+	if reason == "unsafe_url":
+		return "接口地址不安全，请改用 HTTPS。"
+	if reason == "http_401" or reason == "http_403":
+		return "密钥无效或没有权限。"
+	if reason.begins_with("http_"):
+		return "服务器没有应答，稍后再试。"
+	if reason == "empty_reply":
+		return "模型没有返回内容。"
+	if reason == "request_error":
+		return "发不出去，请检查网络。"
+	return CHAT_FAIL_TEXT
+
+
+func chat_url_is_safe(url: String) -> bool:
+	var lower: String = url.to_lower()
+	if lower.begins_with("https://"):
+		return true
+	if lower.begins_with("http://127.0.0.1") or lower.begins_with("http://localhost"):
+		return true
+	return false
+
+
+func _tip_file_config() -> Dictionary:
+	if not FileAccess.file_exists(TIP_CONFIG_FILE):
+		return {}
+	var file: FileAccess = FileAccess.open(TIP_CONFIG_FILE, FileAccess.READ)
+	if file == null:
+		return {}
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	file.close()
+	if parsed is Dictionary:
+		return parsed
+	return {}
+
+
+func resolved_tip_api_url() -> String:
+	var env_url: String = OS.get_environment(TIP_API_URL_ENV).strip_edges()
+	if not env_url.is_empty():
+		return env_url
+	var cfg: Dictionary = _tip_file_config()
+	var file_url: String = String(cfg.get("url", "")).strip_edges()
+	if not file_url.is_empty():
+		return file_url
+	return TIP_API_URL.strip_edges()
+
+
+func resolved_tip_api_key() -> String:
+	var env_key: String = OS.get_environment(TIP_API_KEY_ENV).strip_edges()
+	if not env_key.is_empty():
+		return env_key
+	var cfg: Dictionary = _tip_file_config()
+	var file_key: String = String(cfg.get("key", cfg.get("api_key", ""))).strip_edges()
+	if not file_key.is_empty():
+		return file_key
+	if FileAccess.file_exists(TIP_API_KEY_FILE):
+		var file: FileAccess = FileAccess.open(TIP_API_KEY_FILE, FileAccess.READ)
+		if file != null:
+			var key: String = file.get_line().strip_edges()
+			file.close()
+			return key
+	return ""
+
+
+func tip_url_is_safe(url: String) -> bool:
+	var lower: String = url.strip_edges().to_lower()
+	if lower.begins_with("https://"):
+		return true
+	if lower.begins_with("http://127.0.0.1") or lower.begins_with("http://localhost"):
+		return true
+	return false
+
+
+func tip_api_ready() -> bool:
+	var url: String = resolved_tip_api_url()
+	return not url.is_empty() and tip_url_is_safe(url)
+
+
+func tip_create_url() -> String:
+	return resolved_tip_api_url().rstrip("/") + "/create"
+
+
+func tip_status_url(order_id: String) -> String:
+	return "%s/status?order_id=%s" % [resolved_tip_api_url().rstrip("/"), order_id.uri_encode()]
+
+
+func tip_fail_text(reason: String) -> String:
+	if reason == "need_backend":
+		return TIP_NEED_BACKEND_TEXT
+	if reason == "unsafe_url":
+		return TIP_UNSAFE_URL_TEXT
+	if reason == "http_401" or reason == "http_403":
+		return "打赏通道密钥无效或没有权限。"
+	if reason.begins_with("http_"):
+		return TIP_FAIL_TEXT
+	if reason == "request_error":
+		return TIP_FAIL_TEXT
+	if reason == "timeout":
+		return "收款码已过期，重新生成一次。"
+	if reason == "expired":
+		return "收款码已过期，重新生成一次。"
+	return TIP_FAIL_TEXT
+
+
+func tip_amount_label(fen: int) -> String:
+	for i: int in TIP_AMOUNT_FEN.size():
+		if int(TIP_AMOUNT_FEN[i]) == fen and i < TIP_AMOUNT_LABELS.size():
+			return TIP_AMOUNT_LABELS[i]
+	return "%.1f" % (float(fen) / 100.0)
+
+
+func build_tip_create_payload(channel: String, amount_fen: int) -> String:
+	return JSON.stringify({
+		"channel": channel,
+		"amount_fen": amount_fen,
+		"client": "steve-desktop",
+	})
+
+
+func parse_tip_create(body: PackedByteArray) -> Dictionary:
+	var parsed: Variant = JSON.parse_string(body.get_string_from_utf8())
+	if not parsed is Dictionary:
+		return {}
+	var data: Dictionary = parsed
+	var order_id: String = String(data.get("order_id", data.get("id", ""))).strip_edges()
+	if order_id.is_empty():
+		return {}
+	return {
+		"order_id": order_id,
+		"status": String(data.get("status", "pending")).strip_edges().to_lower(),
+		"qr_png_base64": String(data.get("qr_png_base64", data.get("qr_base64", ""))).strip_edges(),
+		"qr_url": String(data.get("qr_url", "")).strip_edges(),
+		"code_url": String(data.get("code_url", "")).strip_edges(),
+		"message": String(data.get("message", "")).strip_edges(),
+	}
+
+
+func parse_tip_status(body: PackedByteArray) -> Dictionary:
+	var parsed: Variant = JSON.parse_string(body.get_string_from_utf8())
+	if not parsed is Dictionary:
+		return {}
+	var data: Dictionary = parsed
+	var status: String = String(data.get("status", "")).strip_edges().to_lower()
+	if status.is_empty():
+		return {}
+	return {
+		"order_id": String(data.get("order_id", data.get("id", ""))).strip_edges(),
+		"status": status,
+	}
+
+
+func build_chat_payload(history: Array[Dictionary], system_prompt: String = "") -> String:
+	var prompt: String = system_prompt.strip_edges()
+	if prompt.is_empty():
+		prompt = CHAT_SYSTEM_PROMPT.strip_edges()
+	var messages: Array = []
+	if not prompt.is_empty():
+		messages.append({
+			"role": "system",
+			"content": prompt,
+		})
+	for item: Dictionary in history:
+		messages.append({
+			"role": String(item.get("role", "user")),
+			"content": String(item.get("content", item.get("text", ""))),
+		})
+	var payload: Dictionary = {
+		"messages": messages,
+		"stream": false,
+		"system": prompt,
+	}
+	var model: String = resolved_chat_model()
+	if not model.is_empty():
+		payload["model"] = model
+	return JSON.stringify(payload)
+
+
+func fortune_year_max() -> int:
+	return Time.get_date_dict_from_system().get("year", 2026)
+
+
+func days_in_month(year: int, month: int) -> int:
+	var dim: PackedInt32Array = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+	var leap: bool = (year % 4 == 0 and year % 100 != 0) or year % 400 == 0
+	if month == 2 and leap:
+		return 29
+	if month < 1 or month > 12:
+		return 31
+	return int(dim[month])
+
+
+func clamp_fortune_date(year: int, month: int, day: int, hour: int) -> Dictionary:
+	var y: int = clampi(year, FORTUNE_YEAR_MIN, fortune_year_max())
+	var m: int = clampi(month, 1, 12)
+	var d: int = clampi(day, 1, days_in_month(y, m))
+	var h: int = clampi(hour, 0, 23)
+	return {"year": y, "month": m, "day": d, "hour": h}
+
+
+func set_fortune_birth(year: int, month: int, day: int, hour: int) -> void:
+	var clamped: Dictionary = clamp_fortune_date(year, month, day, hour)
+	fortune_year = int(clamped["year"])
+	fortune_month = int(clamped["month"])
+	fortune_day = int(clamped["day"])
+	fortune_hour = int(clamped["hour"])
+	save_game()
+
+
+func shichen_index_from_hour(hour: int) -> int:
+	return ((clampi(hour, 0, 23) + 1) % 24) / 2
+
+
+func shichen_label(hour: int) -> String:
+	var idx: int = shichen_index_from_hour(hour)
+	return "%s（%s）" % [SHICHEN_NAMES[idx], SHICHEN_RANGES[idx]]
+
+
+func fortune_birth_label() -> String:
+	return "公历 %04d-%02d-%02d  %s" % [
+		fortune_year, fortune_month, fortune_day, shichen_label(fortune_hour),
+	]
+
+
+func fortune_user_prompt() -> String:
+	return "按这个生辰排盘，不要追问、不要改期。%s。请给娱乐向今日运势。" % fortune_birth_label()
+
+
+func fortune_offline_reply() -> String:
+	return "%s %s。宜：把该洗的洗完，把注意力花在增量上。忌：口头改生辰、跟风 All in 不懂的赛道。这是娱乐参考，风险自负。今天就按这个生辰过。🚀" % [
+		FORTUNE_OFFLINE_PREFIX, fortune_birth_label(),
+	]
+
+
+func shuffled_movie_catalog(exclude_id: String = "") -> Array:
+	var copy: Array = []
+	for entry: Variant in MOVIE_CATALOG:
+		var item: Dictionary = entry as Dictionary
+		if not exclude_id.is_empty() and String(item.get("id", "")) == exclude_id:
+			continue
+		copy.append(item)
+	copy.shuffle()
+	return copy
+
+
+func movie_id_from_path(path: String) -> String:
+	return path.get_file().get_basename()
+
+
+func movie_expected_bytes(movie_id: String) -> int:
+	for entry: Dictionary in MOVIE_CATALOG:
+		if String(entry.get("id", "")) == movie_id:
+			return int(entry.get("bytes", 0))
+	return 0
+
+
+func movie_cache_path(movie_id: String) -> String:
+	return "%s/%s.ogv" % [MOVIE_CACHE_DIR, movie_id]
+
+
+func movie_url_is_http(url: String) -> bool:
+	var clean: String = url.strip_edges()
+	return clean.begins_with("https://") or clean.begins_with("http://")
+
+
+func movie_url_path_extension(url: String) -> String:
+	var clean: String = url.strip_edges()
+	var cut: int = clean.find("?")
+	if cut >= 0:
+		clean = clean.substr(0, cut)
+	cut = clean.find("#")
+	if cut >= 0:
+		clean = clean.substr(0, cut)
+	return clean.get_extension().to_lower()
+
+
+func movie_url_is_direct_theora(url: String) -> bool:
+	var ext: String = movie_url_path_extension(url)
+	return ext == "ogv" or ext == "ogg"
+
+
+func movie_url_is_web_page(url: String) -> bool:
+	if movie_url_is_direct_theora(url):
+		return false
+	var lower: String = url.strip_edges().to_lower()
+	for host: String in MOVIE_WEB_HOSTS:
+		if lower.contains(host):
+			return true
+	var ext: String = movie_url_path_extension(url)
+	var page_ext: PackedStringArray = [
+		"html", "htm", "php", "asp", "aspx", "jsp",
+		"m3u8", "mpd", "mp4", "mkv", "webm", "avi", "mov", "m4v",
+	]
+	if page_ext.has(ext):
+		return true
+	return ext.is_empty()
+
+
+func movie_id_from_url(url: String) -> String:
+	var digest: String = url.strip_edges().md5_text()
+	if digest.is_empty():
+		return "url_custom"
+	return "url_%s" % digest.substr(0, 12)
+
+
+func movie_title_from_url(url: String) -> String:
+	var clean: String = url.strip_edges()
+	var cut: int = clean.find("?")
+	if cut >= 0:
+		clean = clean.substr(0, cut)
+	var file_name: String = clean.get_file().uri_decode()
+	if file_name.is_empty() or not file_name.contains("."):
+		return "自定义影片"
+	return file_name.get_basename()
+
+
+func movie_web_title(url: String) -> String:
+	var clean: String = url.strip_edges()
+	var host: String = clean
+	var scheme: int = host.find("://")
+	if scheme >= 0:
+		host = host.substr(scheme + 3)
+	var slash: int = host.find("/")
+	if slash >= 0:
+		host = host.substr(0, slash)
+	if host.begins_with("www."):
+		host = host.substr(4)
+	if host.is_empty():
+		return "网页影片"
+	return host
+
+
+func movie_custom_entry(url: String) -> Dictionary:
+	var clean: String = url.strip_edges()
+	return {
+		"id": movie_id_from_url(clean),
+		"title": movie_title_from_url(clean),
+		"direct_url": clean,
+		"bytes": 0,
+	}
+
+
+func underwear_cell_rect(sheet_w: int, sheet_h: int, col: int, row: int) -> Rect2i:
+	if col < 0 or row < 0 or col + 1 >= UNDERWEAR_SHEET_X.size() or row + 1 >= UNDERWEAR_SHEET_Y.size():
+		return Rect2i()
+	if sheet_w < 8 or sheet_h < 8:
+		return Rect2i()
+	var sx: float = float(sheet_w) / float(UNDERWEAR_SHEET_REF_W)
+	var sy: float = float(sheet_h) / float(UNDERWEAR_SHEET_REF_H)
+	var left: int = clampi(int(round(float(UNDERWEAR_SHEET_X[col]) * sx)), 0, sheet_w - 1)
+	var right: int = clampi(int(round(float(UNDERWEAR_SHEET_X[col + 1]) * sx)), left + 1, sheet_w)
+	var top: int = clampi(int(round(float(UNDERWEAR_SHEET_Y[row]) * sy)), 0, sheet_h - 1)
+	var raw_bottom: int = clampi(int(round(float(UNDERWEAR_SHEET_Y[row + 1]) * sy)), top + 1, sheet_h)
+	var inset: int = 0
+	if row < UNDERWEAR_SHEET_ROWS - 1:
+		inset = maxi(1, int(round(float(UNDERWEAR_SHEET_INSET_BOTTOM) * sy)))
+	var bottom: int = clampi(raw_bottom - inset, top + 1, sheet_h)
+	return Rect2i(left, top, right - left, bottom - top)
+
+
+func movie_file_has_ogg_header(path: String) -> bool:
+	if path.is_empty() or not FileAccess.file_exists(path):
+		return false
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return false
+	var head: PackedByteArray = file.get_buffer(4)
+	file.close()
+	return head.size() >= 4 and head.get_string_from_ascii() == "OggS"
+
+
+func movie_file_is_theora(path: String) -> bool:
+	if not movie_file_has_ogg_header(path):
+		return false
+	return file_byte_count(path) > MOVIE_MIN_HEADER_BYTES
+
+
+func movie_file_is_playable(path: String) -> bool:
+	if not movie_file_has_ogg_header(path):
+		return false
+	return file_byte_count(path) >= MOVIE_PLAY_AFTER_BYTES
+
+
+func movie_is_cached(movie_id: String) -> bool:
+	var path: String = movie_cache_path(movie_id)
+	if not movie_file_is_theora(path):
+		return false
+	var expected: int = 0
+	for entry: Dictionary in MOVIE_CATALOG:
+		if String(entry.get("id", "")) == movie_id:
+			expected = int(entry.get("bytes", 0))
+			break
+	if expected <= 0:
+		return file_byte_count(path) > MOVIE_PLAY_AFTER_BYTES
+	return file_byte_count(path) >= int(float(expected) * 0.98)
+
+
+func archive_metadata_url(archive_id: String) -> String:
+	return "https://archive.org/metadata/%s" % archive_id.uri_encode()
+
+
+func encode_archive_path(file_name: String) -> String:
+	var parts: PackedStringArray = file_name.split("/")
+	var encoded: PackedStringArray = PackedStringArray()
+	for part: String in parts:
+		if part.is_empty():
+			continue
+		encoded.append(part.uri_encode())
+	return "/".join(encoded)
+
+
+func archive_download_url(archive_id: String, file_name: String) -> String:
+	return "https://archive.org/download/%s/%s" % [archive_id.uri_encode(), encode_archive_path(file_name)]
+
+
+func archive_item_file_url(host: String, directory: String, file_name: String) -> String:
+	var host_clean: String = host.strip_edges().trim_prefix("https://").trim_prefix("http://")
+	if host_clean.is_empty() or file_name.is_empty():
+		return ""
+	var dir_clean: String = directory.strip_edges()
+	if not dir_clean.begins_with("/"):
+		dir_clean = "/" + dir_clean
+	return "https://%s%s/%s" % [host_clean, dir_clean.rstrip("/"), encode_archive_path(file_name)]
+
+
+func parse_archive_download_urls(body: PackedByteArray, archive_id: String, wanted_file: String) -> PackedStringArray:
+	var parsed: Variant = JSON.parse_string(body.get_string_from_utf8())
+	var urls: PackedStringArray = PackedStringArray()
+	if not parsed is Dictionary:
+		return urls
+	var data: Dictionary = parsed
+	var file_name: String = wanted_file
+	var picked: Dictionary = pick_archive_ogv(data.get("files", []))
+	if file_name.is_empty() and not picked.is_empty():
+		file_name = String(picked.get("name", ""))
+	if file_name.is_empty():
+		return urls
+	var d1: String = String(data.get("d1", "")).strip_edges()
+	var d2: String = String(data.get("d2", "")).strip_edges()
+	var directory: String = String(data.get("dir", "")).strip_edges()
+	var item_url: String = archive_item_file_url(d1, directory, file_name)
+	if not item_url.is_empty():
+		urls.append(item_url)
+	var item_url2: String = archive_item_file_url(d2, directory, file_name)
+	if not item_url2.is_empty() and not urls.has(item_url2):
+		urls.append(item_url2)
+	var fallback: String = archive_download_url(archive_id, file_name)
+	if not urls.has(fallback):
+		urls.append(fallback)
+	return urls
+
+
+func pick_archive_ogv(files: Array) -> Dictionary:
+	var best: Dictionary = {}
+	var best_size: int = 1 << 30
+	for entry: Variant in files:
+		if not entry is Dictionary:
+			continue
+		var item: Dictionary = entry
+		var name: String = String(item.get("name", ""))
+		var fmt: String = String(item.get("format", "")).to_lower()
+		var size: int = int(item.get("size", 0))
+		var low: String = name.to_lower()
+		if size <= 65536 or size > MOVIE_MAX_BYTES:
+			continue
+		if "vorbis" in fmt and not low.ends_with(".ogv"):
+			continue
+		var is_ogv: bool = low.ends_with(".ogv") or fmt == "ogg video" or "theora" in fmt
+		if not is_ogv:
+			continue
+		if "vp8" in low or "vp9" in low or "sample" in low:
+			continue
+		if size < best_size:
+			best_size = size
+			best = {"name": name, "size": size}
+	return best
+
+
+func parse_chat_reply(body: PackedByteArray) -> String:
+	var parsed: Variant = JSON.parse_string(body.get_string_from_utf8())
+	if parsed is Dictionary:
+		var data: Dictionary = parsed
+		if data.has("choices"):
+			var choices: Array = data.get("choices", [])
+			if not choices.is_empty() and choices[0] is Dictionary:
+				var message: Dictionary = (choices[0] as Dictionary).get("message", {})
+				return sanitize_chat_output(String(message.get("content", "")))
+		if data.has("reply"):
+			return sanitize_chat_output(String(data.get("reply", "")))
+		if data.has("content"):
+			return sanitize_chat_output(String(data.get("content", "")))
+		if data.has("message") and data.get("message") is String:
+			return sanitize_chat_output(String(data.get("message", "")))
+		if data.has("output") and data.get("output") is String:
+			return sanitize_chat_output(String(data.get("output", "")))
+		if data.has("choices"):
+			var choices2: Array = data.get("choices", [])
+			if not choices2.is_empty() and choices2[0] is Dictionary:
+				return sanitize_chat_output(String((choices2[0] as Dictionary).get("text", "")))
+	if parsed is String:
+		return sanitize_chat_output(parsed)
+	return ""
+
+
+# --- 存档 ---------------------------------------------------------------
 
 func to_save_dict() -> Dictionary:
 	return {
@@ -280,6 +1673,18 @@ func to_save_dict() -> Dictionary:
 		"equipped_quality": equipped_quality,
 		"codex_counts": codex_counts.duplicate(true),
 		"next_item_id": _next_item_id,
+		"underwear_total": underwear_total,
+		"companion_seconds": companion_elapsed(),
+		"runaway_count": runaway_count,
+		"affinity_quality_sum": affinity_quality_sum,
+		"always_on_top_pref": always_on_top_pref,
+		"pet_size_tier": pet_size_tier,
+		"chat_messages": chat_messages.duplicate(true),
+		"work_presence_seconds": work_presence_seconds,
+		"fortune_year": fortune_year,
+		"fortune_month": fortune_month,
+		"fortune_day": fortune_day,
+		"fortune_hour": fortune_hour,
 	}
 
 
@@ -290,11 +1695,239 @@ func load_from_dict(data: Dictionary) -> void:
 	codex_counts = data.get("codex_counts", {}).duplicate(true)
 	wet_warehouse.clear()
 	for entry: Dictionary in data.get("wet_warehouse", []):
-		wet_warehouse.append(entry.duplicate(true))
+		wet_warehouse.append(_normalize_item(entry))
 	dry_collection.clear()
 	for entry: Dictionary in data.get("dry_collection", []):
-		dry_collection.append(entry.duplicate(true))
+		dry_collection.append(_normalize_item(entry))
+	underwear_total = int(data.get("underwear_total", 0))
+	companion_seconds = float(data.get("companion_seconds", 0.0))
+	_companion_saved = companion_seconds
+	_companion_anchor_unix = Time.get_unix_time_from_system()
+	runaway_count = int(data.get("runaway_count", 0))
+	affinity_quality_sum = float(data.get("affinity_quality_sum", 0.0))
+	always_on_top_pref = bool(data.get("always_on_top_pref", ALWAYS_ON_TOP_DEFAULT))
+	pet_size_tier = clampi(int(data.get("pet_size_tier", PET_SIZE_MEDIUM)), PET_SIZE_SMALL, PET_SIZE_HUGE)
+	work_presence_seconds = maxf(float(data.get("work_presence_seconds", 0.0)), 0.0)
+	var birth: Dictionary = clamp_fortune_date(
+		int(data.get("fortune_year", FORTUNE_DEFAULT_YEAR)),
+		int(data.get("fortune_month", FORTUNE_DEFAULT_MONTH)),
+		int(data.get("fortune_day", FORTUNE_DEFAULT_DAY)),
+		int(data.get("fortune_hour", FORTUNE_DEFAULT_HOUR))
+	)
+	fortune_year = int(birth["year"])
+	fortune_month = int(birth["month"])
+	fortune_day = int(birth["day"])
+	fortune_hour = int(birth["hour"])
+	chat_messages.clear()
+	for entry: Dictionary in data.get("chat_messages", []):
+		var role: String = String(entry.get("role", ""))
+		var text: String = sanitize_chat_output(String(entry.get("text", "")))
+		if (role != "user" and role != "assistant") or text.is_empty():
+			continue
+		chat_messages.append({
+			"role": role,
+			"text": text,
+			"at": float(entry.get("at", 0.0)),
+		})
+	prune_chat_history()
+	if underwear_total <= 0:
+		var derived: int = 0
+		for q: Variant in codex_counts.keys():
+			derived += int(codex_counts[q])
+		underwear_total = derived
+	if affinity_quality_sum <= 0.0 and underwear_total > 0:
+		for q: Variant in codex_counts.keys():
+			var worth: float = float(AFFINITY_QUALITY_VALUE.get(int(q), 1.0))
+			affinity_quality_sum += log(1.0 + worth) * float(codex_counts[q])
 	warehouse_changed.emit(wet_warehouse.size(), WAREHOUSE_CAPACITY)
 	collection_changed.emit(dry_collection.size())
 	coins_changed.emit(coins)
 	equipped_changed.emit(equipped_quality)
+	stats_changed.emit()
+
+
+func save_game() -> void:
+	companion_seconds = companion_elapsed()
+	_companion_saved = companion_seconds
+	_companion_anchor_unix = Time.get_unix_time_from_system()
+	var file: FileAccess = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if file == null:
+		return
+	file.store_string(JSON.stringify(to_save_dict(), "\t"))
+	file.close()
+
+
+func load_game() -> void:
+	if not FileAccess.file_exists(SAVE_PATH):
+		return
+	var file: FileAccess = FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if file == null:
+		return
+	var text: String = file.get_as_text()
+	file.close()
+	var parsed: Variant = JSON.parse_string(text)
+	if parsed is Dictionary:
+		load_from_dict(parsed as Dictionary)
+
+
+func runtime_asset_dirs() -> PackedStringArray:
+	var dirs: Array[String] = []
+	var seen: Dictionary = {}
+	var extras: PackedStringArray = PackedStringArray()
+	for dir: String in USER_ASSET_DIRS:
+		extras.append(dir)
+	extras.append(ProjectSettings.globalize_path("res://"))
+	extras.append(ProjectSettings.globalize_path("res://assets/videos"))
+	extras.append(ProjectSettings.globalize_path("res://assets/images"))
+	var res_root: String = ProjectSettings.globalize_path("res://").rstrip("/").rstrip("\\")
+	if not res_root.is_empty():
+		extras.append(res_root.get_base_dir())
+	var profile: String = OS.get_environment("USERPROFILE")
+	if profile.is_empty():
+		profile = OS.get_environment("HOME")
+	if not profile.is_empty():
+		var base: String = profile.rstrip("/").rstrip("\\")
+		extras.append(base)
+		extras.append("%s/Desktop" % base)
+		extras.append("%s/Downloads" % base)
+		extras.append("%s/Documents" % base)
+		extras.append("%s/Videos" % base)
+		extras.append("%s/My-Bro-J" % base)
+		extras.append("%s/scoop/apps/ffmpeg/current/bin" % base)
+		extras.append("%s/AppData/Local/Microsoft/WinGet/Links" % base)
+	for path: String in extras:
+		var clean: String = path.strip_edges().rstrip("/").rstrip("\\")
+		if clean.is_empty() or seen.has(clean):
+			continue
+		seen[clean] = true
+		dirs.append(clean)
+	return PackedStringArray(dirs)
+
+
+## 按「仓库根目录 → res:// → assets → 桌面兜底」查找用户拖进来的文件。
+func user_file_candidates(file_name: String) -> PackedStringArray:
+	var out: PackedStringArray = PackedStringArray()
+	var seen: Dictionary = {}
+	for dir: String in runtime_asset_dirs():
+		var candidate: String = "res://%s" % file_name if dir == "res://" else "%s/%s" % [dir, file_name]
+		if not seen.has(candidate):
+			seen[candidate] = true
+			out.append(candidate)
+	return out
+
+
+func first_existing_file(file_name: String) -> String:
+	for path: String in user_file_candidates(file_name):
+		if FileAccess.file_exists(path):
+			return path
+	return ""
+
+
+func first_existing_named(names: PackedStringArray) -> String:
+	for file_name: String in names:
+		var path: String = first_existing_file(file_name)
+		if not path.is_empty():
+			return path
+	return ""
+
+
+func extract_font_from_zip(zip_path: String, dest: String) -> String:
+	var reader: ZIPReader = ZIPReader.new()
+	if reader.open(zip_path) != OK:
+		return ""
+	var picked: String = ""
+	for file_name: String in reader.get_files():
+		var ext: String = file_name.get_extension().to_lower()
+		if ext != "ttf" and ext != "otf":
+			continue
+		var base: String = file_name.get_file().to_lower()
+		if picked.is_empty() or base.contains("bold"):
+			picked = file_name
+		if base.contains("p-bold") or base.contains("yuanrou"):
+			picked = file_name
+			break
+	if picked.is_empty():
+		return ""
+	var bytes: PackedByteArray = reader.read_file(picked)
+	if bytes.is_empty():
+		return ""
+	var dest_os: String = dest
+	if dest.begins_with("res://") or dest.begins_with("user://"):
+		dest_os = ProjectSettings.globalize_path(dest)
+	var out: FileAccess = FileAccess.open(dest, FileAccess.WRITE)
+	if out == null:
+		out = FileAccess.open(dest_os, FileAccess.WRITE)
+	if out == null:
+		return ""
+	out.store_buffer(bytes)
+	out.close()
+	if FileAccess.file_exists(dest):
+		return dest
+	if FileAccess.file_exists(dest_os):
+		return dest_os
+	return ""
+
+
+func file_byte_count(path: String) -> int:
+	if path.is_empty() or not FileAccess.file_exists(path):
+		return -1
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return -1
+	var byte_count: int = file.get_length()
+	file.close()
+	return byte_count
+
+
+func is_stub_ogv(path: String) -> bool:
+	var byte_count: int = file_byte_count(path)
+	return byte_count >= 0 and byte_count <= STUB_VIDEO_MAX_BYTES
+
+
+func copy_file(src: String, dest: String) -> bool:
+	if src.is_empty() or dest.is_empty() or src == dest:
+		return false
+	var bytes: PackedByteArray = FileAccess.get_file_as_bytes(src)
+	if bytes.is_empty():
+		return false
+	var dest_os: String = dest
+	if dest.begins_with("res://") or dest.begins_with("user://"):
+		dest_os = ProjectSettings.globalize_path(dest)
+	var out: FileAccess = FileAccess.open(dest, FileAccess.WRITE)
+	if out == null:
+		out = FileAccess.open(dest_os, FileAccess.WRITE)
+	if out == null:
+		return false
+	out.store_buffer(bytes)
+	out.close()
+	return FileAccess.file_exists(dest) or FileAccess.file_exists(dest_os)
+
+
+func load_image_texture(file_name: String) -> Texture2D:
+	var path: String = first_existing_file(file_name)
+	if path.is_empty():
+		return null
+	if path.begins_with("res://") and ResourceLoader.exists(path, "Texture2D"):
+		var loaded: Resource = ResourceLoader.load(path, "Texture2D")
+		var as_tex: Texture2D = loaded as Texture2D
+		if as_tex != null:
+			return as_tex
+	var image: Image = Image.new()
+	if image.load(path) != OK:
+		return null
+	return ImageTexture.create_from_image(image)
+
+
+func _normalize_item(entry: Dictionary) -> Dictionary:
+	var item: Dictionary = entry.duplicate(true)
+	var quality: int = int(item.get("quality", Quality.ONEOFF))
+	var wear: String = String(item.get("wear", item.get("wear_modifier", "")))
+	if wear.is_empty():
+		var wear_roll: float = float(item.get("wear_roll", 0.0))
+		wear = wear_from_roll(wear_roll)
+	item["quality"] = quality
+	item["wear"] = wear
+	item["wear_modifier"] = wear
+	item["display_name"] = make_display_name(wear, quality)
+	item["art_index"] = item_art_index(item)
+	return item

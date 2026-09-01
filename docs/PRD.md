@@ -1,310 +1,190 @@
 # Steve 桌宠小游戏 · 产品需求文档 (PRD)
 
 > Steam Project · 单机基础版
-> 引擎：Godot Engine **4.7.2 stable** · 语言：GDScript (Godot 4.x 语法)
-> 最后更新：2026-08-29
+> 引擎：Godot Engine **4.7.2 stable** · 语言：GDScript (Godot 4.x)
+> 最后更新：2026-09-01
 
 ---
 
 ## 一、项目定位
 
-2D Idle / 放置类**桌面悬浮窗**小游戏（桌宠）。窗口透明、无边框、总在最前，
-常驻桌面右下角，可用鼠标左键任意拖拽。玩家离线挂机看 Steve 自动洗内裤，
-收集不同品质的内裤图鉴，用代币或"免费加速（带跑路风险）"推进循环。
+2D Idle / 放置类**桌面悬浮窗**小游戏（桌宠）。窗口透明、无边框、可置顶，
+常驻桌面，左键拖拽。玩家挂机看 Steve 自动洗内裤，收集品质 / 磨损 / 50 款贴图。
 
-- 渲染后端：`gl_compatibility`（兼容老显卡，2D 小游戏够用）
-- 窗口尺寸：**250 × 350**
-- 主场景：`res://scenes/steve.tscn`
-
----
-
-## 二、核心业务逻辑与功能清单
-
-| # | 功能 | 说明 | 状态 |
-|---|------|------|------|
-| 1 | 基础洗涤循环 | Steve 自动洗内裤，正常速度 **45 秒 / 条** | ✅ 已实现 |
-| 2 | 自动晾干机制 | 洗完的内裤放置 **60 秒**后自动晾干进收藏 | ✅ 已实现 |
-| 3 | 仓库存储上限 | 未晾干内裤进仓库，容量 **10**，满后暂停洗涤，有空位自动恢复 | ✅ 已实现 |
-| 4 | 品质与收藏图鉴 | 普通 / 稀有 / 史诗 / 大红(传说)，大红带特效 | ✅ 数据层 + 图鉴弹层完成，特效待做 (Day 4) |
-| 5 | 付费加速 | 已下线（`PAID_SPEEDUP_ENABLED = false`） | ⬜ 已禁用 |
-| 6 | 免费加速与风险触发 | 有概率触发"Steve 随机跑路" | ✅ 已实现 |
-| 7 | 跑路与冷却机制 | 跑路后隐藏桌宠 + 冷却倒计时，结束后自动回归 | ✅ 已实现 |
-| 8 | 换装与展示 | 图鉴 / 换装 UI 已下线（`CODEX_ENABLED = false`） | ⬜ 已禁用 |
-| 11 | 动态立绘 | `VideoStreamPlayer` 循环播放 Steve 视频，跑路时隐藏并暂停 | ✅ 已实现（需自备 `.ogv` 素材） |
-| 9 | 品质 CD 缩减算法 | 穿戴品质越高，跑路冷却缩减越多 | ✅ 已实现 |
-| 10 | 本地持久化 | `save_data.json` 存读档 | ⬜ 待做 (Day 5)，`GameData` 已预留序列化接口 |
+- 渲染：`gl_compatibility`
+- 窗口：**300 × 420**（立绘 ×1.2，默认再右移 5 格）
+- 主场景：`res://scenes/steve.tscn`（根节点 `Control`，背景全透明）
+- 常量全部在 Autoload `GameData`
 
 ---
 
-## 三、数据结构与数值设定
+## 二、功能清单
 
-全部常量集中在 `scripts/GameData.gd`（Autoload 单例名 `GameData`），业务脚本禁止硬编码。
+| # | 功能 | 状态 |
+|---|------|------|
+| 1 | 洗涤循环 3 分钟 / 条 | ✅ |
+| 2 | 烘干基础 5 分钟 + 品质增量 | ✅ |
+| 3 | 未晾干仓库上限 10 | ✅ |
+| 4 | 六档品质 + 八档磨损 + 50 款内裤贴图 | ✅ |
+| 5 | 烘干机 / 抽屉库存（4 列，品质底色，标题 xx条内裤） | ✅ |
+| 6 | 压力催洗 + 15.5% 跑路 + 冷却读秒 | ✅ |
+| 7 | 跑路空盆 `container.jpg` 抠绿 + 「已跑路...」 | ✅ |
+| 8 | 右键 4 倍菜单；聊聊天及下方按钮均带 Emoji | ✅ |
+| 9 | 聊聊天（白字黑边，发/回自动滚底）+ 运势选择器 | ✅ |
+| 10 | 看电影：Kepler Theora；网址框双模式（.ogv 原生平 / 网页内嵌浏览器） | ✅ |
+| 11 | 动态立绘 Theora + 色度键；失败回落 Steve2 | ✅ |
+| 12 | `user://save_data.json` | ✅ 已接 |
+| 13 | 付费加速 / 图鉴换装 UI | ⬜ 已禁用 |
+| 14 | 打赏 | ✅ 菜单「💝 打赏」；HTTPS 自有后端扫码；无后端则明示缺商户资料 |
+| 15 | 离线烘干补算、Windows 导出包 | ⬜ |
+
+---
+
+## 三、数值（`GameData`）
 
 ### 3.1 时间与容量
 
-| 常量 | 值 | 含义 |
-|------|-----|------|
-| `WASH_DURATION` | `45.0` 秒 | 洗完一条内裤的正常耗时 |
-| `DRY_DURATION` | `60.0` 秒 | 洗完后自动晾干耗时 |
-| `WAREHOUSE_CAPACITY` | `10` | 未晾干仓库容量上限，满即暂停洗涤 |
-| `RUNAWAY_BASE_COOLDOWN` | `120.0` 秒 | 跑路冷却基础时长（未穿戴时） |
-| `FREE_SPEEDUP_RUNAWAY_CHANCE` | `0.075` | 免费加速触发跑路的概率（7.5%） |
-| `FREE_SPEEDUP_SECONDS` | `20.0` 秒 | 免费加速成功时扣减的洗涤时间 |
-| `PAID_SPEEDUP_ENABLED` | `false` | 付费加速已下线 |
-| `CODEX_ENABLED` | `false` | 图鉴 / 换装 UI 已下线 |
+| 常量 | 值 |
+|------|-----|
+| `WASH_DURATION` | 180 s |
+| `DRY_DURATION_BASE` | 300 s |
+| `DRY_DURATION_PER_QUALITY` | 100/3 s |
+| `WAREHOUSE_CAPACITY` | 10 |
+| `RUNAWAY_BASE_COOLDOWN` | 120 s |
+| `PRESSURE_RUNAWAY_PERMILLE` | 155 |
+| `PRESSURE_BUTTON_COOLDOWN` | 900 s |
+| `HOVER_SHOW_DELAY` | 1.0 s |
+| `TAP_SPEEDUP_SECONDS` | 5 s |
+| `WORK_BREAK_SECONDS` | 2700 s |
+| `AFFINITY_RUNAWAY_PENALTY` | 25 |
+| `PET_SIZE_SCALES` | 0.70 / 1.00 / 1.35 / 2.00 |
+| `GRID_COLUMNS` × `GRID_VISIBLE_ROWS` | 4 × 4 |
+| `ITEM_CARD_SIZE` | 165 × 136 |
+| `ITEM_CARD_SWATCH_H` | 63（贴图相对旧 42 ×1.5） |
+| `OVERLAY_CHROME_COLOR` | `(0.06, 0.07, 0.11, 0.88)` |
+| `UI_FONT_SIZE` / `MENU_UI_FONT_SIZE` | 16 / 19 |
+| `UI_FONT_COLOR` | 纯白 |
+| `UI_FONT_OUTLINE_SIZE` | 4 |
+| `UI_FONT_OUTLINE_COLOR` | 黑 |
+| `DRYER_BUTTON_TEXT` | `🧺 烘干机` |
+| `DRAWER_BUTTON_TEXT` | `🗄️ 抽屉` |
+| `PRESSURE_BUTTON_TEXT` | `💦 能不能给我洗快点` |
+| `CHAT_BUTTON_TEXT` | `💬 聊聊天` |
+| `FORTUNE_BUTTON_TEXT` | `🔮 哥来帮你算算运势~` |
+| `MOVIE_BUTTON_TEXT` | `🎬 哥请你看个电影吧` |
+| `TIP_BUTTON_TEXT` | `💝 打赏` |
+| `SETTINGS_BUTTON_TEXT` | `⚙️ 设置` |
+| `QUIT_BUTTON_TEXT` | `🚪 晚点再洗` |
+| `MOVIE_SKIP_TEXT` | `这部好无聊呀哥哥~` |
+| `MOVIE_URL_HINT` | 粘贴想看的电影链接（网页或 .ogv 直链都可以） |
+| `MOVIE_WEB_OPEN_TEXT` | 用系统浏览器打开 |
+| `MOVIE_WEB_TIMEOUT_SECONDS` | 10 |
+| `MOVIE_PLAY_AFTER_BYTES` | 2 500 000 |
+| `MOVIE_STALL_SECONDS` | 18 |
+| `DRY_QUALITY_DOWN_PERMILLE` | 150（烘干 15% 降一级） |
+| `DRYER_HINT_TEXT` | 烘干机可能会把内裤烤坏的… |
+| `UNDERWEAR_ART_COUNT` | 50 |
+| `UNDERWEAR_SHEET_COLUMNS/ROWS` | 5 × 5 |
+| `UNDERWEAR_SHEET_X` | 0 / 290 / 610 / 925 / 1225 / 1536 |
+| `UNDERWEAR_SHEET_Y` | 0 / 190 / 380 / 565 / 760 / 975 |
+| `UNDERWEAR_SHEET_INSET_BOTTOM` | 30（参考像素；只收底边，避免裁进下一行顶边） |
+| `UNDERWEAR_CROP_VERSION` | 30（本机 `user://underwear` 世代对不上则清掉） |
+| `MOVIE_WEB_ASPECT` | 16 / 9（网页/影片视口强制比例） |
+| `MOVIE_PET_SCALE` | 0.52（电影舞台内 Steve 相对体型缩放） |
+| `UNDERWEAR_KEY_DIST` / `GREEN` | 0.045 / 0.085（仅内裤 flood-fill） |
+| `TIP_AMOUNT_FEN` | 660 / 1660 / 6660（展示 6.6 / 16.6 / 66.6） |
 
-### 3.2 品质表 `enum Quality`
+已删除：`dryer.jpg` / `drawer.jpg` / `drawer1.jpg` 及对应 `USER_DRYER_*`、`DRYER_ICON_*`、`DRYER_BG_ZOOM`。
 
-| 品质 | Enum 值 | UI 中文名 | 掉率权重 | CD 缩减系数 | 晾干代币奖励 | 主色 |
-|------|---------|----------|---------|------------|------------|------|
-| 普通 NORMAL | 0 | 普通 | 70 | `0.00` | 1 | 浅灰 |
-| 稀有 RARE | 1 | 稀有 | 20 | `0.15` | 3 | 蓝 |
-| 史诗 EPIC | 2 | 史诗 | 8 | `0.30` | 8 | 紫 |
-| 大红 RED_GOLD | 3 | 大红 | 2 | `0.50` | 25 | 红（带特效） |
+### 3.2 品质
 
-英文名 `QUALITY_NAMES` 只用于调试日志，UI 一律用 `QUALITY_NAMES_CN`。
+| 品质 | 掉率权重 | CD 缩减 |
+|------|---------|--------|
+| 一次性 | 36 | 0.00 |
+| 涤纶 | 24 | 0.10 |
+| 纯棉 | 18 | 0.20 |
+| 真丝 | 12 | 0.30 |
+| 奢华 | 7 | 0.45 |
+| 火星科技 | 3 | 0.60 |
 
-掉率按权重随机（`roll_quality()`，权重总和 100，不必凑整）。
+磨损前缀按 `wear_roll ∈ [0,100]` 每 12.5 一档：古神穿过的 / 香甜的 / 美味的 / 瑕疵的 / 二手的 / 破洞的 / 开裂的 / 臭的。
 
-### 3.3 内裤条目结构
+展示名格式：`{磨损} {品质} 内裤`，例如「瑕疵的 涤纶 内裤」。
 
-未晾干仓库 `wet_warehouse: Array[Dictionary]`（上限 10）与
-已晾干收藏 `dry_collection: Array[Dictionary]` 中，每个条目为：
+库存格子底板按品质：一次性灰 / 涤纶绿 / 纯棉蓝 / 真丝紫 / 奢华金 / 火星科技红。
 
-```gdscript
-{
-    "id": 1,                      # int，自增唯一 ID
-    "quality": Quality.RARE,      # int，品质枚举
-    "washed_at": 1756400000.0,    # float，洗完的 Unix 时间戳
-    "dry_deadline": 1756400060.0, # float，应晾干的 Unix 时间戳（= washed_at + 60）
-    "dried_at": 1756400061.0,     # float，实际晾干时间（仅已晾干条目有）
-}
-```
+烘干完成时 15% 品质降一级（不低于一次性）。烘干机标题旁圆形「?」：无边框透明窗不用引擎 tooltip，改为每帧用 `DisplayServer.mouse_get_position()` 判断是否落在按钮矩形内，再显示自建气泡。
 
-其他运行时字段：`coins: int`、`equipped_quality: int`（`-1` = 未穿戴）、
-`codex_counts: Dictionary`（品质 → 累计获得数，用于图鉴）。
+洗出一条时 `art_index = randi_range(0, 49)`，贴图为对应切图。旧存档缺字段时用 `id` 映射到 0–49。
 
-### 3.4 品质 CD 缩减算法
+### 3.3 内裤贴图
 
-```
-图鉴附加缩减 = min(已收藏条数 × 0.005, 0.10)            # 每条 +0.5%，上限 10%
-总缩减比例   = clamp(品质缩减系数 + 图鉴附加缩减, 0, 0.80)  # 总上限 80%
-跑路冷却     = max(基础冷却 × (1 − 总缩减比例), 10.0)      # 绝对下限 10 秒
-```
-
-对应 API：
-
-```gdscript
-GameData.get_cd_reduction(quality := 当前穿戴) -> float
-GameData.get_calculated_cooldown(base_seconds := 120.0, quality := 当前穿戴) -> float
-```
-
-实测（基础 120 秒、已收藏 1 条 → 图鉴附加 0.5%）：
-
-| 穿戴品质 | 总缩减 | 实际冷却 |
-|---------|-------|---------|
-| 未穿戴 | 0.5% | 119.40 s |
-| 普通 | 0.5% | 119.40 s |
-| 稀有 | 15.5% | 101.40 s |
-| 史诗 | 30.5% | 83.40 s |
-| 大红 | 50.5% | 59.40 s |
-
-### 3.5 洗涤状态机（`steve.gd`）
-
-```
-        ┌──────────────► WASHING ◄──────────────┐
-        │              (45s 倒计时)              │
-        │                  │                    │
-仓库出现空位          洗完一条 → 进仓库          冷却结束
-        │            + 启动 60s 晾干 Timer       │
-        │                  │                    │
-        │            仓库满 10 条                │
-        │                  ▼                    │
-        └────────────  PAUSED_FULL          RUNAWAY
-                                          (隐藏 + CD 倒计时)
-                                               ▲
-                                    免费加速 7.5% 概率触发
-```
-
-- 每条内裤持有**独立的 60 秒 one-shot `Timer` 节点**（`_dry_timers: item_id → Timer`），
-  超时后调用 `GameData.dry_item(id)`，节点自动 `queue_free()`。
-- `GameData.warehouse_changed` 信号触发 `_try_resume_wash()`，实现"有空位自动恢复洗涤"。
-- 跑路期间调用 `_set_pet_hidden(true)`：隐藏全部可见节点 + 开启
-  `WINDOW_FLAG_MOUSE_PASSTHROUGH`（整窗鼠标穿透），视觉与交互上等于窗口消失，
-  不用 `minimize` 以免抢占任务栏焦点。
+- 本机 `bx1.png`、`bx2.png`（各 25 格，5×5）优先放 `assets/images/`（用户路径 `C:\Users\ASUS\My-Bro-J\assets\images\`）。
+- 切格按绝对像素表，参考分辨率 1536×975：列 0–290 / 290–610 / 610–925 / 925–1225 / 1225–1536；行 0–190 / 190–380 / 380–565 / 565–760 / 760–975。实际表按宽高缩放。左右用 X 表不改。每格底边再内收 `UNDERWEAR_SHEET_INSET_BOTTOM`（30，末行除外），避免裁进下一行内裤的顶边。仓库切图已同步为该默认；旧本地 `user://` 切图按世代清掉。
+- 抠底只从边角 flood-fill（`UNDERWEAR_KEY_DIST=0.045`），**不**套用 Steve 立绘全局色度键。
+- 写入 `user://underwear/`，能写仓库时同时覆盖 `res://assets/images/underwear/%02d.png`。
+- 仓库已提交 50 张切图；本机表优先覆盖。原表与切图分开放。
+- 切片脚本：`tools/slice_boxers.py`。说明见 `assets/images/underwear/README.md`。
 
 ---
 
-## 四、窗口与拖拽实现要点（Day 1）
+## 四、窗口与输入
 
-`project.godot` 中已自动写好，**无需在编辑器里手动勾选**：
-
-```ini
-[display]
-window/size/viewport_width=250
-window/size/viewport_height=350
-window/size/borderless=true
-window/size/transparent=true
-window/size/always_on_top=true
-window/per_pixel_transparency/allowed=true
-```
-
-运行时 `steve.gd::_apply_window_setup()` 再次以 `DisplayServer` 兜底设置
-`WINDOW_FLAG_TRANSPARENT / BORDERLESS / ALWAYS_ON_TOP`，并设 `get_window().transparent_bg = true`，
-最后把窗口摆到屏幕右下角。
-
-**拖拽算法**（彻底避免抖动与 `Embedded windows can't be moved`）：
-
-```gdscript
-# 按下：记录鼠标相对窗口左上角的偏移
-_drag_offset = DisplayServer.mouse_get_position() - DisplayServer.window_get_position()
-# 每帧：全局鼠标位置 − 偏移，再 clamp 进屏幕可用区
-DisplayServer.window_set_position(clamp_to_screen(DisplayServer.mouse_get_position() - _drag_offset))
-```
-
-- 全程只用 `DisplayServer`，**不碰 `Window.position`**。
-- 用全局鼠标坐标而非 `event.relative` 累加，避免窗口移动反过来影响局部坐标。
-- 松手事件在全局 `_input()` 里收（鼠标可能已经拖到窗口外）。
-- `_is_embedded_in_editor()` 检测命令行 `--wid` 参数；若编辑器内嵌运行游戏窗口，
-  会 `push_warning` 提示关闭内嵌。项目已通过 `.godot/editor/project_metadata.cfg`
-  设置 `game_view/embed_on_play=false` 默认关闭内嵌。
+- 只允许 `DisplayServer` 移动/置顶主窗口。内嵌运行时跳过，避免 `Embedded windows can't be moved`。
+- 拖拽：全局鼠标位置 − 按下时窗口内偏移。
+- 装饰节点 `mouse_filter = IGNORE`。根 `Control` 不得铺不透明全屏底。
+- 信号一律 `node.signal.connect(func(): ...)`。
 
 ---
 
-## 五、中文字体与悬浮 UI（Day 3）
+## 五、UI
 
-### 5.1 字体方案
+全局主题 `steve_theme.tres`：YuanRou-P-Bold，**白字 + 黑色描边 4px**。
+`steve.gd` 的 `_apply_ui_font()` / `_unify_control_text()` 再覆盖 Label、Button、LineEdit。
+聊聊天气泡不再用深色字；底板改为深色 WhatsApp 风，保证白字可读。用户发送或 Steve 回复后滚动条等到布局完成再滚到最底。
 
-引擎内置默认字体不含 CJK 字形，中文会渲染成方块。解决方案：
+### 右键菜单 `ExitPopup`
 
-| 项 | 内容 |
-|----|------|
-| 字体 | `assets/fonts/GlowSansSC-Regular-Subset.otf`（Glow Sans SC / 未来荧黑（圆体），OFL 1.1） |
-| 处理 | 按 **GB2312 全字符集 + ASCII + 常用标点**子集化：完整 OTF ~9 MB → **约 2.0 MB** |
-| 主题 | `assets/fonts/steve_theme.tres`，`default_font` 指向该字体 |
-| 挂载 | `project.godot` → `gui/theme/custom`（覆盖 Tooltip 等引擎内建 UI）+ `steve.tscn` 根节点 `theme` |
+- 统计气泡：好感 / 洗了 xx 条 / 陪伴 / 跑路
+- `🧺 烘干机`、`🗄️ 抽屉`（Emoji 在文字前，无 TextureRect）
+- `💦 能不能给我洗快点` / `💬 聊聊天` / `🔮 哥来帮你算算运势~` / `🎬 哥请你看个电影吧` / `💝 打赏`
+- `⚙️ 设置`：置顶、体型；`🚪 晚点再洗` 存档退出；`×` 关闭
+- **关闭菜单时**若电影窗未打开，则 `cancel_fetch()`，不在后台继续下片
 
-因此**新增任何 Label / Button 都自动是中文字体**，不需要逐节点 `theme_override_fonts/font`。
-主题内还定义了一组类型变体（`TitleLabel` / `SmallLabel` / `CoinLabel` / `FloatLabel` /
-`SolidPanel` / `ChipPanel` / `RiskButton` / `CoinButton` / `CodexButton` / `EquipButton` /
-`CloseButton`），差异化配色靠 `theme_type_variation` 取用，不散写 StyleBox。
-字体来源、许可与子集重生成脚本见 `assets/fonts/README.md`。
+### 库存 `InventoryPopup`
 
-### 5.2 UI 结构
+- 无任何背景贴图，仅 `OVERLAY_CHROME_COLOR` 底板
+- 标题色条：烘干机紫 / 抽屉金；标题实时为「xx条内裤」
+- 烘干机标题旁「?」：自建气泡，不用引擎 tooltip（透明置顶窗会吞掉默认 tooltip）
+- 4 列卡片（贴图高 63 = 旧 42×1.5），格子随贴图放大，列间距避免重叠
+- 卡片底色随品质：灰 / 绿 / 蓝 / 紫 / 金 / 红
+- 品质词后写「内裤」；图为 50 款内裤切图 + 磨损
+- 「收拾一下」绿色 EquipButton；删除不减生涯计数
+- 滚动条隐藏，滚轮仍可滚
 
-默认**不显示任何 HUD / CanvasLayer**。画面只有 `PetVisual`（视频或几何占位）。
+### 聊聊天 / 运势 / 电影
 
-- **ExitPopup**（根节点下，默认隐藏）：在立绘上 **右键** 弹出居中确认框
-  - `Quit App`：退出进程
-  - `Cancel` / 点弹窗外 / `ESC`：关闭
-- 左键拖拽仍走根 `Control` + `DisplayServer`，与右键互不抢事件
-- 洗涤 / 仓库 / 跑路在后台继续跑，不再有状态文字、进度条、图鉴或加速按钮
+- 聊聊天：7 天历史；OpenAI 兼容；`CHAT_SYSTEM_PROMPT` 孙哥口吻；发/回自动滚底
+- 运势：强制公历年/月/日/时辰，禁止口头改期
+- 电影：点「哥请你看个电影吧」直接加载内置 Kepler Supernova Simulation（Archive Theora）。关菜单未开播则取消。顶栏「这部好无聊呀哥哥~」为粉色，点击展开网址输入框（不再随机换片）。弹窗 chrome（顶栏、拖边、关闭、粉按钮、音量/静音）保持不变。
+  - **直链模式**：`.ogv` / `.ogg` 走 `VideoStreamPlayer`（Theora）。
+  - **网页模式**：爱一帆 / iyf.tv 及其它站点链接切到内嵌 Edge/Chrome（Windows `SetParent`）。影片落在 `AspectRatioContainer` **16:9** 视口里，HWND 只覆盖该视口，不再拉扁。10 秒内嵌失败则显示「用系统浏览器打开」（`OS.shell_open`）。非 Windows 直接走该回退。
+  - 看电影时 Steve 放在 16:9 视口下方的宿主条里（不叠黑底/网页 HWND），条内可拖；右键不开菜单。抠像只用 `PetFrame`，隐藏不透明 `VideoStreamPlayer`，避免黑方块。关闭电影后立绘回到根节点。
+- 头顶气泡：按文案尺寸布局并挂 YuanRou；空摘录不显示，避免灰框无字。
 
-### 5.3 信号 → UI 绑定
+### 打赏
 
-倒计时类文本每帧刷新，其余全部由 `GameData` 信号驱动（闭包 `Callable` 连接）：
+- 菜单「💝 打赏」打开扫码窗：支付宝 / 微信 + 三档金额。
+- 客户端只 `POST/GET` 自有 HTTPS 后端（`STEVE_TIP_API_URL`）。商户密钥不得进桌宠。
+- 付款成功只致谢，**不加币**。未接后端时展示缺资料说明。详见 `docs/PAYMENT.md`。
+- 「约个饭」已删除。
 
-| 信号 | 刷新的 UI |
-|------|----------|
-| `coins_changed` | 金币 Label、付费加速按钮可用态 |
-| `warehouse_changed` | `未晾干: n/10`，并触发 `_try_resume_wash()` |
-| `collection_changed` | `图鉴 n`、图鉴弹层各行收藏数与 CD 文本 |
-| `equipped_changed` | `已穿 xx`、立绘上的品质色补丁、图鉴行按钮态 |
-| `item_washed` | 品质闪光 + 飘字「洗出【稀有】内裤」 |
-| `item_dried` | 品质闪光 + 飘字「晾干【稀有】 +3 金币」 |
-| 每帧 `_process` | `正在洗涤 xxs` / `Steve跑路中 CD: xxs` 与洗涤进度条 |
+### 立绘
 
----
-
-## 五之二、动态立绘（VideoStreamPlayer）
-
-### 关键约束：Godot 4 只能播 Ogg Theora
-
-`VideoStream` 在 Godot 4 里**只有 `VideoStreamTheora` 一个子类**，
-`ResourceLoader.get_recognized_extensions_for_type("VideoStream")` 返回
-`["ogv", "tres", "res"]`。**`.mp4` / `.webm` 拖进项目不会被识别**，
-必须先用 FFmpeg 转码，命令见 `assets/videos/README.md`。
-
-### 节点与回落策略
-
-```
-PetVisual (Control, IGNORE)
-├── PetVideo (VideoStreamPlayer, IGNORE)   # stream 直接挂 steve.ogv，编辑器可预览
-├── PetFrame (TextureRect, IGNORE, 默认隐藏)  # 色度键：喂 get_video_texture()
-├── PlaceholderVisual (Control, IGNORE, 默认隐藏)  # 仅运行时校验失败才打开
-│   └── Head / EyeLeft / EyeRight / Body / Basin
-└── EquippedMark (ColorRect, IGNORE)       # 换装色块，视频模式下贴到立绘底部
-```
-
-`PetVideo.stream` **在场景里直接挂** `res://assets/videos/steve.ogv`（`VideoStreamTheora`），
-编辑器视口就能预览视频帧；`PlaceholderVisual` 默认 `visible = false`。
-运行时 `_setup_pet_video()` 仍会校验，失败才把占位图打开。全过程无条件打印
-`[Steve/Video]` 日志（不用加 `--petlog`）：
-
-1. **找文件**：`C:/Users/ASUS/Desktop/Steve1.mp4`（存在则 FFmpeg 转 `user://steve.ogv`）
-   → 否则 `FileAccess.file_exists(res://assets/videos/steve.ogv)` → 否则场景 stream
-   → 否则取目录下第一个 `.ogv`。
-2. **体检文件头**：Ogg 必须以 `OggS` 开头。识别 MP4/MOV（`ftyp`）、Matroska/WebM
-   （`1A 45 DF A3`）、AVI（`RIFF`）、FLV，直接点名「这其实是 XX 容器，只是改了扩展名」。
-3. **加载**：`ResourceLoader.load(path, "VideoStream", CACHE_MODE_REPLACE)`
-   （`REPLACE` 是为了换素材后不吃旧缓存）；资源系统查不到时兜底用
-   `VideoStreamTheora.new()` + `file = path` 直接读盘，绕开文件系统扫描。
-4. **校验能不能真播**：见下方「坏流检测」。
-5. 任何一步失败 → 显示几何占位 + 打印原因和可直接复制的 ffmpeg 命令，
-   **项目照常运行不报错**。
-
-### 坏流检测（Day 4 修复的坑）
-
-把 `.mp4` 改名成 `.ogv` 时，`ResourceLoader.load()` **不返回 null**，
-而是返回一个内部解码失败的 `VideoStreamTheora`，`play()` 后 `is_playing()` 甚至是 `true`。
-只按「stream != null」判断成功，就会出现**视频没播、占位也被撤掉的空白画面**。
-实测下来可靠的区分信号只有两个：
-
-| 信号 | 好流 | 坏流 |
-|------|------|------|
-| `get_stream_length()` | `4.00` | `0.00` |
-| `get_video_texture().get_size()` | `(640, 360)` | `(0, 0)` |
-| `is_playing()` / `load()` 返回值 | 都正常 | **也都正常，不能用** |
-
-所以采用双重校验：时长 > 0 立刻确认；否则给 `VIDEO_PROBE_FRAMES = 45` 帧宽限期等第一帧，
-**确认可播之前不撤几何占位**，超时仍无画面就判定素材有问题并回落。
-
-### 排版、拖拽与鼠标穿透
-
-| 事项 | 处理 |
-|------|------|
-| 可用区域 | `VIDEO_AREA = Rect2(10, 92, 230, 240)`，HUD 以下铺满 |
-| 缩放 | 第一帧解出后按视频宽高比在该区域内**居中内接**（`_fit_video_rect()`），不拉伸变形 |
-| 拖拽 | `PetVideo.mouse_filter = IGNORE`，点击穿到根 `Control` 的 `_gui_input`，拖拽逻辑零改动 |
-| 鼠标穿透 | 跑路时仍走原有的 `WINDOW_FLAG_MOUSE_PASSTHROUGH`，视频不参与输入 |
-| 音量 | `volume_db = -80`（默认静音，桌宠常驻不吵人），要声音就调回 `0` |
-
-### 状态联动
-
-| 状态 | 视频 |
-|------|------|
-| `WASHING` / `PAUSED_FULL` | 显示 + 循环播放（`autoplay = true`、`loop = true`） |
-| `RUNAWAY` 触发 | `_set_video_playing(false)`：隐藏节点 + `paused = true`，停止解码省 CPU |
-| 冷却结束 | `_set_video_playing(true)`：恢复显示 + `paused = false` 原地续播 |
-
-### 透明背景：色度键抠像
-
-Theora **没有 Alpha 通道**，视频必然是一块不透明矩形。项目带了
-`assets/videos/video_key.gdshader`，**只挂在 `PetFrame`（TextureRect）** 上。
-打开 `chroma_key_enabled` 后：`PetFrame.visible = true`，
-`PetFrame.texture = PetVideo.get_video_texture()`，播放器 `modulate.a = 0`。
-着色器参数：
-
-| 参数 | 默认 | 说明 |
-|------|------|------|
-| `chroma_key_enabled` | `true` | 默认开启绿幕抠像 |
-| `chroma_key_color` / `key_color` | `#00FF00` | 绿幕；也可改白 `#FFFFFF` / 黑 `#000000` |
-| `chroma_key_similarity` | `0.35` | 颜色容差（建议 0.3–0.4） |
-| `chroma_key_smoothness` | `0.10` | 边缘羽化，避免锯齿 |
-
-运行时：`set_chroma_key_enabled(bool)`、`apply_chroma_key(color, similarity, smoothness)`。
-启动与开关时都会 `print_verbose` 是否正在抠背景。
-素材本身带 Alpha 时，更好的做法是导出 PNG 序列帧走 `AnimatedSprite2D`，能完美保留透明。
+- `PetVideo` + `PetFrame` 色度键；场景不挂占位 `steve.ogv`，避免 Unicode NUL
+- 跑路：空盆 + 横幅；冷却结束回来
+- 悬停 1s 水条；双击加速水蓝 flash；45 分钟休息提醒
+- 头顶气泡仅 Steve 独在且无菜单时出现
 
 ---
 
@@ -312,111 +192,91 @@ Theora **没有 Alpha 通道**，视频必然是一块不透明矩形。项目�
 
 ```
 My-Bro-J/
-├── project.godot           # 透明/无边框/置顶/250x350 + GameData Autoload
-├── README.md               # 仓库说明与目录树
-├── .cursorrules            # AI 编码规则（强制 Godot 4.x 语法、DisplayServer、闭包信号）
-├── .gitignore              # 忽略 .godot/ 导入缓存与导出产物
-├── scenes/
-│   └── steve.tscn        # 主场景：根节点 Control，全屏铺满，背景全透明
-├── scripts/
-│   ├── steve.gd          # 窗口拖拽 + 洗涤/晾干/跑路状态机 + 中文 UI 绑定
-│   └── GameData.gd         # 全局数据单例（常量、仓库、图鉴、CD 算法、存档接口）
-├── assets/
-│   ├── icon.svg            # 应用图标
-│   ├── images/             # Steve 立绘、内裤贴图（Day 4）
-│   ├── fonts/
-│   │   ├── GlowSansSC-Regular-Subset.otf  # 中文字体（GB2312 子集，2.3 MB）
-│   │   ├── steve_theme.tres             # 全局 UI 主题（字体 + 按钮/面板样式）
-│   │   ├── OFL.txt                        # 字体许可（SIL OFL 1.1）
-│   │   └── README.md                      # 字体来源与子集重生成脚本
-│   └── videos/
-│       ├── steve.ogv                    # 动态立绘视频（需自备，Ogg Theora）
-│       ├── video_key.gdshader             # 视频抠像着色器（Theora 无 Alpha）
-│       └── README.md                      # mp4 -> ogv 转换命令与抠像说明
+├── project.godot
+├── README.md
+├── .cursorrules
+├── .gitignore
+├── convert_video.bat
+├── scenes/steve.tscn
+├── scripts/steve.gd
+├── scripts/GameData.gd
+├── scripts/underwear_art.gd
+├── scripts/chat_client.gd
+├── scripts/movie_client.gd
+├── scripts/tip_client.gd
+├── scripts/web_movie_embed.gd
+├── assets/images/container.jpg
+├── assets/images/steve2.jpg
+├── assets/images/underwear/01.png … 50.png
+├── assets/images/underwear/README.md
+├── assets/images/underwear/sheets/README.md
+├── assets/fonts/YuanRou-P-Bold.ttf
+├── assets/fonts/steve_theme.tres
+├── assets/shaders/chroma_key.gdshader
+├── assets/videos/README.md
+├── tools/slice_boxers.py
+├── tools/web_movie_host.ps1
 └── docs/
-    └── PRD.md              # 本文档
+    ├── PRD.md
+    └── PAYMENT.md
 ```
 
-场景节点树：
+场景树（摘要）：
 
 ```
-Steve (Control, 铺满窗口, MOUSE_FILTER_STOP —— 负责接收拖拽, theme = steve_theme)
-├── PetVisual (Control, IGNORE)
-│   ├── PetVideo (VideoStreamPlayer)
-│   ├── PetFrame (TextureRect)
-│   └── PlaceholderVisual (Control)
-│       └── Head / EyeLeft / EyeRight / Body / Basin
-└── ExitPopup (PanelContainer, 默认隐藏)
-    └── Quit App / Cancel
+Steve (Control, theme = steve_theme)
+├── PetVisual → PetVideo / PetFrame / BasinFrame / PlaceholderVisual
+├── ExitPopup → 统计气泡 + Emoji 按钮 + 功能按钮 + 设置
+├── RunawayBanner
+├── InventoryPopup → InventoryChrome（无贴图底）+ Grid 4 列 + DryerHintButton
+├── ChatPopup / FortunePopup / MoviePopup / TipPopup
 ```
+
+色度键只挂 `PetFrame` 与跑路空盆，不再挂库存背景或菜单图标。
 
 ---
 
-## 七、当前操作方式
+## 七、操作
 
 | 操作 | 效果 |
 |------|------|
-| 在桌宠/空白处按住左键拖动 | 移动桌宠窗口 |
-| 在立绘上右键 | 打开退出确认 |
-| 点「Quit App」 | 退出程序 |
-| 点「Cancel」或弹窗外 | 关闭确认框 |
-| `ESC` | 弹窗开着则关闭，否则退出 |
-| 命令行加 `-- --petlog` | 输出状态机日志 |
-
-> 洗涤/闲置时画面上不常驻交互按钮，避免挡住立绘。
-
----
-
-## 八、开发进度
-
-- [x] **Day 1**：透明无边框窗口配置 + 桌面悬浮窗基础搭建 + 鼠标拖拽移动功能
-  - [x] `project.godot` 写入 transparent / borderless / always_on_top / per_pixel_transparency
-  - [x] 视口尺寸 250×350
-  - [x] `steve.tscn` 根节点改为 `Control`，铺满窗口，背景完全透明
-  - [x] 基于 `DisplayServer.mouse_get_position()` + `window_set_position()` 的拖拽
-  - [x] 修复 "无法移动" / "embedded can't be moved"（禁用编辑器内嵌 + 运行时检测提示）
-- [x] **Day 2**：核心数据单例 (`GameData.gd`) + 洗涤/晾干状态机逻辑
-  - [x] 品质 Enum + CD 缩减系数 + 掉率权重
-  - [x] 未晾干仓库（上限 10）+ 已晾干收藏数组 + 图鉴计数
-  - [x] `get_calculated_cooldown()` CD 缩减算法
-  - [x] `GameData.gd` 注册为全局 Autoload 单例
-  - [x] 45 秒自动洗涤循环
-  - [x] 洗完入仓库 + 每条独立 60 秒晾干 Timer
-  - [x] 仓库满 10 条自动暂停，有空位自动恢复
-  - [x] `trigger_free_speedup()`：概率跑路（隐藏窗口 + 进 CD）/ 成功加速
-  - [x] 引擎实跑验证：45s 出货、60s 晾干、容量上限 10、CD 缩减数值全部正确
-- [x] **Day 3**：桌面 UI 控件搭建（加速按钮、仓库/图鉴界面、代币显示）
-  - [x] 接入中文字体：Glow Sans SC 圆体子集化到约 2.0 MB，OFL 许可随仓库提交
-  - [x] `steve_theme.tres` 主题（字体 + 按钮/面板/进度条样式 + 11 个类型变体），
-        挂到 `gui/theme/custom` 与场景根节点，全场景 Label / Button 默认中文
-  - [x] `CanvasLayer` 悬浮 UI 层，与桌宠立绘分层，面板 `MOUSE_FILTER_IGNORE` 不吃拖拽
-  - [x] 代币 Label：`金币: 37`，随 `coins_changed` 刷新
-  - [x] 状态与倒计时 Label：`正在洗涤 32s` / `已暂停 - 仓库已满` / `Steve跑路中 CD: 85s`
-  - [x] 仓库挂起 Label `未晾干: 3/10` + 洗涤进度条
-  - [x] 悬浮 HUD / 图鉴 / 加速按钮已拆除，默认只留角色立绘
-  - [x] 右键退出确认：`ExitPopup`（Quit App / Cancel）
-  - [x] 引擎实跑验证：中文字形零缺失、四种状态文案、信号驱动刷新、满仓暂停与恢复
-- [ ] **Day 4**：换装展示系统 + 跑路冷却与 CD 缩减算法对接
-  - [x] `VideoStreamPlayer` 动态立绘：autoplay + loop、宽高比内接、鼠标穿透不影响拖拽、
-        跑路隐藏并暂停 / 冷却结束续播、缺素材自动回落几何占位、抠像着色器还原透明背景
-  - [ ] Steve 立绘美术资源替换 ColorRect 占位
-  - [ ] 换装面板调用 `GameData.equip_quality()`
-  - [ ] 大红品质特效
-  - [ ] 跑路期间的冷却倒计时可视化
-- [ ] **Day 5**：本地数据持久化保存 (`save_data.json`) + 整体打包测试
-  - [ ] `user://save_data.json` 读写（`GameData.to_save_dict()` / `load_from_dict()` 已就绪）
-  - [ ] 离线时间结算（用条目里的 `dry_deadline` 时间戳补算晾干）
-  - [ ] Windows 导出预设与打包测试
+| 左键拖 | 移窗 |
+| 立绘悬停 1s | 洗涤水条 |
+| 立绘右键 | 菜单 |
+| 🧺 烘干机 / 🗄️ 抽屉 | 库存；标题 xx条内裤；烘干机「?」自建气泡 |
+| 🎬 哥请你看个电影吧 | 直接加载 Kepler；顶栏粉按钮展开网址框（.ogv 或网页） |
+| 💬 聊聊天 | 白字黑边会话，发/回滚到底 |
+| 💝 打赏 | 扫码打赏；无后端则明示缺商户 / HTTPS 接口 |
+| ESC | 先关弹层否则退出 |
 
 ---
 
-## 九、已知限制 / 后续注意
+## 八、进度
 
-1. 字体是 **GB2312 子集**，出现该范围外的生僻字会显示方块；按
-   `assets/fonts/README.md` 的脚本把字加进 `EXTRA` 重新生成即可。
-2. 动态立绘需自备 `.ogv` 素材（Godot 4 不支持 mp4 / webm）；仓库里没有素材时
-   显示 `ColorRect` 几何占位。Theora 无 Alpha 通道，透明背景要靠抠像着色器。
-3. 跑路时用「隐藏内容 + 整窗鼠标穿透」模拟窗口消失，未真正 `hide()` 主窗口；
-   为了让玩家知道 Steve 何时回来，保留一条半透明的 `Steve跑路中 CD: xxs` 提示条。
-4. 离线收益未结算：条目已存 `dry_deadline` 时间戳，Day 5 读档时按现实时间补算。
-5. 拖拽已 clamp 在 `screen_get_usable_rect()` 内，多显示器场景待 Day 5 实测。
+- [x] Day 1：透明窗 + DisplayServer 拖拽
+- [x] Day 2：GameData + 洗涤/烘干/仓库
+- [x] Day 3：中文字体、右键菜单、库存、压力催洗、跑路
+- [x] 聊聊天 / 运势 / 电影 / 50 款内裤切图 / Emoji 菜单按钮
+- [x] 聊聊天滚底、电影进度随加载、库存品质底色 / 1.5× 贴图、烘干 15% 降品
+- [x] 内裤绝对切格（bx1/bx2）、电影 Kepler + 网址框、头顶空气泡修复、充值改 demo
+- [x] 电影双模式：Theora 直链 + Windows 内嵌网页播放；10 秒回退系统浏览器
+- [x] 网页强制 16:9 视口；Steve 在视口下方可拖、无黑底；独立 MoviePetWindow 已删
+- [x] 内裤底边再内收至 30，仓库 01–50 重烤为默认，清掉旧 user:// 切图
+- [x] 打赏扫码架构（自有 HTTPS 后端）；删除约个饭
+- [x] 存档 `save_data.json`
+- [ ] 离线烘干补算
+- [ ] Windows 导出与打包
+- [ ] 换装面板 / 大红特效（图鉴 UI 仍禁用）
+- [ ] 打赏：运营方提供商户号 / 证书 / 公网 notify 后才能真正收款
+
+---
+
+## 九、已知限制
+
+1. Godot 4 只播 Ogg Theora。电影「边下边播」依赖播放器读取仍在增长的缓存文件；下完后会重开 stream 以刷新时长，下载中用字节比估算进度条上限。
+2. `bx1.png` / `bx2.png` 若未放进 `assets/images/` 或本机目录，使用仓库内已提交的 50 张切图。绝对切格 + 边角 flood-fill，不改 Steve 全局抠像。
+3. 70KB 级 `steve.ogv` 占位片一律拒绝。需要本机 `steve3.mp4` + FFmpeg。
+4. 看电影内置只留 Kepler。`.ogv` 直链走 `VideoStreamPlayer`。网页站落在 16:9 `AspectRatioContainer` 视口内嵌；Windows 失败则「用系统浏览器打开」。Steve 在视口下方宿主条可拖，右键不开菜单。
+5. 内裤切格左右用 `UNDERWEAR_SHEET_X`；底边内收 30 参考像素，避免（列,行）裁进下一行顶边。仓库 `01–50.png` 已按该切格重烤为默认。本机有 bx1/bx2 时 F5 会重切；旧 `user://underwear` 按 `UNDERWEAR_CROP_VERSION` 丢弃。
+6. 聊聊天 / 运势无 `STEVE_CHAT_API_URL` 时走本地占位回复。
+7. 打赏无 `STEVE_TIP_API_URL` 时不能下单。缺微信/支付宝商户资料与公网后端，见 `docs/PAYMENT.md`。

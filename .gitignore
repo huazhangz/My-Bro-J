@@ -19,7 +19,13 @@ build/
 
 # 本地存档
 save_data.json
+chat_api_key.txt
+chat_config.json
+tip_api_key.txt
+tip_config.json
 
 # 系统垃圾
 .DS_Store
 Thumbs.db
+__pycache__/
+*.pyc

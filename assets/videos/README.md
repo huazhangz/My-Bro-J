@@ -1,34 +1,26 @@
 # 动态立绘视频说明
 
-## ⚠️ Godot 4 只能播 Ogg Theora（`.ogv`）
+## Godot 4 只能播 Ogg Theora（`.ogv`）
 
-Godot 4 内置的 `VideoStreamPlayer` **只有 `VideoStreamTheora` 一种实现**，
-`.mp4` 不能直接当 `VideoStream` 加载，必须转成 `.ogv`。
+`VideoStreamPlayer` 只有 `VideoStreamTheora`。`.mp4` 必须先转 `.ogv`。
 
-约定的绿幕源文件：
+约定绿幕源：`C:\Users\ASUS\My-Bro-J\steve3.mp4`
 
-`C:\Users\ASUS\Desktop\Steve1.mp4`
-
-运行时若该文件存在，脚本会调用本机 `ffmpeg` 转成 `user://steve.ogv` 再播放。
-转码失败或不在这台机器上时，回落到 `res://assets/videos/steve.ogv`。
-
-## 一、手动转码
+双击仓库根目录 `convert_video.bat`（FFmpeg 在 PATH）写成 `assets/videos/steve.ogv`。
+输出必须大于 80KB，否则会被当成测试占位片拒绝。失败时回落 `Steve2.jpg`。
 
 ```powershell
-ffmpeg -i "C:\Users\ASUS\Desktop\Steve1.mp4" `
-       -vf "fps=24,scale=460:-2" `
-       -c:v libtheora -q:v 8 -an `
-       "<仓库目录>\assets\videos\steve.ogv"
+ffmpeg -y -i "steve3.mp4" -vf "fps=24,scale=460:-2" -c:v libtheora -q:v 8 -an "assets\videos\steve.ogv"
 ```
 
-立绘可用区域大约是 **230 × 240** 逻辑像素。
+场景**不要**把占位 `steve.ogv` 挂进 `PetVideo.stream`（二进制 NUL 会导致启动解析失败）。
+运行时由 `steve.gd` 查找本机转码结果再赋值。
 
-## 二、场景绑定
+## 色度键
 
-`scenes/steve.tscn` 里 `PetVideo.stream` 指向 `res://assets/videos/steve.ogv`。
-绿幕抠像默认打开：`chroma_key_enabled = true`，`key_color = #00FF00`，
-`similarity = 0.35`，`smoothness = 0.10`。着色器挂在 `PetFrame` 上。
+着色器：`res://assets/shaders/chroma_key.gdshader`，挂在 `PetFrame`（以及跑路空盆）。
+不要挂在菜单按钮或库存背景上——那些界面已改为无贴图 / Emoji。
 
-## 三、日志
+参数改 Steve 根节点导出项：`chroma_key_*`、`chroma_spill_suppression`。
 
-前缀 `[Steve/Video]`。色度键开关会 `print_verbose`：`chroma key ON/OFF`。
+日志前缀 `[Steve/Video]`。
