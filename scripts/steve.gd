@@ -69,10 +69,9 @@ var _pet_video: VideoStreamPlayer
 @onready var _size_huge_button: Button = %SizeHugeButton
 @onready var _pressure_button: Button = %PressureWashButton
 @onready var _movie_button: Button = %MovieButton
-@onready var _dinner_button: Button = %DinnerButton
 @onready var _chat_button: Button = %ChatButton
 @onready var _fortune_button: Button = %FortuneButton
-@onready var _recharge_button: Button = %RechargeButton
+@onready var _tip_button: Button = %TipButton
 @onready var _pin_top_button: Button = %PinTopButton
 @onready var _quit_app_button: Button = %QuitAppButton
 @onready var _menu_close_button: Button = %MenuCloseButton
@@ -173,9 +172,20 @@ var _web_embed: WebMovieEmbed
 var _movie_web_mode: bool = false
 var _movie_last_url: String = ""
 var _movie_web_wait: float = 0.0
-var _movie_pet_window: Window
-var _movie_pet_dragging: bool = false
-var _movie_pet_drag_offset: Vector2i = Vector2i.ZERO
+var _movie_pet_on_stage: bool = false
+var _tip_popup: Control
+var _tip_chrome: Panel
+var _tip_title: Label
+var _tip_hint: Label
+var _tip_status: Label
+var _tip_qr: TextureRect
+var _tip_pay_button: Button
+var _tip_close_button: Button
+var _tip_channel_box: HBoxContainer
+var _tip_amount_box: HBoxContainer
+var _tip_client: HTTPRequest
+var _tip_channel: String = GameData.TIP_CHANNEL_ALIPAY
+var _tip_amount_fen: int = 660
 var _chat_scroll_token: int = 0
 var _dryer_hint_bubble: PanelContainer
 var _dryer_hint_label: Label
@@ -244,6 +254,7 @@ func _ready() -> void:
 	_setup_chat_client()
 	_setup_fortune_ui()
 	_setup_movie_ui()
+	_setup_tip_ui()
 	_ensure_notice_nodes()
 	_connect_exit_popup()
 	_refresh_pressure_button()
@@ -481,13 +492,9 @@ func _apply_menu_control_heights() -> void:
 		_movie_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
 		if not _movie_loading:
 			_movie_button.text = GameData.MOVIE_BUTTON_TEXT
-	if is_instance_valid(_dinner_button):
-		_dinner_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
-		_dinner_button.text = GameData.DINNER_BUTTON_TEXT
-		_style_dinner_button()
-	if is_instance_valid(_recharge_button):
-		_recharge_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
-		_recharge_button.text = GameData.RECHARGE_BUTTON_TEXT
+	if is_instance_valid(_tip_button):
+		_tip_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
+		_tip_button.text = GameData.TIP_BUTTON_TEXT
 	if is_instance_valid(_settings_button):
 		_settings_button.custom_minimum_size.y = GameData.MENU_ACTION_HEIGHT
 		_settings_button.text = GameData.SETTINGS_BUTTON_TEXT
@@ -521,9 +528,6 @@ func _connect_exit_popup() -> void:
 	_movie_button.pressed.connect(func() -> void:
 		_on_movie_pressed()
 	)
-	_dinner_button.pressed.connect(func() -> void:
-		_on_demo_feature_pressed("dinner")
-	)
 	_chat_button.pressed.connect(func() -> void:
 		_open_chat()
 	)
@@ -531,9 +535,10 @@ func _connect_exit_popup() -> void:
 		_fortune_button.pressed.connect(func() -> void:
 			_open_fortune()
 		)
-	_recharge_button.pressed.connect(func() -> void:
-		_on_recharge_pressed()
-	)
+	if is_instance_valid(_tip_button):
+		_tip_button.pressed.connect(func() -> void:
+			_open_tip()
+		)
 	_quit_app_button.pressed.connect(func() -> void:
 		GameData.save_game()
 		get_tree().quit()
@@ -619,6 +624,7 @@ func _gui_input(event: InputEvent) -> void:
 				and not _exit_popup.visible
 				and not _chat_popup.visible
 				and not _fortune_open()
+				and not _tip_open()
 				and not _movie_open()
 				and not _speech_visible()
 				and _is_pointer_on_pet(mb.position)
@@ -637,6 +643,10 @@ func _gui_input(event: InputEvent) -> void:
 				return
 			if _fortune_open():
 				_close_fortune()
+				accept_event()
+				return
+			if _tip_open():
+				_close_tip()
 				accept_event()
 				return
 			if _movie_open():
@@ -660,6 +670,8 @@ func _input(event: InputEvent) -> void:
 		if key.keycode == KEY_ESCAPE:
 			if _movie_open():
 				_close_movie()
+			elif _tip_open():
+				_close_tip()
 			elif _fortune_open():
 				_close_fortune()
 			elif _inventory_popup.visible:
@@ -702,14 +714,21 @@ func _is_click_on_blocking_ui(global_pos: Vector2) -> bool:
 		]:
 			if is_instance_valid(control) and control.get_global_rect().has_point(global_pos):
 				return true
+	if _tip_open():
+		for control: Control in [
+			_tip_close_button, _tip_pay_button, _tip_channel_box, _tip_amount_box,
+		]:
+			if is_instance_valid(control) and control.get_global_rect().has_point(global_pos):
+				return true
 	if _speech_visible() and is_instance_valid(_notice_panel) and _notice_panel.get_global_rect().has_point(global_pos):
 		return true
 	if _movie_open():
 		for control: Control in [
-			_movie_close_button, _movie_max_button, _movie_mute_button,
+			_movie_close_button, _movie_max_button, _movie_mute_button, _movie_skip_button,
 			_movie_volume, _movie_seek, _movie_speed_box,
+			_movie_url_input, _movie_url_load_button, _movie_web_open_button,
 		]:
-			if is_instance_valid(control) and control.get_global_rect().has_point(global_pos):
+			if is_instance_valid(control) and control.visible and control.get_global_rect().has_point(global_pos):
 				return true
 	if _exit_popup.visible:
 		return _is_point_on_menu_button(global_pos)
@@ -719,7 +738,7 @@ func _is_click_on_blocking_ui(global_pos: Vector2) -> bool:
 func _is_point_on_menu_button(global_pos: Vector2) -> bool:
 	var buttons: Array[Button] = [
 		_dryer_slot, _drawer_slot, _pressure_button, _movie_button,
-		_dinner_button, _chat_button, _fortune_button, _recharge_button, _settings_button,
+		_chat_button, _fortune_button, _tip_button, _settings_button,
 		_quit_app_button, _menu_close_button, _pin_top_button,
 		_size_small_button, _size_medium_button, _size_large_button, _size_huge_button,
 	]
@@ -758,14 +777,10 @@ func _process_drag_input(event: InputEvent) -> void:
 		else:
 			_dragging = false
 			_movie_resizing = false
-			_movie_pet_dragging = false
 		return
 	if event is InputEventMouseMotion:
 		if _movie_resizing:
 			_apply_movie_resize()
-			return
-		if _movie_pet_dragging:
-			_apply_movie_pet_drag()
 			return
 		if _dragging:
 			if not _can_move_window():
@@ -841,6 +856,10 @@ func _process(delta: float) -> void:
 			_movie_client.poll(delta)
 	_tick_movie_playback(delta)
 	_tick_movie_web(delta)
+	if _movie_open():
+		_layout_movie_pet()
+	if _tip_client != null and _tip_client.has_method("poll"):
+		_tip_client.poll(delta)
 	if _state != State.RUNAWAY:
 		GameData.tick_work_presence(delta)
 		if _can_show_speech_bubble() and GameData.consume_work_break():
@@ -969,10 +988,6 @@ func _refresh_pressure_button() -> void:
 		return
 	_pressure_cd_text = next_text
 	_pressure_button.text = next_text
-
-
-func _on_demo_feature_pressed(feature_id: String) -> void:
-	print("%s demo feature=%s (placeholder)" % [VIDEO_LOG_PREFIX, feature_id])
 
 
 func _try_tap_speedup() -> void:
@@ -1193,6 +1208,7 @@ func _trigger_runaway() -> void:
 	_close_inventory()
 	_close_chat()
 	_close_fortune()
+	_close_tip()
 	_close_movie()
 	_show_runaway_basin(true)
 	_log("RUNAWAY! basin left, cooldown=%.1fs (reduction=%.0f%%)" % [
@@ -2324,19 +2340,15 @@ func _apply_header_button_colors(button: Button) -> void:
 	button.add_theme_color_override("font_focus_color", GameData.UI_FONT_COLOR)
 
 
-func _style_dinner_button() -> void:
-	_style_pink_button(_dinner_button)
-
-
 func _style_pink_button(button: Button) -> void:
 	if not is_instance_valid(button):
 		return
 	var slots: Dictionary = {
-		"normal": GameData.DINNER_BUTTON_COLOR,
-		"hover": GameData.DINNER_BUTTON_HOVER,
-		"focus": GameData.DINNER_BUTTON_HOVER,
-		"pressed": GameData.DINNER_BUTTON_PRESSED,
-		"disabled": GameData.DINNER_BUTTON_COLOR,
+		"normal": GameData.PINK_BUTTON_COLOR,
+		"hover": GameData.PINK_BUTTON_HOVER,
+		"focus": GameData.PINK_BUTTON_HOVER,
+		"pressed": GameData.PINK_BUTTON_PRESSED,
+		"disabled": GameData.PINK_BUTTON_COLOR,
 	}
 	for slot: String in slots.keys():
 		var box: StyleBoxFlat = StyleBoxFlat.new()
@@ -2547,7 +2559,7 @@ func _notification(what: int) -> void:
 		GameData.save_game()
 		get_tree().quit()
 	elif what == NOTIFICATION_WM_WINDOW_FOCUS_IN and _movie_open():
-		_raise_movie_pet_overlay()
+		_layout_movie_pet()
 
 
 func _resume_saved_dry_timers() -> void:
@@ -2584,6 +2596,8 @@ func _apply_round_chrome() -> void:
 		_movie_chrome.add_theme_stylebox_override("panel", inv_box)
 	if is_instance_valid(_movie_web_panel):
 		_movie_web_panel.add_theme_stylebox_override("panel", inv_box)
+	if is_instance_valid(_tip_chrome):
+		_tip_chrome.add_theme_stylebox_override("panel", inv_box)
 	if is_instance_valid(_inventory_mask):
 		_inventory_mask.visible = false
 	_apply_menu_control_heights()
@@ -3132,6 +3146,7 @@ func _any_overlay_open() -> bool:
 		or (is_instance_valid(_inventory_popup) and _inventory_popup.visible)
 		or (is_instance_valid(_chat_popup) and _chat_popup.visible)
 		or _fortune_open()
+		or _tip_open()
 		or _movie_open()
 	)
 
@@ -3141,12 +3156,17 @@ func _any_content_overlay_open() -> bool:
 		(is_instance_valid(_inventory_popup) and _inventory_popup.visible)
 		or (is_instance_valid(_chat_popup) and _chat_popup.visible)
 		or _fortune_open()
+		or _tip_open()
 		or _movie_open()
 	)
 
 
 func _fortune_open() -> bool:
 	return is_instance_valid(_fortune_popup) and _fortune_popup.visible
+
+
+func _tip_open() -> bool:
+	return is_instance_valid(_tip_popup) and _tip_popup.visible
 
 
 func _movie_open() -> bool:
@@ -3156,6 +3176,10 @@ func _movie_open() -> bool:
 func _hide_fortune_and_movie() -> void:
 	if is_instance_valid(_fortune_popup):
 		_fortune_popup.visible = false
+	if is_instance_valid(_tip_popup):
+		_tip_popup.visible = false
+	if _tip_client != null and _tip_client.has_method("cancel"):
+		_tip_client.cancel()
 	if is_instance_valid(_movie_popup) and _movie_popup.visible:
 		if _movie_client != null and _movie_client.has_method("cancel_fetch"):
 			_movie_client.cancel_fetch()
@@ -3375,8 +3399,7 @@ func _open_fortune() -> void:
 		_inventory_popup.visible = false
 	if is_instance_valid(_chat_popup):
 		_chat_popup.visible = false
-	if _movie_open():
-		_hide_fortune_and_movie()
+	_hide_fortune_and_movie()
 	_inventory_kind = ""
 	_set_pet_layer_visible(false)
 	_expand_overlay_window(GameData.FORTUNE_WINDOW_SIZE)
@@ -3748,6 +3771,10 @@ func _start_builtin_movie() -> void:
 		_chat_popup.visible = false
 	if is_instance_valid(_fortune_popup):
 		_fortune_popup.visible = false
+	if is_instance_valid(_tip_popup):
+		_tip_popup.visible = false
+	if _tip_client != null and _tip_client.has_method("cancel"):
+		_tip_client.cancel()
 	_inventory_kind = ""
 	_movie_maximized = false
 	_expand_overlay_window(GameData.MOVIE_WINDOW_SIZE)
@@ -3812,6 +3839,8 @@ func _on_movie_ready(path: String, title: String) -> void:
 			_chat_popup.visible = false
 		if is_instance_valid(_fortune_popup):
 			_fortune_popup.visible = false
+		if is_instance_valid(_tip_popup):
+			_tip_popup.visible = false
 		_inventory_kind = ""
 		_movie_maximized = false
 		_expand_overlay_window(GameData.MOVIE_WINDOW_SIZE)
@@ -3920,12 +3949,14 @@ func _start_web_movie(url: String) -> void:
 		await get_tree().process_frame
 	if not _movie_web_mode or not _movie_open():
 		return
+	_layout_movie_pet()
 	_web_embed.start(
 		_movie_last_url,
 		_movie_parent_hwnd(),
 		_web_embed_rect(),
 		_movie_volume_linear,
-		_movie_muted
+		_movie_muted,
+		_movie_pet_hole_rect()
 	)
 
 
@@ -3954,7 +3985,8 @@ func _tick_movie_web(delta: float) -> void:
 			_movie_parent_hwnd(),
 			_web_embed_rect(),
 			_movie_volume_linear,
-			_movie_muted
+			_movie_muted,
+			_movie_pet_hole_rect()
 		)
 	if is_instance_valid(_web_embed) and _web_embed.is_embedded():
 		if is_instance_valid(_movie_web_panel):
@@ -4048,142 +4080,64 @@ func _show_movie_pet_overlay() -> void:
 		return
 	_hide_speech_bubble()
 	_set_hover_hud_visible(false, false)
-	if _is_embedded_in_editor():
-		if is_instance_valid(_pet_visual):
-			_pet_visual.visible = true
-			_pet_visual.z_index = 80
-		_set_video_playing(true)
-		return
-	_ensure_movie_pet_window()
-	if not is_instance_valid(_movie_pet_window) or not is_instance_valid(_pet_visual):
+	if not is_instance_valid(_pet_visual) or not is_instance_valid(_movie_stage):
 		_set_pet_layer_visible(true)
 		return
-	var pet_size: Vector2i = GameData.pet_window_size()
-	var host_pos: Vector2i = DisplayServer.window_get_position()
-	var host_size: Vector2i = DisplayServer.window_get_size()
-	var pos: Vector2i = host_pos + Vector2i(
-		maxi((host_size.x - pet_size.x) / 2, 0),
-		maxi(host_size.y - pet_size.y - 12, 0)
-	)
-	if _pet_visual.get_parent() != _movie_pet_window:
-		_pet_visual.reparent(_movie_pet_window, false)
+	if _pet_visual.get_parent() != _movie_stage:
+		_pet_visual.reparent(_movie_stage, false)
+	_movie_pet_on_stage = true
 	_pet_visual.visible = true
-	_pet_visual.z_index = 0
+	_pet_visual.z_index = 80
 	_pet_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_pet_visual.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_sync_pet_visual_rects()
+	_layout_movie_pet()
 	_set_video_playing(true)
-	_movie_pet_window.size = pet_size
-	_movie_pet_window.visible = true
-	var win_id: int = _movie_pet_window.get_window_id()
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true, win_id)
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_RESIZE_DISABLED, true, win_id)
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_TRANSPARENT, true, win_id)
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, true, win_id)
-	DisplayServer.window_set_size(pet_size, win_id)
-	DisplayServer.window_set_position(_clamp_to_screen(pos, pet_size), win_id)
-	_apply_movie_pet_passthrough()
-	_raise_movie_pet_overlay()
 
 
 func _hide_movie_pet_overlay() -> void:
-	_movie_pet_dragging = false
-	if is_instance_valid(_pet_visual):
-		_pet_visual.z_index = 0
-		_pet_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if _pet_visual.get_parent() != self:
-			_pet_visual.reparent(self, false)
-			move_child(_pet_visual, 0)
-		_pet_visual.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		_sync_pet_visual_rects()
-	if is_instance_valid(_movie_pet_window):
-		_movie_pet_window.visible = false
-
-
-func _ensure_movie_pet_window() -> void:
-	if is_instance_valid(_movie_pet_window):
+	_movie_pet_on_stage = false
+	if not is_instance_valid(_pet_visual):
 		return
-	var win: Window = Window.new()
-	win.name = "MoviePetWindow"
-	win.transparent = true
-	win.unresizable = true
-	win.borderless = true
-	win.always_on_top = true
-	win.transient = true
-	win.exclusive = false
-	win.unfocusable = false
-	win.popup_window = false
-	win.visible = false
-	win.mouse_passthrough = true
-	add_child(win)
-	win.close_requested.connect(func() -> void:
-		if is_instance_valid(_movie_pet_window):
-			_movie_pet_window.visible = true
+	_pet_visual.z_index = 0
+	_pet_visual.scale = Vector2.ONE
+	_pet_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _pet_visual.get_parent() != self:
+		_pet_visual.reparent(self, false)
+		move_child(_pet_visual, 0)
+	_pet_visual.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_sync_pet_visual_rects()
+
+
+func _layout_movie_pet() -> void:
+	if not _movie_open() or not _movie_pet_on_stage:
+		return
+	if not is_instance_valid(_pet_visual) or not is_instance_valid(_movie_stage):
+		return
+	if _pet_visual.get_parent() != _movie_stage:
+		return
+	var pet_size: Vector2 = Vector2(GameData.pet_window_size())
+	var scale_v: float = GameData.MOVIE_PET_SCALE
+	_pet_visual.scale = Vector2(scale_v, scale_v)
+	_pet_visual.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_pet_visual.size = pet_size
+	var stage_size: Vector2 = _movie_stage.size
+	var scaled: Vector2 = pet_size * scale_v
+	_pet_visual.position = Vector2(
+		(stage_size.x - scaled.x) * 0.5,
+		maxf(stage_size.y - scaled.y - 4.0, 0.0)
 	)
-	win.window_input.connect(func(event: InputEvent) -> void:
-		_on_movie_pet_window_input(event)
+	_sync_pet_visual_rects()
+
+
+func _movie_pet_hole_rect() -> Rect2i:
+	if not _movie_pet_on_stage or not is_instance_valid(_pet_visual) or not _pet_visual.visible:
+		return Rect2i()
+	var area: Rect2 = _pet_visual.get_global_rect()
+	if area.size.x < 8.0 or area.size.y < 8.0:
+		return Rect2i()
+	return Rect2i(
+		Vector2i(int(round(area.position.x)), int(round(area.position.y))),
+		Vector2i(int(round(area.size.x)), int(round(area.size.y)))
 	)
-	_movie_pet_window = win
-
-
-func _apply_movie_pet_passthrough() -> void:
-	if not is_instance_valid(_movie_pet_window):
-		return
-	var hit: Rect2 = _pet_hit_rect()
-	if hit.size.x < 8.0 or hit.size.y < 8.0:
-		var area: Rect2 = _layout_area
-		hit = area if area.size.x > 8.0 else Rect2(Vector2.ZERO, Vector2(_movie_pet_window.size))
-	_movie_pet_window.mouse_passthrough_polygon = PackedVector2Array([
-		hit.position,
-		hit.position + Vector2(hit.size.x, 0.0),
-		hit.position + hit.size,
-		hit.position + Vector2(0.0, hit.size.y),
-	])
-
-
-func _raise_movie_pet_overlay() -> void:
-	if not is_instance_valid(_movie_pet_window) or not _movie_pet_window.visible:
-		return
-	var win_id: int = _movie_pet_window.get_window_id()
-	if win_id < 0:
-		return
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, true, win_id)
-
-
-func _on_movie_pet_window_input(event: InputEvent) -> void:
-	if not _movie_open() or not is_instance_valid(_movie_pet_window):
-		return
-	if event is InputEventMouseButton:
-		var mb: InputEventMouseButton = event
-		if mb.button_index == MOUSE_BUTTON_RIGHT:
-			return
-		if mb.button_index != DRAG_BUTTON:
-			return
-		if mb.pressed:
-			if not _can_move_window():
-				return
-			_movie_pet_dragging = true
-			var win_id: int = _movie_pet_window.get_window_id()
-			_movie_pet_drag_offset = (
-				DisplayServer.mouse_get_position() - DisplayServer.window_get_position(win_id)
-			)
-		else:
-			_movie_pet_dragging = false
-		return
-	if event is InputEventMouseMotion and _movie_pet_dragging:
-		_apply_movie_pet_drag()
-
-
-func _apply_movie_pet_drag() -> void:
-	if not _movie_pet_dragging or not is_instance_valid(_movie_pet_window):
-		return
-	if not _can_move_window():
-		_movie_pet_dragging = false
-		return
-	var win_id: int = _movie_pet_window.get_window_id()
-	var pet_size: Vector2i = DisplayServer.window_get_size(win_id)
-	var target: Vector2i = DisplayServer.mouse_get_position() - _movie_pet_drag_offset
-	DisplayServer.window_set_position(_clamp_to_screen(target, pet_size), win_id)
 
 
 func _play_movie_file(path: String) -> void:
@@ -4416,12 +4370,267 @@ func _tick_movie_playback(delta: float) -> void:
 	_movie_player.stream_position = _movie_player.stream_position + delta * _movie_speed
 
 
-func _on_recharge_pressed() -> void:
+func _setup_tip_ui() -> void:
+	_tip_client = preload("res://scripts/tip_client.gd").new()
+	add_child(_tip_client)
+	_tip_client.tip_created.connect(func(order: Dictionary) -> void:
+		_on_tip_created(order)
+	)
+	_tip_client.tip_paid.connect(func(_order_id: String) -> void:
+		_on_tip_paid()
+	)
+	_tip_client.tip_failed.connect(func(reason: String) -> void:
+		_on_tip_failed(reason)
+	)
+	_tip_popup = Control.new()
+	_tip_popup.name = "TipPopup"
+	_tip_popup.visible = false
+	_tip_popup.z_index = 23
+	_tip_popup.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_tip_popup)
+	_tip_chrome = Panel.new()
+	_tip_chrome.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tip_chrome.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_tip_popup.add_child(_tip_chrome)
+	var body: VBoxContainer = VBoxContainer.new()
+	body.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	body.offset_left = 16.0
+	body.offset_top = 12.0
+	body.offset_right = -16.0
+	body.offset_bottom = -12.0
+	body.add_theme_constant_override("separation", 10)
+	_tip_popup.add_child(body)
+	var header: HBoxContainer = HBoxContainer.new()
+	header.custom_minimum_size.y = GameData.INVENTORY_HEADLINE_HEIGHT
+	header.add_theme_constant_override("separation", 8)
+	body.add_child(header)
+	var headline: PanelContainer = PanelContainer.new()
+	headline.add_theme_stylebox_override("panel", _headline_box(GameData.DRAWER_HEADLINE_COLOR))
+	_tip_title = Label.new()
+	_tip_title.text = GameData.TIP_TITLE_TEXT
+	_tip_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	headline.add_child(_tip_title)
+	header.add_child(headline)
+	var spacer: Control = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_child(spacer)
+	_tip_close_button = Button.new()
+	_tip_close_button.text = "关闭"
+	_tip_close_button.theme_type_variation = &"CloseButton"
+	_tip_close_button.custom_minimum_size = Vector2(72.0, GameData.INVENTORY_HEADLINE_HEIGHT)
+	header.add_child(_tip_close_button)
+	_tip_hint = Label.new()
+	_tip_hint.text = GameData.TIP_HINT_TEXT
+	_tip_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tip_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_child(_tip_hint)
+	_tip_channel_box = HBoxContainer.new()
+	_tip_channel_box.add_theme_constant_override("separation", 8)
+	body.add_child(_tip_channel_box)
+	_add_tip_choice_button(_tip_channel_box, GameData.TIP_ALIPAY_TEXT, GameData.TIP_CHANNEL_ALIPAY, true)
+	_add_tip_choice_button(_tip_channel_box, GameData.TIP_WECHAT_TEXT, GameData.TIP_CHANNEL_WECHAT, true)
+	_tip_amount_box = HBoxContainer.new()
+	_tip_amount_box.add_theme_constant_override("separation", 8)
+	body.add_child(_tip_amount_box)
+	for i: int in GameData.TIP_AMOUNT_FEN.size():
+		var fen: int = int(GameData.TIP_AMOUNT_FEN[i])
+		_add_tip_choice_button(_tip_amount_box, GameData.tip_amount_label(fen), str(fen), false)
+	_tip_pay_button = Button.new()
+	_tip_pay_button.text = GameData.TIP_PAY_TEXT
+	_tip_pay_button.theme_type_variation = &"CoinButton"
+	_tip_pay_button.custom_minimum_size.y = 40.0
+	body.add_child(_tip_pay_button)
+	_tip_qr = TextureRect.new()
+	_tip_qr.custom_minimum_size = Vector2(GameData.TIP_QR_SIZE, GameData.TIP_QR_SIZE)
+	_tip_qr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_tip_qr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_tip_qr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_tip_qr.visible = false
+	_tip_qr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_child(_tip_qr)
+	_tip_status = Label.new()
+	_tip_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tip_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_tip_status.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_tip_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_child(_tip_status)
+	_tip_close_button.pressed.connect(func() -> void:
+		_close_tip()
+	)
+	_tip_pay_button.pressed.connect(func() -> void:
+		_submit_tip()
+	)
+	_tip_popup.gui_input.connect(func(event: InputEvent) -> void:
+		_process_drag_input(event)
+	)
+	if GameData.TIP_AMOUNT_FEN.size() > 0:
+		_tip_amount_fen = int(GameData.TIP_AMOUNT_FEN[0])
+	_refresh_tip_choices()
+	_reset_tip_status()
+	_restyle_new_overlay(_tip_popup)
+
+
+func _add_tip_choice_button(row: HBoxContainer, label: String, value: String, channel: bool) -> void:
+	var button: Button = Button.new()
+	button.toggle_mode = true
+	button.text = label
+	button.set_meta("value", value)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.custom_minimum_size.y = 36.0
+	button.theme_type_variation = &"EquipButton" if channel else &"CoinButton"
+	var captured: String = value
+	var is_channel: bool = channel
+	button.pressed.connect(func() -> void:
+		if is_channel:
+			_tip_channel = captured
+		else:
+			_tip_amount_fen = int(captured)
+		_refresh_tip_choices()
+	)
+	row.add_child(button)
+
+
+func _refresh_tip_choices() -> void:
+	if is_instance_valid(_tip_channel_box):
+		for child: Node in _tip_channel_box.get_children():
+			var button: Button = child as Button
+			if button == null:
+				continue
+			button.set_pressed_no_signal(String(button.get_meta("value", "")) == _tip_channel)
+	if is_instance_valid(_tip_amount_box):
+		for child: Node in _tip_amount_box.get_children():
+			var button: Button = child as Button
+			if button == null:
+				continue
+			button.set_pressed_no_signal(int(button.get_meta("value", "0")) == _tip_amount_fen)
+
+
+func _reset_tip_status() -> void:
+	if is_instance_valid(_tip_qr):
+		_tip_qr.texture = null
+		_tip_qr.visible = false
+	if is_instance_valid(_tip_status):
+		if GameData.tip_api_ready():
+			_tip_status.text = GameData.TIP_HINT_TEXT
+		else:
+			_tip_status.text = GameData.TIP_NEED_BACKEND_TEXT
+	if is_instance_valid(_tip_pay_button):
+		_tip_pay_button.disabled = false
+		_tip_pay_button.text = GameData.TIP_PAY_TEXT
+
+
+func _open_tip() -> void:
+	if _state == State.RUNAWAY:
+		return
+	_hide_speech_bubble()
 	if is_instance_valid(_exit_popup):
 		_exit_popup.visible = false
 	if is_instance_valid(_settings_panel):
 		_settings_panel.visible = false
+	if is_instance_valid(_inventory_popup):
+		_inventory_popup.visible = false
+	if is_instance_valid(_chat_popup):
+		_chat_popup.visible = false
+	_hide_fortune_and_movie()
+	_inventory_kind = ""
+	_set_pet_layer_visible(false)
+	_expand_overlay_window(GameData.TIP_WINDOW_SIZE)
+	if _tip_client != null and _tip_client.has_method("cancel"):
+		_tip_client.cancel()
+	_reset_tip_status()
+	_refresh_tip_choices()
+	if is_instance_valid(_tip_popup):
+		_tip_popup.visible = true
+
+
+func _close_tip() -> void:
+	if _tip_client != null and _tip_client.has_method("cancel"):
+		_tip_client.cancel()
+	if is_instance_valid(_tip_popup):
+		_tip_popup.visible = false
+	_reset_tip_status()
+	_hide_speech_bubble()
 	_restore_overlay_window_if_idle()
-	if not _any_content_overlay_open() and _state != State.RUNAWAY:
+	if not _any_overlay_open() and _state != State.RUNAWAY:
 		_set_pet_layer_visible(true)
-	_show_notice(GameData.RECHARGE_DEMO_TEXT)
+	call_deferred("_try_show_speech")
+
+
+func _submit_tip() -> void:
+	if _tip_client == null or not _tip_client.has_method("create_order"):
+		_on_tip_failed("need_backend")
+		return
+	if _tip_client.has_method("is_busy") and _tip_client.is_busy():
+		return
+	if is_instance_valid(_tip_pay_button):
+		_tip_pay_button.disabled = true
+		_tip_pay_button.text = GameData.TIP_WAIT_TEXT
+	if is_instance_valid(_tip_qr):
+		_tip_qr.texture = null
+		_tip_qr.visible = false
+	if is_instance_valid(_tip_status):
+		_tip_status.text = GameData.TIP_WAIT_TEXT
+	_tip_client.create_order(_tip_channel, _tip_amount_fen)
+
+
+func _on_tip_created(order: Dictionary) -> void:
+	if is_instance_valid(_tip_pay_button):
+		_tip_pay_button.disabled = false
+		_tip_pay_button.text = GameData.TIP_PAY_TEXT
+	var texture: Texture2D = _tip_qr_texture(String(order.get("qr_png_base64", "")))
+	if is_instance_valid(_tip_qr):
+		_tip_qr.texture = texture
+		_tip_qr.visible = texture != null
+	var status: String = GameData.TIP_SCAN_TEXT
+	var extra: String = String(order.get("message", "")).strip_edges()
+	if not extra.is_empty():
+		status = extra
+	elif texture == null:
+		var code_url: String = String(order.get("code_url", "")).strip_edges()
+		if not code_url.is_empty():
+			status = "%s\n%s" % [GameData.TIP_SCAN_TEXT, code_url]
+		else:
+			status = GameData.TIP_FAIL_TEXT
+	if is_instance_valid(_tip_status):
+		_tip_status.text = status
+
+
+func _on_tip_paid() -> void:
+	if is_instance_valid(_tip_qr):
+		_tip_qr.visible = false
+		_tip_qr.texture = null
+	if is_instance_valid(_tip_pay_button):
+		_tip_pay_button.disabled = false
+		_tip_pay_button.text = GameData.TIP_PAY_TEXT
+	if is_instance_valid(_tip_status):
+		_tip_status.text = GameData.TIP_THANKS_TEXT
+	_show_notice(GameData.TIP_THANKS_TEXT)
+
+
+func _on_tip_failed(reason: String) -> void:
+	if is_instance_valid(_tip_pay_button):
+		_tip_pay_button.disabled = false
+		_tip_pay_button.text = GameData.TIP_PAY_TEXT
+	if is_instance_valid(_tip_qr):
+		_tip_qr.texture = null
+		_tip_qr.visible = false
+	if is_instance_valid(_tip_status):
+		_tip_status.text = GameData.tip_fail_text(reason)
+
+
+func _tip_qr_texture(raw: String) -> Texture2D:
+	var encoded: String = raw.strip_edges()
+	if encoded.is_empty():
+		return null
+	var comma: int = encoded.find(",")
+	if encoded.begins_with("data:") and comma >= 0:
+		encoded = encoded.substr(comma + 1)
+	var bytes: PackedByteArray = Marshalls.base64_to_raw(encoded)
+	if bytes.is_empty():
+		return null
+	var image: Image = Image.new()
+	if image.load_png_from_buffer(bytes) != OK:
+		if image.load_jpg_from_buffer(bytes) != OK:
+			return null
+	return ImageTexture.create_from_image(image)

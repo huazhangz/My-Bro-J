@@ -23,7 +23,7 @@ SHEET_REF_H = 975
 SHEET_X = (0, 290, 610, 925, 1225, 1536)
 SHEET_Y = (0, 190, 380, 565, 760, 975)
 # Left/right keep SHEET_X. Shrink each cell bottom so it does not eat the next row's top.
-SHEET_INSET_BOTTOM = 22
+SHEET_INSET_BOTTOM = 27
 KEY_DIST = 0.045
 KEY_GREEN_DIST = 0.085
 SHEET_NAMES = ("bx1.png", "bx2.png", "BX1.png", "BX2.png")

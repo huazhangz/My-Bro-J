@@ -27,13 +27,13 @@ func current_url() -> String:
 	return _url
 
 
-func start(url: String, parent_hwnd: int, rect: Rect2i, volume: float, mute: bool) -> void:
+func start(url: String, parent_hwnd: int, rect: Rect2i, volume: float, mute: bool, hole: Rect2i = Rect2i()) -> void:
 	stop()
 	_session += 1
 	_url = url.strip_edges()
 	_active = true
 	_ready = false
-	_write_cmd(parent_hwnd, rect, volume, mute, false)
+	_write_cmd(parent_hwnd, rect, volume, mute, hole, false)
 	if OS.get_name() != "Windows":
 		print("%s web embed needs Windows Edge/Chrome" % GameData.MOVIE_LOG_PREFIX)
 		_fail()
@@ -65,10 +65,10 @@ func start(url: String, parent_hwnd: int, rect: Rect2i, volume: float, mute: boo
 		_fail()
 
 
-func update_placement(parent_hwnd: int, rect: Rect2i, volume: float, mute: bool) -> void:
+func update_placement(parent_hwnd: int, rect: Rect2i, volume: float, mute: bool, hole: Rect2i = Rect2i()) -> void:
 	if not _active:
 		return
-	_write_cmd(parent_hwnd, rect, volume, mute, false)
+	_write_cmd(parent_hwnd, rect, volume, mute, hole, false)
 	_poll_status()
 
 
@@ -134,7 +134,9 @@ func _fail() -> void:
 	embedding_failed.emit()
 
 
-func _write_cmd(parent_hwnd: int, rect: Rect2i, volume: float, mute: bool, close: bool) -> void:
+func _write_cmd(
+	parent_hwnd: int, rect: Rect2i, volume: float, mute: bool, hole: Rect2i, close: bool
+) -> void:
 	var payload: Dictionary = {
 		"url": _url,
 		"parent": str(parent_hwnd),
@@ -142,6 +144,10 @@ func _write_cmd(parent_hwnd: int, rect: Rect2i, volume: float, mute: bool, close
 		"y": rect.position.y,
 		"w": maxi(rect.size.x, 64),
 		"h": maxi(rect.size.y, 64),
+		"hole_x": hole.position.x,
+		"hole_y": hole.position.y,
+		"hole_w": hole.size.x,
+		"hole_h": hole.size.y,
 		"volume": volume,
 		"mute": mute,
 		"close": close,
@@ -179,7 +185,13 @@ func _patch_cmd_audio(volume: float, mute: bool) -> void:
 		int(data.get("w", 64)),
 		int(data.get("h", 64))
 	)
-	_write_cmd(parent_hwnd, rect, volume, mute, false)
+	var hole: Rect2i = Rect2i(
+		int(data.get("hole_x", 0)),
+		int(data.get("hole_y", 0)),
+		int(data.get("hole_w", 0)),
+		int(data.get("hole_h", 0))
+	)
+	_write_cmd(parent_hwnd, rect, volume, mute, hole, false)
 
 
 func _write_close() -> void:

@@ -2,7 +2,7 @@
 
 > Steam Project · 单机基础版
 > 引擎：Godot Engine **4.7.2 stable** · 语言：GDScript (Godot 4.x)
-> 最后更新：2026-08-31
+> 最后更新：2026-09-01
 
 ---
 
@@ -35,7 +35,7 @@
 | 11 | 动态立绘 Theora + 色度键；失败回落 Steve2 | ✅ |
 | 12 | `user://save_data.json` | ✅ 已接 |
 | 13 | 付费加速 / 图鉴换装 UI | ⬜ 已禁用 |
-| 14 | 充值 | ⬜ 仅菜单 demo 提示，待重做 |
+| 14 | 打赏 | ✅ 菜单「💝 打赏」；HTTPS 自有后端扫码；无后端则明示缺商户资料 |
 | 15 | 离线烘干补算、Windows 导出包 | ⬜ |
 
 ---
@@ -72,8 +72,7 @@
 | `CHAT_BUTTON_TEXT` | `💬 聊聊天` |
 | `FORTUNE_BUTTON_TEXT` | `🔮 哥来帮你算算运势~` |
 | `MOVIE_BUTTON_TEXT` | `🎬 哥请你看个电影吧` |
-| `DINNER_BUTTON_TEXT` | `🍜 约个饭` |
-| `RECHARGE_BUTTON_TEXT` | `💎 充值` |
+| `TIP_BUTTON_TEXT` | `💝 打赏` |
 | `SETTINGS_BUTTON_TEXT` | `⚙️ 设置` |
 | `QUIT_BUTTON_TEXT` | `🚪 晚点再洗` |
 | `MOVIE_SKIP_TEXT` | `这部好无聊呀哥哥~` |
@@ -88,10 +87,11 @@
 | `UNDERWEAR_SHEET_COLUMNS/ROWS` | 5 × 5 |
 | `UNDERWEAR_SHEET_X` | 0 / 290 / 610 / 925 / 1225 / 1536 |
 | `UNDERWEAR_SHEET_Y` | 0 / 190 / 380 / 565 / 760 / 975 |
-| `UNDERWEAR_SHEET_INSET_BOTTOM` | 22（参考像素；只收底边，避免裁进下一行顶边） |
+| `UNDERWEAR_SHEET_INSET_BOTTOM` | 27（参考像素；只收底边，避免裁进下一行顶边） |
 | `MOVIE_WEB_ASPECT` | 16 / 9（网页片源信箱） |
+| `MOVIE_PET_SCALE` | 0.52（电影舞台内 Steve 相对体型缩放） |
 | `UNDERWEAR_KEY_DIST` / `GREEN` | 0.045 / 0.085（仅内裤 flood-fill） |
-| `RECHARGE_DEMO_TEXT` | 充值功能演示中，待重做。 |
+| `TIP_AMOUNT_FEN` | 660 / 1660 / 6660（展示 6.6 / 16.6 / 66.6） |
 
 已删除：`dryer.jpg` / `drawer.jpg` / `drawer1.jpg` 及对应 `USER_DRYER_*`、`DRYER_ICON_*`、`DRYER_BG_ZOOM`。
 
@@ -146,7 +146,7 @@
 
 - 统计气泡：好感 / 洗了 xx 条 / 陪伴 / 跑路
 - `🧺 烘干机`、`🗄️ 抽屉`（Emoji 在文字前，无 TextureRect）
-- `💦 能不能给我洗快点` / `💬 聊聊天` / `🔮 哥来帮你算算运势~` / `🎬 哥请你看个电影吧` / `🍜 约个饭` / `💎 充值`
+- `💦 能不能给我洗快点` / `💬 聊聊天` / `🔮 哥来帮你算算运势~` / `🎬 哥请你看个电影吧` / `💝 打赏`
 - `⚙️ 设置`：置顶、体型；`🚪 晚点再洗` 存档退出；`×` 关闭
 - **关闭菜单时**若电影窗未打开，则 `cancel_fetch()`，不在后台继续下片
 
@@ -168,13 +168,15 @@
 - 电影：点「哥请你看个电影吧」直接加载内置 Kepler Supernova Simulation（Archive Theora）。关菜单未开播则取消。顶栏「这部好无聊呀哥哥~」为粉色，点击展开网址输入框（不再随机换片）。弹窗 chrome（顶栏、拖边、关闭、粉按钮、音量/静音）保持不变。
   - **直链模式**：`.ogv` / `.ogg` 走 `VideoStreamPlayer`（Theora）。
   - **网页模式**：爱一帆 / iyf.tv 及其它站点链接切到内嵌 Edge/Chrome（Windows `SetParent`）。客户区按 16:9 信箱，黑边铺在 MovieStage 里，避免网页被拉扁。10 秒内嵌失败则显示「用系统浏览器打开」（`OS.shell_open`）。非 Windows 直接走该回退。
-  - 看电影时 Steve 主动画置顶在影片上方（独立透明窗），可单独拖动；右键不打开菜单。关闭电影后立绘回到主窗。
+  - 看电影时 Steve 缩进 MovieStage（`MOVIE_PET_SCALE`），仍在主窗内，可拖整窗、点关闭/音量/拖边。右键不打开菜单。网页 HWND 对 Steve 矩形 `SetWindowRgn` 挖洞，避免挡住立绘和主窗点击。关闭电影后立绘回到根节点。
 - 头顶气泡：按文案尺寸布局并挂 YuanRou；空摘录不显示，避免灰框无字。
 
-### 充值
+### 打赏
 
-- 菜单按钮仍在。点击只弹一行 demo：「充值功能演示中，待重做。」
-- 已删除地区 / SKU / `recharge_client.gd` 全部交互与架构。客户端不得加币。
+- 菜单「💝 打赏」打开扫码窗：支付宝 / 微信 + 三档金额。
+- 客户端只 `POST/GET` 自有 HTTPS 后端（`STEVE_TIP_API_URL`）。商户密钥不得进桌宠。
+- 付款成功只致谢，**不加币**。未接后端时展示缺资料说明。详见 `docs/PAYMENT.md`。
+- 「约个饭」已删除。
 
 ### 立绘
 
@@ -200,6 +202,7 @@ My-Bro-J/
 ├── scripts/underwear_art.gd
 ├── scripts/chat_client.gd
 ├── scripts/movie_client.gd
+├── scripts/tip_client.gd
 ├── scripts/web_movie_embed.gd
 ├── assets/images/container.jpg
 ├── assets/images/steve2.jpg
@@ -212,7 +215,9 @@ My-Bro-J/
 ├── assets/videos/README.md
 ├── tools/slice_boxers.py
 ├── tools/web_movie_host.ps1
-└── docs/PRD.md
+└── docs/
+    ├── PRD.md
+    └── PAYMENT.md
 ```
 
 场景树（摘要）：
@@ -223,7 +228,7 @@ Steve (Control, theme = steve_theme)
 ├── ExitPopup → 统计气泡 + Emoji 按钮 + 功能按钮 + 设置
 ├── RunawayBanner
 ├── InventoryPopup → InventoryChrome（无贴图底）+ Grid 4 列 + DryerHintButton
-├── ChatPopup / FortunePopup / MoviePopup
+├── ChatPopup / FortunePopup / MoviePopup / TipPopup
 ```
 
 色度键只挂 `PetFrame` 与跑路空盆，不再挂库存背景或菜单图标。
@@ -240,7 +245,7 @@ Steve (Control, theme = steve_theme)
 | 🧺 烘干机 / 🗄️ 抽屉 | 库存；标题 xx条内裤；烘干机「?」自建气泡 |
 | 🎬 哥请你看个电影吧 | 直接加载 Kepler；顶栏粉按钮展开网址框（.ogv 或网页） |
 | 💬 聊聊天 | 白字黑边会话，发/回滚到底 |
-| 💎 充值 | 一行 demo 提示，待重做 |
+| 💝 打赏 | 扫码打赏；无后端则明示缺商户 / HTTPS 接口 |
 | ESC | 先关弹层否则退出 |
 
 ---
@@ -255,11 +260,14 @@ Steve (Control, theme = steve_theme)
 - [x] 内裤绝对切格（bx1/bx2）、电影 Kepler + 网址框、头顶空气泡修复、充值改 demo
 - [x] 电影双模式：Theora 直链 + Windows 内嵌网页播放；10 秒回退系统浏览器
 - [x] 网页 16:9 信箱；看电影 Steve 置顶可拖、右键不开菜单；内裤底边内收防串行
+- [x] 电影窗改回主窗内 Steve，去掉独立 MoviePetWindow；网页 HWND 挖洞
+- [x] 内裤底边再内收 5px（22→27）
+- [x] 打赏扫码架构（自有 HTTPS 后端）；删除约个饭
 - [x] 存档 `save_data.json`
 - [ ] 离线烘干补算
 - [ ] Windows 导出与打包
 - [ ] 换装面板 / 大红特效（图鉴 UI 仍禁用）
-- [ ] 充值通道重做
+- [ ] 打赏：运营方提供商户号 / 证书 / 公网 notify 后才能真正收款
 
 ---
 
@@ -268,7 +276,7 @@ Steve (Control, theme = steve_theme)
 1. Godot 4 只播 Ogg Theora。电影「边下边播」依赖播放器读取仍在增长的缓存文件；下完后会重开 stream 以刷新时长，下载中用字节比估算进度条上限。
 2. `bx1.png` / `bx2.png` 若未放进 `assets/images/` 或本机目录，使用仓库内已提交的 50 张切图。绝对切格 + 边角 flood-fill，不改 Steve 全局抠像。
 3. 70KB 级 `steve.ogv` 占位片一律拒绝。需要本机 `steve3.mp4` + FFmpeg。
-4. 看电影内置只留 Kepler。`.ogv` 直链走 `VideoStreamPlayer`。网页站 16:9 信箱内嵌；Windows 失败则「用系统浏览器打开」。看电影时 Steve 置顶可拖，右键不开菜单。
-5. 内裤切格左右用 `UNDERWEAR_SHEET_X`；底边内收 22 参考像素，避免（列,行）裁进下一行顶边。本机有 bx1/bx2 时 F5 会重切。
+4. 看电影内置只留 Kepler。`.ogv` 直链走 `VideoStreamPlayer`。网页站 16:9 信箱内嵌；Windows 失败则「用系统浏览器打开」。Steve 缩在主窗舞台上，右键不开菜单；独立置顶窗已删除（它会挡住关闭/拖边）。
+5. 内裤切格左右用 `UNDERWEAR_SHEET_X`；底边内收 27 参考像素，避免（列,行）裁进下一行顶边。本机有 bx1/bx2 时 F5 会重切。
 6. 聊聊天 / 运势无 `STEVE_CHAT_API_URL` 时走本地占位回复。
-7. 充值仅 demo 提示，待重做。
+7. 打赏无 `STEVE_TIP_API_URL` 时不能下单。缺微信/支付宝商户资料与公网后端，见 `docs/PAYMENT.md`。

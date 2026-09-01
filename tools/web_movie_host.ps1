@@ -45,6 +45,10 @@ public class SteveWinEmbed {
 	[DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr hWnd, int idx);
 	[DllImport("user32.dll")] public static extern int SetWindowLong(IntPtr hWnd, int idx, int val);
 	[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+	[DllImport("gdi32.dll")] public static extern IntPtr CreateRectRgn(int l, int t, int r, int b);
+	[DllImport("gdi32.dll")] public static extern int CombineRgn(IntPtr dest, IntPtr a, IntPtr b, int mode);
+	[DllImport("user32.dll")] public static extern int SetWindowRgn(IntPtr hWnd, IntPtr rgn, bool redraw);
+	[DllImport("gdi32.dll")] public static extern bool DeleteObject(IntPtr obj);
 	public const int GWL_STYLE = -16;
 	public const int WS_CHILD = 0x40000000;
 	public const int WS_VISIBLE = 0x10000000;
@@ -52,6 +56,7 @@ public class SteveWinEmbed {
 	public const int WS_THICKFRAME = 0x00040000;
 	public const int WS_POPUP = unchecked((int)0x80000000);
 	public const int SW_SHOW = 5;
+	public const int RGN_DIFF = 4;
 }
 "@
 
@@ -107,6 +112,37 @@ function Stop-Tree([int]$RootId) {
 		Start-Process -FilePath "taskkill.exe" -ArgumentList @("/PID", "$RootId", "/T", "/F") -WindowStyle Hidden -Wait | Out-Null
 	} catch {
 	}
+}
+
+function Apply-SteveHole($hwnd, [int]$x, [int]$y, [int]$w, [int]$h, $cmdObj) {
+	$full = [SteveWinEmbed]::CreateRectRgn(0, 0, $w, $h)
+	if ($full -eq [IntPtr]::Zero) {
+		return
+	}
+	$hx = 0
+	$hy = 0
+	$hw = 0
+	$hh = 0
+	if ($null -ne $cmdObj) {
+		try { $hx = [int]$cmdObj.hole_x } catch { $hx = 0 }
+		try { $hy = [int]$cmdObj.hole_y } catch { $hy = 0 }
+		try { $hw = [int]$cmdObj.hole_w } catch { $hw = 0 }
+		try { $hh = [int]$cmdObj.hole_h } catch { $hh = 0 }
+	}
+	if ($hw -gt 8 -and $hh -gt 8) {
+		$left = [Math]::Max(0, $hx - $x)
+		$top = [Math]::Max(0, $hy - $y)
+		$right = [Math]::Min($w, $left + $hw)
+		$bottom = [Math]::Min($h, $top + $hh)
+		if (($right - $left) -gt 8 -and ($bottom - $top) -gt 8) {
+			$hole = [SteveWinEmbed]::CreateRectRgn($left, $top, $right, $bottom)
+			if ($hole -ne [IntPtr]::Zero) {
+				[void][SteveWinEmbed]::CombineRgn($full, $full, $hole, [SteveWinEmbed]::RGN_DIFF)
+				[void][SteveWinEmbed]::DeleteObject($hole)
+			}
+		}
+	}
+	[void][SteveWinEmbed]::SetWindowRgn($hwnd, $full, $true)
 }
 
 $cmd = Read-Cmd
@@ -200,6 +236,12 @@ $style = $style -band (-bnot [SteveWinEmbed]::WS_THICKFRAME)
 $style = $style -bor [SteveWinEmbed]::WS_CHILD -bor [SteveWinEmbed]::WS_VISIBLE
 [void][SteveWinEmbed]::SetWindowLong($child, [SteveWinEmbed]::GWL_STYLE, $style)
 [void][SteveWinEmbed]::SetParent($child, $parent)
+$firstX = [int]$cmd.x
+$firstY = [int]$cmd.y
+$firstW = [Math]::Max(64, [int]$cmd.w)
+$firstH = [Math]::Max(64, [int]$cmd.h)
+[void][SteveWinEmbed]::MoveWindow($child, $firstX, $firstY, $firstW, $firstH, $true)
+Apply-SteveHole $child $firstX $firstY $firstW $firstH $cmd
 
 Write-Status "ready" "embedded"
 
@@ -221,6 +263,7 @@ while ($true) {
 	$w = [Math]::Max(64, [int]$latest.w)
 	$h = [Math]::Max(64, [int]$latest.h)
 	[void][SteveWinEmbed]::MoveWindow($child, $x, $y, $w, $h, $true)
+	Apply-SteveHole $child $x $y $w $h $latest
 	[void][SteveWinEmbed]::ShowWindow($child, [SteveWinEmbed]::SW_SHOW)
 }
 

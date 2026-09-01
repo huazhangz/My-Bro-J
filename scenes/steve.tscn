@@ -356,19 +356,12 @@ theme_type_variation = &"CodexButton"
 text = "🎬 哥请你看个电影吧"
 autowrap_mode = 3
 
-[node name="DinnerButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 66)
-layout_mode = 2
-theme_type_variation = &"PinkButton"
-text = "🍜 约个饭"
-
-[node name="RechargeButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
+[node name="TipButton" type="Button" parent="ExitPopup/MenuScroll/ExitInner"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
 theme_type_variation = &"CoinButton"
-text = "💎 充值"
+text = "💝 打赏"
 
 [node name="MenuFooter" type="HBoxContainer" parent="ExitPopup/MenuScroll/ExitInner"]
 layout_mode = 2

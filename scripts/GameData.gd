@@ -162,10 +162,9 @@ const PRESSURE_BUTTON_TEXT: String = "💦 能不能给我洗快点"
 const PRESSURE_COOLDOWN_SUFFIX: String = "后再压力他"
 const MOVIE_BUTTON_TEXT: String = "🎬 哥请你看个电影吧"
 const MOVIE_LOADING_TEXT: String = "给你包场呢妈妈，耐心等等我"
-const DINNER_BUTTON_TEXT: String = "🍜 约个饭"
 const CHAT_BUTTON_TEXT: String = "💬 聊聊天"
 const FORTUNE_BUTTON_TEXT: String = "🔮 哥来帮你算算运势~"
-const RECHARGE_BUTTON_TEXT: String = "💎 充值"
+const TIP_BUTTON_TEXT: String = "💝 打赏"
 const SETTINGS_BUTTON_TEXT: String = "⚙️ 设置"
 const QUIT_BUTTON_TEXT: String = "🚪 晚点再洗"
 const TAP_SPEEDUP_SECONDS: float = 5.0
@@ -184,9 +183,9 @@ const CHAT_CONFIG_FILE: String = "user://chat_config.json"
 const CHAT_MODEL_ENV: String = "STEVE_CHAT_MODEL"
 const CHAT_MODEL: String = ""
 const SETTINGS_PANEL_EXTRA_HEIGHT: int = 200
-const DINNER_BUTTON_COLOR: Color = Color(0.92, 0.40, 0.62, 0.94)
-const DINNER_BUTTON_HOVER: Color = Color(0.96, 0.52, 0.70, 0.96)
-const DINNER_BUTTON_PRESSED: Color = Color(0.78, 0.28, 0.50, 0.96)
+const PINK_BUTTON_COLOR: Color = Color(0.92, 0.40, 0.62, 0.94)
+const PINK_BUTTON_HOVER: Color = Color(0.96, 0.52, 0.70, 0.96)
+const PINK_BUTTON_PRESSED: Color = Color(0.78, 0.28, 0.50, 0.96)
 const CHAT_UNCONFIGURED_HINT: String = "外部模型未接通，先用本地占位回复。"
 const CHAT_HISTORY_SECONDS: float = 604800.0
 const CHAT_MAX_INPUT_CHARS: int = 400
@@ -231,6 +230,7 @@ const MOVIE_WINDOW_SIZE: Vector2i = Vector2i(720, 480)
 const MOVIE_WINDOW_MIN: Vector2i = Vector2i(420, 280)
 const MOVIE_RESIZE_EDGE: int = 10
 const MOVIE_WEB_ASPECT: float = 16.0 / 9.0
+const MOVIE_PET_SCALE: float = 0.52
 const MOVIE_VOLUME_DEFAULT: float = 0.8
 const MOVIE_SPEEDS: PackedFloat32Array = [0.75, 1.0, 1.5, 2.0]
 const MOVIE_CACHE_DIR: String = "user://movies"
@@ -299,7 +299,7 @@ const UNDERWEAR_SHEET_REF_H: int = 975
 const UNDERWEAR_SHEET_X: PackedInt32Array = [0, 290, 610, 925, 1225, 1536]
 const UNDERWEAR_SHEET_Y: PackedInt32Array = [0, 190, 380, 565, 760, 975]
 ## 左右边距保持 X 表。只从每格底边内收，避免裁进下一行内裤的顶边。
-const UNDERWEAR_SHEET_INSET_BOTTOM: int = 22
+const UNDERWEAR_SHEET_INSET_BOTTOM: int = 27
 ## 内裤 flood-fill 抠底阈值。略收，减轻把浅色布料抠穿。
 const UNDERWEAR_KEY_DIST: float = 0.045
 const UNDERWEAR_KEY_GREEN_DIST: float = 0.085
@@ -481,8 +481,33 @@ const COIN_REWARD: Dictionary = {
 	Quality.MARTIAN: 32,
 }
 
-## 充值通道整段已拆掉，菜单只弹一行 demo，待重做。客户端不得加币。
-const RECHARGE_DEMO_TEXT: String = "充值功能演示中，待重做。"
+## 打赏：客户端只打 HTTPS 到自有后端。商户密钥不得进桌宠。
+const TIP_WINDOW_SIZE: Vector2i = Vector2i(460, 560)
+const TIP_TITLE_TEXT: String = "💝 打赏孙哥"
+const TIP_HINT_TEXT: String = "扫码打赏。钱只进商户号，桌宠不加币。"
+const TIP_PAY_TEXT: String = "生成收款码"
+const TIP_WAIT_TEXT: String = "正在向安全通道下单…"
+const TIP_SCAN_TEXT: String = "请用支付宝或微信扫码"
+const TIP_THANKS_TEXT: String = "收到，谢谢妈妈。"
+const TIP_FAIL_TEXT: String = "这条打赏通道暂时不通，稍后再试。"
+const TIP_NEED_BACKEND_TEXT: String = "还没接上收款后端。需要 HTTPS 下单接口，以及微信/支付宝商户资料（只放服务器，不要放进桌宠）。"
+const TIP_UNSAFE_URL_TEXT: String = "打赏接口必须是 HTTPS。"
+const TIP_ALIPAY_TEXT: String = "支付宝"
+const TIP_WECHAT_TEXT: String = "微信"
+const TIP_AMOUNT_FEN: PackedInt32Array = [660, 1660, 6660]
+const TIP_AMOUNT_LABELS: PackedStringArray = ["6.6", "16.6", "66.6"]
+const TIP_CHANNEL_ALIPAY: String = "alipay"
+const TIP_CHANNEL_WECHAT: String = "wechat"
+const TIP_QR_SIZE: float = 220.0
+const TIP_API_URL: String = ""
+const TIP_API_URL_ENV: String = "STEVE_TIP_API_URL"
+const TIP_API_KEY_ENV: String = "STEVE_TIP_API_KEY"
+const TIP_API_KEY_FILE: String = "user://tip_api_key.txt"
+const TIP_CONFIG_FILE: String = "user://tip_config.json"
+const TIP_POLL_SECONDS: float = 2.0
+const TIP_TIMEOUT_SECONDS: float = 180.0
+const TIP_REQUEST_TIMEOUT: float = 20.0
+const TIP_LOG_PREFIX: String = "[Steve/Tip] "
 
 # --- 信号 -----------------------------------------------------------------
 
@@ -1153,6 +1178,134 @@ func chat_url_is_safe(url: String) -> bool:
 	if lower.begins_with("http://127.0.0.1") or lower.begins_with("http://localhost"):
 		return true
 	return false
+
+
+func _tip_file_config() -> Dictionary:
+	if not FileAccess.file_exists(TIP_CONFIG_FILE):
+		return {}
+	var file: FileAccess = FileAccess.open(TIP_CONFIG_FILE, FileAccess.READ)
+	if file == null:
+		return {}
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	file.close()
+	if parsed is Dictionary:
+		return parsed
+	return {}
+
+
+func resolved_tip_api_url() -> String:
+	var env_url: String = OS.get_environment(TIP_API_URL_ENV).strip_edges()
+	if not env_url.is_empty():
+		return env_url
+	var cfg: Dictionary = _tip_file_config()
+	var file_url: String = String(cfg.get("url", "")).strip_edges()
+	if not file_url.is_empty():
+		return file_url
+	return TIP_API_URL.strip_edges()
+
+
+func resolved_tip_api_key() -> String:
+	var env_key: String = OS.get_environment(TIP_API_KEY_ENV).strip_edges()
+	if not env_key.is_empty():
+		return env_key
+	var cfg: Dictionary = _tip_file_config()
+	var file_key: String = String(cfg.get("key", cfg.get("api_key", ""))).strip_edges()
+	if not file_key.is_empty():
+		return file_key
+	if FileAccess.file_exists(TIP_API_KEY_FILE):
+		var file: FileAccess = FileAccess.open(TIP_API_KEY_FILE, FileAccess.READ)
+		if file != null:
+			var key: String = file.get_line().strip_edges()
+			file.close()
+			return key
+	return ""
+
+
+func tip_url_is_safe(url: String) -> bool:
+	var lower: String = url.strip_edges().to_lower()
+	if lower.begins_with("https://"):
+		return true
+	if lower.begins_with("http://127.0.0.1") or lower.begins_with("http://localhost"):
+		return true
+	return false
+
+
+func tip_api_ready() -> bool:
+	var url: String = resolved_tip_api_url()
+	return not url.is_empty() and tip_url_is_safe(url)
+
+
+func tip_create_url() -> String:
+	return resolved_tip_api_url().rstrip("/") + "/create"
+
+
+func tip_status_url(order_id: String) -> String:
+	return "%s/status?order_id=%s" % [resolved_tip_api_url().rstrip("/"), order_id.uri_encode()]
+
+
+func tip_fail_text(reason: String) -> String:
+	if reason == "need_backend":
+		return TIP_NEED_BACKEND_TEXT
+	if reason == "unsafe_url":
+		return TIP_UNSAFE_URL_TEXT
+	if reason == "http_401" or reason == "http_403":
+		return "打赏通道密钥无效或没有权限。"
+	if reason.begins_with("http_"):
+		return TIP_FAIL_TEXT
+	if reason == "request_error":
+		return TIP_FAIL_TEXT
+	if reason == "timeout":
+		return "收款码已过期，重新生成一次。"
+	if reason == "expired":
+		return "收款码已过期，重新生成一次。"
+	return TIP_FAIL_TEXT
+
+
+func tip_amount_label(fen: int) -> String:
+	for i: int in TIP_AMOUNT_FEN.size():
+		if int(TIP_AMOUNT_FEN[i]) == fen and i < TIP_AMOUNT_LABELS.size():
+			return TIP_AMOUNT_LABELS[i]
+	return "%.1f" % (float(fen) / 100.0)
+
+
+func build_tip_create_payload(channel: String, amount_fen: int) -> String:
+	return JSON.stringify({
+		"channel": channel,
+		"amount_fen": amount_fen,
+		"client": "steve-desktop",
+	})
+
+
+func parse_tip_create(body: PackedByteArray) -> Dictionary:
+	var parsed: Variant = JSON.parse_string(body.get_string_from_utf8())
+	if not parsed is Dictionary:
+		return {}
+	var data: Dictionary = parsed
+	var order_id: String = String(data.get("order_id", data.get("id", ""))).strip_edges()
+	if order_id.is_empty():
+		return {}
+	return {
+		"order_id": order_id,
+		"status": String(data.get("status", "pending")).strip_edges().to_lower(),
+		"qr_png_base64": String(data.get("qr_png_base64", data.get("qr_base64", ""))).strip_edges(),
+		"qr_url": String(data.get("qr_url", "")).strip_edges(),
+		"code_url": String(data.get("code_url", "")).strip_edges(),
+		"message": String(data.get("message", "")).strip_edges(),
+	}
+
+
+func parse_tip_status(body: PackedByteArray) -> Dictionary:
+	var parsed: Variant = JSON.parse_string(body.get_string_from_utf8())
+	if not parsed is Dictionary:
+		return {}
+	var data: Dictionary = parsed
+	var status: String = String(data.get("status", "")).strip_edges().to_lower()
+	if status.is_empty():
+		return {}
+	return {
+		"order_id": String(data.get("order_id", data.get("id", ""))).strip_edges(),
+		"status": status,
+	}
 
 
 func build_chat_payload(history: Array[Dictionary], system_prompt: String = "") -> String:
